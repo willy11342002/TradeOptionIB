@@ -5,7 +5,7 @@ import win32event
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
     QComboBox, QSpinBox, QLabel, QTableWidget,
-    QTableWidgetItem, QGroupBox, QHeaderView, QMessageBox,
+    QTableWidgetItem, QGroupBox, QHeaderView, QMessageBox, QTabWidget,
 )
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor, QBrush
@@ -108,9 +108,15 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         root = QVBoxLayout(central)
 
-        root.addWidget(self._build_query_box())
-        root.addWidget(self._build_side_header_box())
-        root.addWidget(self._build_table())
+        self.tabs = QTabWidget()
+        root.addWidget(self.tabs)
+
+        option_tab = QWidget()
+        option_layout = QVBoxLayout(option_tab)
+        option_layout.addWidget(self._build_query_box())
+        option_layout.addWidget(self._build_side_header_box())
+        option_layout.addWidget(self._build_table())
+        self.tabs.addTab(option_tab, "選擇權報價")
 
         self.status_label = QLabel("尚未連接 RTD")
         root.addWidget(self.status_label)
