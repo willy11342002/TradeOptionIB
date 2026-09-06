@@ -10,9 +10,9 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor, QBrush
 
-import taifex_symbols as sym
-from rtd_client import RTDClient
-import theme
+from app.models import taifex_symbols as sym
+from app.models.rtd_client import RTDClient
+from app.services import theme
 
 CALL_BG = QBrush(QColor("#fff2f2"))
 PUT_BG = QBrush(QColor("#f0f7ff"))

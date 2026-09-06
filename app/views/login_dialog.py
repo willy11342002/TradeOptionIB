@@ -3,9 +3,9 @@ from PyQt5.QtWidgets import (
     QPushButton, QLabel, QMessageBox, QApplication,
 )
 
-from kgi_client import KgiClient
-import credential_store
-import theme
+from app.models.kgi_client import KgiClient
+from app.services import credential_store
+from app.services import theme
 
 
 class LoginDialog(QDialog):

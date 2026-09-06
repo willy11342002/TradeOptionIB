@@ -6,10 +6,11 @@
 import ctypes
 import json
 from ctypes import wintypes
-from pathlib import Path
 from typing import Optional, Tuple
 
-CRED_FILE = Path(__file__).parent / ".kgi_credentials.bin"
+from app.paths import PROJECT_ROOT
+
+CRED_FILE = PROJECT_ROOT / ".kgi_credentials.bin"
 
 
 class _DATA_BLOB(ctypes.Structure):

@@ -22,7 +22,7 @@ from comtypes import COMObject
 from comtypes.automation import VARIANT, VARIANT_BOOL
 from comtypes.client import CreateObject
 
-from rtd_interfaces import IRTDUpdateEvent, IRtdServer
+from app.models.rtd_interfaces import IRTDUpdateEvent, IRtdServer
 
 PROGID = "xqrtd.rtdserverhns"
 

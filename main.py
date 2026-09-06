@@ -1,8 +1,8 @@
 import os
 import sys
 from PyQt5.QtWidgets import QApplication, QDialog
-from login_dialog import LoginDialog
-from main_window import MainWindow
+from app.views.login_dialog import LoginDialog
+from app.views.main_window import MainWindow
 
 
 def main():
