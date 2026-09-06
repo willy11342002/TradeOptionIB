@@ -1,10 +1,11 @@
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QCheckBox,
-    QPushButton, QLabel, QMessageBox,
+    QPushButton, QLabel, QMessageBox, QApplication,
 )
 
 from kgi_client import KgiClient
 import credential_store
+import theme
 
 
 class LoginDialog(QDialog):
@@ -21,6 +22,7 @@ class LoginDialog(QDialog):
 
         self._build_ui()
         self._load_saved_credentials()
+        self._load_saved_theme()
 
     def _build_ui(self):
         self.id_edit = QLineEdit()
@@ -36,6 +38,9 @@ class LoginDialog(QDialog):
         self.show_checkbox = QCheckBox("顯示帳密")
         self.show_checkbox.toggled.connect(self._on_show_toggled)
 
+        self.dark_mode_checkbox = QCheckBox("深色模式")
+        self.dark_mode_checkbox.toggled.connect(self._on_dark_mode_toggled)
+
         self.login_btn = QPushButton("登入")
         self.login_btn.clicked.connect(self._on_login_clicked)
         self.login_btn.setDefault(True)
@@ -47,6 +52,7 @@ class LoginDialog(QDialog):
         form.addRow("密碼", self.pwd_edit)
         form.addRow("", self.sim_checkbox)
         form.addRow("", self.show_checkbox)
+        form.addRow("", self.dark_mode_checkbox)
 
         layout = QVBoxLayout(self)
         layout.addLayout(form)
@@ -57,6 +63,16 @@ class LoginDialog(QDialog):
         mode = QLineEdit.Normal if checked else QLineEdit.Password
         self.id_edit.setEchoMode(mode)
         self.pwd_edit.setEchoMode(mode)
+
+    def _load_saved_theme(self):
+        saved_theme = theme.load_theme()
+        self.dark_mode_checkbox.setChecked(saved_theme == "dark")
+        QApplication.instance().setStyleSheet(theme.qss_for(saved_theme))
+
+    def _on_dark_mode_toggled(self, checked: bool):
+        chosen = "dark" if checked else "light"
+        QApplication.instance().setStyleSheet(theme.qss_for(chosen))
+        theme.save_theme(chosen)
 
     def _load_saved_credentials(self):
         saved = credential_store.load_credentials()

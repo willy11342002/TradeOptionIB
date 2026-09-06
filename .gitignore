@@ -16,3 +16,6 @@ TradeCom.*.log
 
 # 加密後的登入帳密快取 (DPAPI 二進位，僅本機可解密)
 .kgi_credentials.bin
+
+# 本機使用者偏好設定 (深色模式等)
+.theme_pref.json
