@@ -4,7 +4,7 @@ import pythoncom
 import win32event
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
-    QPushButton, QComboBox, QSpinBox, QLabel, QTableWidget,
+    QComboBox, QSpinBox, QLabel, QTableWidget,
     QTableWidgetItem, QGroupBox, QHeaderView, QMessageBox,
 )
 from PyQt5.QtCore import Qt, QTimer
@@ -120,7 +120,7 @@ class MainWindow(QMainWindow):
         layout = QHBoxLayout(box)
 
         self.expiry_combo = QComboBox()
-        self.expiry_combo.currentIndexChanged.connect(self._update_days_label)
+        self.expiry_combo.currentIndexChanged.connect(self._on_query_params_changed)
 
         self.center_label = QLabel("(等待加權指數開盤價...)")
 
@@ -128,16 +128,12 @@ class MainWindow(QMainWindow):
         self.step_spin.setRange(1, 5000)
         self.step_spin.setSingleStep(50)
         self.step_spin.setValue(100)
+        self.step_spin.valueChanged.connect(self._on_query_params_changed)
 
         self.rows_spin = QSpinBox()
         self.rows_spin.setRange(1, 40)
         self.rows_spin.setValue(10)
-
-        self.subscribe_btn = QPushButton("查詢並訂閱")
-        self.subscribe_btn.clicked.connect(self._on_subscribe_clicked)
-
-        self.unsubscribe_btn = QPushButton("停止")
-        self.unsubscribe_btn.clicked.connect(self._on_unsubscribe_clicked)
+        self.rows_spin.valueChanged.connect(self._on_query_params_changed)
 
         form = QFormLayout()
         form.addRow("到期別", self.expiry_combo)
@@ -149,8 +145,6 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.step_spin)
         layout.addWidget(QLabel("上下各幾檔"))
         layout.addWidget(self.rows_spin)
-        layout.addWidget(self.subscribe_btn)
-        layout.addWidget(self.unsubscribe_btn)
         return box
 
     def _build_side_header_box(self) -> QWidget:
@@ -235,6 +229,7 @@ class MainWindow(QMainWindow):
         self.center_label.setText(str(center))
         self.center_auto_filled = True
         self.status_label.setText(f"已自動帶入加權指數開盤價 {price} → 中心履約價 {center}")
+        self._do_subscribe()
 
     # ------------------------------------------------------------- 查詢邏輯
     def _populate_expiry_list(self):
@@ -242,18 +237,22 @@ class MainWindow(QMainWindow):
         for expiry in sym.list_all_expiries():
             self.expiry_combo.addItem(expiry.label, expiry)
 
-    def _on_subscribe_clicked(self):
+    def _on_query_params_changed(self):
+        """到期別/價格間距/上下幾檔任何一個變動時直接查詢，不需要按鈕。"""
+        self._update_days_label()
+        self._do_subscribe()
+
+    def _do_subscribe(self):
         if not self.rtd_connected:
-            QMessageBox.warning(self, "提醒", "RTD 尚未連接")
+            self.status_label.setText("RTD 尚未連接，連上後會自動查詢")
             return
 
         expiry = self.expiry_combo.currentData()
         if expiry is None:
-            QMessageBox.warning(self, "提醒", "請先選擇到期別")
             return
 
         if self.center_value is None:
-            QMessageBox.warning(self, "提醒", "中心履約價還沒抓到加權指數開盤價，請稍等")
+            self.status_label.setText("中心履約價還沒抓到加權指數開盤價，抓到後會自動查詢")
             return
 
         center = self.center_value
@@ -310,11 +309,6 @@ class MainWindow(QMainWindow):
             return
         self.ref_topic_info[topic_id] = (row, side, kind)
         self._apply_ref_value(row, side, kind, initial)
-
-    def _on_unsubscribe_clicked(self):
-        self._clear_subscriptions()
-        self.table.setRowCount(0)
-        self.status_label.setText("已取消全部訂閱")
 
     def _clear_subscriptions(self):
         for topic_id in list(self.topic_row_col.keys()):
