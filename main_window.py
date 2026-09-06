@@ -146,9 +146,14 @@ class MainWindow(QMainWindow):
             price = float(value)
         except (TypeError, ValueError):
             return
-        self.center_spin.setValue(int(round(price)))
+        # 選擇權履約價是以「價格間距」為級距報價的整數(例如百位)，
+        # 開盤價本身(帶小數)不是有效履約價，要先取整到最近的級距倍數，
+        # 不然算出來的 Call/Put 代碼全部對不上實際合約。
+        step = self.step_spin.value() or 100
+        center = int(round(price / step) * step)
+        self.center_spin.setValue(center)
         self.center_auto_filled = True
-        self.status_label.setText(f"已自動帶入加權指數開盤價: {price}")
+        self.status_label.setText(f"已自動帶入加權指數開盤價 {price} → 中心履約價 {center}")
 
     # ------------------------------------------------------------- 查詢邏輯
     def _populate_expiry_list(self):
