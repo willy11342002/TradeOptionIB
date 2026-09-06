@@ -1,0 +1,18 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# kgisuperpy 套件執行時自動複製到工作目錄的範例/資料檔 (已改用 RTD 方案，非本專案程式碼)
+example/
+errMsg.ini
+TradeCom.*.log
+
+# 加密後的登入帳密快取 (DPAPI 二進位，僅本機可解密)
+.kgi_credentials.bin
