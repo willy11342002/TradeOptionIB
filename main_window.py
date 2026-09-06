@@ -1,3 +1,5 @@
+import datetime
+
 import pythoncom
 import win32event
 from PyQt5.QtWidgets import (
@@ -14,6 +16,14 @@ from rtd_client import RTDClient
 CALL_BG = QBrush(QColor("#fff2f2"))
 PUT_BG = QBrush(QColor("#f0f7ff"))
 STRIKE_BG = QBrush(QColor("#eeeeee"))
+PRICE_BG = QBrush(QColor("white"))
+
+COLOR_UP_TEXT = QColor("#cc0000")       # 上漲：白底紅字
+COLOR_DOWN_TEXT = QColor("#008000")     # 下跌：白底綠字
+COLOR_LIMIT_UP_BG = QColor("#cc0000")   # 漲停：紅底白字
+COLOR_LIMIT_DOWN_BG = QColor("#008000")  # 跌停：綠底白字
+COLOR_DEFAULT_TEXT = QColor("black")
+COLOR_WHITE_TEXT = QColor("white")
 
 COLUMNS = [
     "Delta", "Theta", "隱波%", "理論價", "買價", "賣價", "成交價",   # Call
@@ -31,6 +41,9 @@ FIELD_DELTA = "TF-Delta"
 FIELD_THETA = "TF-Theta"
 FIELD_IV = "TF-ImplyVolatility"
 FIELD_THEORY = "TF-TheoryPrice"
+FIELD_PRECLOSE = "TF-PreClose"
+FIELD_UP_LIMIT = "TF-UpLimit"
+FIELD_DOWN_LIMIT = "TF-DownLimit"
 
 # CALL_COLS/PUT_COLS 共用的 key -> RTD 欄位名對照，訂閱時兩邊各自套用
 FIELD_BY_KEY = {
@@ -42,6 +55,9 @@ FIELD_BY_KEY = {
     "iv": FIELD_IV,
     "theory": FIELD_THEORY,
 }
+
+# 需要漲跌顏色的欄位 (只有價格，不含 Delta/Theta/隱波/理論價)
+PRICE_KEYS = ("bid", "ask", "last")
 
 # 加權指數(TSE)在 RTD 上的商品代碼跟欄位，用來自動帶入中心履約價。
 # 注意欄位前綴是 TW- 不是 TF-（TF- 是期貨/選擇權專用，TW- 是大盤指數專用），
@@ -63,9 +79,18 @@ class MainWindow(QMainWindow):
         self.rtd = RTDClient(on_update=self._on_rtd_update)
         self.rtd_connected = False
         self.topic_row_col = {}  # topic_id -> (row, col)
+        self.ref_topic_info = {}  # topic_id -> (row, side, "preclose"/"up"/"down")
+        self.price_ref = {}  # (row, side) -> {"preclose":.., "up":.., "down":..}
+        self.price_last_value = {}  # (row, col) -> 最後一次收到的原始價格值，供收到參考值時重新上色
         self.taiex_open_topic_id = None
         self.center_auto_filled = False
         self.center_value = None  # 中心履約價，完全由 TSE 開盤價自動算出，不給手動改
+
+        # 價格欄位 col -> 屬於 call 還是 put，漲跌停/漲跌顏色要分開比對
+        self.col_side = {}
+        for key in PRICE_KEYS:
+            self.col_side[CALL_COLS[key]] = "call"
+            self.col_side[PUT_COLS[key]] = "put"
 
         self.pump_timer = QTimer(self)
         self.pump_timer.setInterval(PUMP_INTERVAL_MS)
@@ -82,6 +107,7 @@ class MainWindow(QMainWindow):
         root = QVBoxLayout(central)
 
         root.addWidget(self._build_query_box())
+        root.addWidget(self._build_side_header_box())
         root.addWidget(self._build_table())
 
         self.status_label = QLabel("尚未連接 RTD")
@@ -92,6 +118,7 @@ class MainWindow(QMainWindow):
         layout = QHBoxLayout(box)
 
         self.expiry_combo = QComboBox()
+        self.expiry_combo.currentIndexChanged.connect(self._update_days_label)
 
         self.center_label = QLabel("(等待加權指數開盤價...)")
 
@@ -123,6 +150,40 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.subscribe_btn)
         layout.addWidget(self.unsubscribe_btn)
         return box
+
+    def _build_side_header_box(self) -> QWidget:
+        """買權(Call)/賣權(Put)分組標題列，用伸縮比例(7:1:7)對齊表格底下的
+        Call 7欄 / 履約價 1欄 / Put 7欄，不是塞進 QTableWidget 本身(表格表頭
+        不支援合併儲存格)。"""
+        box = QWidget()
+        layout = QHBoxLayout(box)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        call_label = QLabel("買權 (Call)")
+        call_label.setAlignment(Qt.AlignCenter)
+        call_label.setStyleSheet("background-color:#c0392b; color:white; font-weight:bold; padding:4px;")
+
+        self.days_label = QLabel("")
+        self.days_label.setAlignment(Qt.AlignCenter)
+        self.days_label.setStyleSheet("background-color:#2c3e50; color:#ff6b6b; font-weight:bold; padding:4px;")
+
+        put_label = QLabel("賣權 (Put)")
+        put_label.setAlignment(Qt.AlignCenter)
+        put_label.setStyleSheet("background-color:#16a085; color:white; font-weight:bold; padding:4px;")
+
+        layout.addWidget(call_label, 7)
+        layout.addWidget(self.days_label, 1)
+        layout.addWidget(put_label, 7)
+        return box
+
+    def _update_days_label(self):
+        expiry = self.expiry_combo.currentData()
+        if expiry is None:
+            self.days_label.setText("")
+            return
+        days = (expiry.expiry_date - datetime.date.today()).days
+        self.days_label.setText(f"{days}天到期" if days >= 0 else "已到期")
 
     def _build_table(self) -> QTableWidget:
         self.table = QTableWidget(0, len(COLUMNS))
@@ -213,10 +274,18 @@ class MainWindow(QMainWindow):
                 self._subscribe_field(row, CALL_COLS[key], call_symbol, field)
                 self._subscribe_field(row, PUT_COLS[key], put_symbol, field)
 
+            self._subscribe_ref(row, "call", call_symbol, "preclose", FIELD_PRECLOSE)
+            self._subscribe_ref(row, "call", call_symbol, "up", FIELD_UP_LIMIT)
+            self._subscribe_ref(row, "call", call_symbol, "down", FIELD_DOWN_LIMIT)
+            self._subscribe_ref(row, "put", put_symbol, "preclose", FIELD_PRECLOSE)
+            self._subscribe_ref(row, "put", put_symbol, "up", FIELD_UP_LIMIT)
+            self._subscribe_ref(row, "put", put_symbol, "down", FIELD_DOWN_LIMIT)
+
         preview_call = sym.build_symbol(expiry.product_code, strikes[0], expiry.expiry_date, True)
         preview_put = sym.build_symbol(expiry.product_code, strikes[0], expiry.expiry_date, False)
+        topics_per_row = len(FIELD_BY_KEY) * 2 + 6
         self.status_label.setText(
-            f"已訂閱 {len(strikes)} 檔履約價 (共 {len(strikes) * len(FIELD_BY_KEY) * 2} 個 RTD topic)｜"
+            f"已訂閱 {len(strikes)} 檔履約價 (共 {len(strikes) * topics_per_row} 個 RTD topic)｜"
             f"例如第一檔代碼: {preview_call} / {preview_put}"
         )
 
@@ -231,6 +300,15 @@ class MainWindow(QMainWindow):
         if initial not in (None, "", "--"):
             self._update_cell(row, col, initial)
 
+    def _subscribe_ref(self, row: int, side: str, symbol: str, kind: str, field: str):
+        topic_str = f"{symbol}.{field}"
+        try:
+            topic_id, initial = self.rtd.subscribe(topic_str)
+        except Exception:  # noqa: BLE001
+            return
+        self.ref_topic_info[topic_id] = (row, side, kind)
+        self._apply_ref_value(row, side, kind, initial)
+
     def _on_unsubscribe_clicked(self):
         self._clear_subscriptions()
         self.table.setRowCount(0)
@@ -243,10 +321,19 @@ class MainWindow(QMainWindow):
             except Exception:  # noqa: BLE001
                 pass
         self.topic_row_col.clear()
+        for topic_id in list(self.ref_topic_info.keys()):
+            try:
+                self.rtd.unsubscribe(topic_id)
+            except Exception:  # noqa: BLE001
+                pass
+        self.ref_topic_info.clear()
+        self.price_ref.clear()
+        self.price_last_value.clear()
 
     def _init_side(self, row: int, cols: dict, bg: QBrush):
-        for col in cols.values():
-            self._set_cell(row, col, "", bg)
+        for key, col in cols.items():
+            cell_bg = PRICE_BG if key in PRICE_KEYS else bg
+            self._set_cell(row, col, "", cell_bg)
 
     def _set_cell(self, row: int, col: int, text: str, bg: QBrush, bold: bool = False):
         item = QTableWidgetItem(text)
@@ -287,11 +374,16 @@ class MainWindow(QMainWindow):
         for topic_id, topic_str in list(self.rtd.topics.items()):
             if topic_str not in data:
                 continue
+            value = data[topic_str]
             entry = self.topic_row_col.get(topic_id)
-            if entry is None:
+            if entry is not None:
+                row, col = entry
+                self._update_cell(row, col, value)
                 continue
-            row, col = entry
-            self._update_cell(row, col, data[topic_str])
+            ref_entry = self.ref_topic_info.get(topic_id)
+            if ref_entry is not None:
+                row, side, kind = ref_entry
+                self._apply_ref_value(row, side, kind, value)
 
     def _update_cell(self, row: int, col: int, value):
         if value is None:
@@ -300,6 +392,61 @@ class MainWindow(QMainWindow):
         if item is None:
             return
         item.setText(self._fmt(value))
+
+        side = self.col_side.get(col)
+        if side is not None:
+            self.price_last_value[(row, col)] = value
+            self._recolor_cell(row, col, value, side)
+
+    def _apply_ref_value(self, row: int, side: str, kind: str, value):
+        try:
+            v = float(value)
+        except (TypeError, ValueError):
+            return
+        self.price_ref.setdefault((row, side), {})[kind] = v
+        self._recolor_side(row, side)
+
+    def _recolor_side(self, row: int, side: str):
+        cols = CALL_COLS if side == "call" else PUT_COLS
+        for key in PRICE_KEYS:
+            col = cols[key]
+            value = self.price_last_value.get((row, col))
+            if value is not None:
+                self._recolor_cell(row, col, value, side)
+
+    def _recolor_cell(self, row: int, col: int, value, side: str):
+        try:
+            v = float(value)
+        except (TypeError, ValueError):
+            self._paint_cell(row, col, PRICE_BG.color(), COLOR_DEFAULT_TEXT)
+            return
+
+        ref = self.price_ref.get((row, side), {})
+        up = ref.get("up")
+        down = ref.get("down")
+        preclose = ref.get("preclose")
+
+        if up is not None and v >= up:
+            self._paint_cell(row, col, COLOR_LIMIT_UP_BG, COLOR_WHITE_TEXT)
+            return
+        if down is not None and v <= down:
+            self._paint_cell(row, col, COLOR_LIMIT_DOWN_BG, COLOR_WHITE_TEXT)
+            return
+        if preclose is not None:
+            if v > preclose:
+                self._paint_cell(row, col, PRICE_BG.color(), COLOR_UP_TEXT)
+                return
+            if v < preclose:
+                self._paint_cell(row, col, PRICE_BG.color(), COLOR_DOWN_TEXT)
+                return
+        self._paint_cell(row, col, PRICE_BG.color(), COLOR_DEFAULT_TEXT)
+
+    def _paint_cell(self, row: int, col: int, bg: QColor, fg: QColor):
+        item = self.table.item(row, col)
+        if item is None:
+            return
+        item.setBackground(QBrush(bg))
+        item.setForeground(QBrush(fg))
 
     @staticmethod
     def _fmt(value) -> str:
