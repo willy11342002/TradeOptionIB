@@ -30,6 +30,12 @@ QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; }
 QTableWidget { background-color: #1e1e1e; gridline-color: #444; color: #e0e0e0; }
 QHeaderView::section { background-color: #3c3f41; color: #e0e0e0; padding: 4px; border: 1px solid #555; }
 QCheckBox, QLabel { color: #e0e0e0; }
+QTabWidget::pane { border: 1px solid #555; }
+QTabBar::tab {
+    background-color: #3c3f41; color: #b0b0b0; padding: 6px 16px; border: 1px solid #555; border-bottom: none;
+}
+QTabBar::tab:selected { background-color: #2b2b2b; color: #ffffff; font-weight: bold; }
+QTabBar::tab:hover { background-color: #5a5d5f; color: #ffffff; }
 """
 
 LIGHT_QSS = ""  # 空字串 = 交給系統預設樣式
@@ -74,3 +80,25 @@ def apply_titlebar_theme(widget) -> None:
         set_titlebar_dark(int(widget.winId()), load_theme() == "dark")
     except Exception:
         pass  # 標題列調色是外觀加分項，失敗不影響程式其他功能
+
+
+def make_theme_toggle(window, text: str = "深色模式"):
+    """做一個「深色模式」核取方塊，掛上完整的套用/記憶/標題列調色邏輯，
+    哪個視窗要放這個切換開關就呼叫一次，登入視窗跟主畫面共用同一套邏輯，
+    不用各寫一份。"""
+    from PyQt5.QtWidgets import QApplication, QCheckBox
+
+    checkbox = QCheckBox(text)
+    saved_theme = load_theme()
+    checkbox.setChecked(saved_theme == "dark")
+    QApplication.instance().setStyleSheet(qss_for(saved_theme))
+    apply_titlebar_theme(window)
+
+    def _on_toggled(checked: bool):
+        chosen = "dark" if checked else "light"
+        QApplication.instance().setStyleSheet(qss_for(chosen))
+        save_theme(chosen)
+        apply_titlebar_theme(window)
+
+    checkbox.toggled.connect(_on_toggled)
+    return checkbox

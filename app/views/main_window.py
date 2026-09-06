@@ -100,7 +100,6 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._populate_expiry_list()
         self._connect_rtd()
-        theme.apply_titlebar_theme(self)
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
@@ -109,6 +108,7 @@ class MainWindow(QMainWindow):
         root = QVBoxLayout(central)
 
         self.tabs = QTabWidget()
+        self.tabs.setCornerWidget(theme.make_theme_toggle(self), Qt.TopRightCorner)
         root.addWidget(self.tabs)
 
         option_tab = QWidget()

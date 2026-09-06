@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QCheckBox,
-    QPushButton, QLabel, QMessageBox, QApplication,
+    QPushButton, QLabel, QMessageBox,
 )
 
 from app.models.kgi_client import KgiClient
@@ -22,7 +22,6 @@ class LoginDialog(QDialog):
 
         self._build_ui()
         self._load_saved_credentials()
-        self._load_saved_theme()
 
     def _build_ui(self):
         self.id_edit = QLineEdit()
@@ -38,8 +37,7 @@ class LoginDialog(QDialog):
         self.show_checkbox = QCheckBox("顯示帳密")
         self.show_checkbox.toggled.connect(self._on_show_toggled)
 
-        self.dark_mode_checkbox = QCheckBox("深色模式")
-        self.dark_mode_checkbox.toggled.connect(self._on_dark_mode_toggled)
+        self.dark_mode_checkbox = theme.make_theme_toggle(self)
 
         self.login_btn = QPushButton("登入")
         self.login_btn.clicked.connect(self._on_login_clicked)
@@ -63,18 +61,6 @@ class LoginDialog(QDialog):
         mode = QLineEdit.Normal if checked else QLineEdit.Password
         self.id_edit.setEchoMode(mode)
         self.pwd_edit.setEchoMode(mode)
-
-    def _load_saved_theme(self):
-        saved_theme = theme.load_theme()
-        self.dark_mode_checkbox.setChecked(saved_theme == "dark")
-        QApplication.instance().setStyleSheet(theme.qss_for(saved_theme))
-        theme.apply_titlebar_theme(self)
-
-    def _on_dark_mode_toggled(self, checked: bool):
-        chosen = "dark" if checked else "light"
-        QApplication.instance().setStyleSheet(theme.qss_for(chosen))
-        theme.save_theme(chosen)
-        theme.apply_titlebar_theme(self)
 
     def _load_saved_credentials(self):
         saved = credential_store.load_credentials()
