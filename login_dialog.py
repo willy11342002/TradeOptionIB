@@ -25,12 +25,16 @@ class LoginDialog(QDialog):
     def _build_ui(self):
         self.id_edit = QLineEdit()
         self.id_edit.setPlaceholderText("身分證字號")
+        self.id_edit.setEchoMode(QLineEdit.Password)
 
         self.pwd_edit = QLineEdit()
         self.pwd_edit.setPlaceholderText("密碼")
         self.pwd_edit.setEchoMode(QLineEdit.Password)
 
         self.sim_checkbox = QCheckBox("模擬環境 (勾選=測試環境，不勾=正式環境)")
+
+        self.show_checkbox = QCheckBox("顯示帳密")
+        self.show_checkbox.toggled.connect(self._on_show_toggled)
 
         self.login_btn = QPushButton("登入")
         self.login_btn.clicked.connect(self._on_login_clicked)
@@ -42,11 +46,17 @@ class LoginDialog(QDialog):
         form.addRow("身分證字號", self.id_edit)
         form.addRow("密碼", self.pwd_edit)
         form.addRow("", self.sim_checkbox)
+        form.addRow("", self.show_checkbox)
 
         layout = QVBoxLayout(self)
         layout.addLayout(form)
         layout.addWidget(self.login_btn)
         layout.addWidget(self.status_label)
+
+    def _on_show_toggled(self, checked: bool):
+        mode = QLineEdit.Normal if checked else QLineEdit.Password
+        self.id_edit.setEchoMode(mode)
+        self.pwd_edit.setEchoMode(mode)
 
     def _load_saved_credentials(self):
         saved = credential_store.load_credentials()
