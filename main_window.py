@@ -24,18 +24,28 @@ FIELD_BID = "TF-Bid"
 FIELD_ASK = "TF-Ask"
 FIELD_LAST = "TF-Price"
 
+# 加權指數(TSE)在 RTD 上的商品代碼跟欄位，用來自動帶入中心履約價。
+# 注意欄位前綴是 TW- 不是 TF-（TF- 是期貨/選擇權專用，TW- 是大盤指數專用），
+# 已用 uv run python 實測驗證過：TSE.TW-Open 真的會回傳當天開盤指數。
+TAIEX_INDEX_SYMBOL = "TSE"
+TAIEX_OPEN_FIELD = "TW-Open"
+
 PUMP_INTERVAL_MS = 200
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, kgi_client=None):
         super().__init__()
         self.setWindowTitle("台指選擇權 T 字報價 (華南 XQ RTD)")
         self.resize(1100, 700)
 
+        self.kgi_client = kgi_client  # 登入後的凱基 api 物件，之後下單功能會用到
+
         self.rtd = RTDClient(on_update=self._on_rtd_update)
         self.rtd_connected = False
         self.topic_row_col = {}  # topic_id -> (row, col)
+        self.taiex_open_topic_id = None
+        self.center_auto_filled = False
 
         self.pump_timer = QTimer(self)
         self.pump_timer.setInterval(PUMP_INTERVAL_MS)
@@ -43,6 +53,7 @@ class MainWindow(QMainWindow):
 
         self._build_ui()
         self._populate_expiry_list()
+        self._connect_rtd()
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
@@ -50,23 +61,11 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         root = QVBoxLayout(central)
 
-        root.addWidget(self._build_rtd_box())
         root.addWidget(self._build_query_box())
         root.addWidget(self._build_table())
 
         self.status_label = QLabel("尚未連接 RTD")
         root.addWidget(self.status_label)
-
-    def _build_rtd_box(self) -> QGroupBox:
-        box = QGroupBox("華南 XQ RTD 連線 (xqrtd.rtdserverhns，看盤軟體要先開著、登入)")
-        layout = QHBoxLayout(box)
-
-        self.connect_btn = QPushButton("連接 RTD")
-        self.connect_btn.clicked.connect(self._on_connect_clicked)
-
-        layout.addWidget(self.connect_btn)
-        layout.addStretch(1)
-        return box
 
     def _build_query_box(self) -> QGroupBox:
         box = QGroupBox("選擇權合約查詢")
@@ -117,16 +116,39 @@ class MainWindow(QMainWindow):
         return self.table
 
     # ----------------------------------------------------------- RTD 連線
-    def _on_connect_clicked(self):
+    def _connect_rtd(self):
+        """登入後自動連接，不需要使用者按按鈕。"""
         try:
             self.rtd.start()
         except Exception as exc:  # noqa: BLE001
-            self.status_label.setText(f"連接失敗: {exc}")
-            QMessageBox.critical(self, "連接失敗", str(exc))
+            self.status_label.setText(f"RTD 連接失敗: {exc}")
+            QMessageBox.critical(self, "RTD 連接失敗", str(exc))
             return
         self.rtd_connected = True
         self.pump_timer.start()
         self.status_label.setText("已連接 RTD，可以開始查詢/訂閱")
+        self._subscribe_taiex_open()
+
+    def _subscribe_taiex_open(self):
+        if not TAIEX_INDEX_SYMBOL:
+            return
+        try:
+            topic_id, initial = self.rtd.subscribe(f"{TAIEX_INDEX_SYMBOL}.{TAIEX_OPEN_FIELD}")
+        except Exception:  # noqa: BLE001
+            return
+        self.taiex_open_topic_id = topic_id
+        self._try_apply_taiex_open(initial)
+
+    def _try_apply_taiex_open(self, value):
+        if self.center_auto_filled or value in (None, "", "--", "#N/A"):
+            return
+        try:
+            price = float(value)
+        except (TypeError, ValueError):
+            return
+        self.center_spin.setValue(int(round(price)))
+        self.center_auto_filled = True
+        self.status_label.setText(f"已自動帶入加權指數開盤價: {price}")
 
     # ------------------------------------------------------------- 查詢邏輯
     def _populate_expiry_list(self):
@@ -136,7 +158,7 @@ class MainWindow(QMainWindow):
 
     def _on_subscribe_clicked(self):
         if not self.rtd_connected:
-            QMessageBox.warning(self, "提醒", "請先連接 RTD")
+            QMessageBox.warning(self, "提醒", "RTD 尚未連接")
             return
 
         expiry = self.expiry_combo.currentData()
@@ -232,6 +254,12 @@ class MainWindow(QMainWindow):
 
         if not data:
             return
+
+        if self.taiex_open_topic_id is not None and not self.center_auto_filled:
+            taiex_topic_str = self.rtd.topics.get(self.taiex_open_topic_id)
+            if taiex_topic_str in data:
+                self._try_apply_taiex_open(data[taiex_topic_str])
+
         for topic_id, topic_str in list(self.rtd.topics.items()):
             if topic_str not in data:
                 continue
