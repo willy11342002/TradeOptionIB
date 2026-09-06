@@ -8,6 +8,7 @@ Qt 裡儲存格自己設定的顏色優先權高於樣式表，所以報價格�
 綠字/漲跌停配色在深色模式下還是照原樣顯示，只有其他介面元件(按鈕、
 輸入框、標題列...)會變成深色。
 """
+import ctypes
 import json
 from pathlib import Path
 
@@ -51,3 +52,24 @@ def save_theme(theme: str) -> None:
 
 def qss_for(theme: str) -> str:
     return DARK_QSS if theme == "dark" else LIGHT_QSS
+
+
+def set_titlebar_dark(hwnd: int, enabled: bool) -> None:
+    """Qt 的 QSS 管不到 Windows 原生標題列，要另外呼叫 DWM API。
+    DWMWA_USE_IMMERSIVE_DARK_MODE 在新版 Windows 10/11 是 20，
+    舊一點的 Windows 10 (2004 之前) 是 19，兩個都試一次。"""
+    value = ctypes.c_int(1 if enabled else 0)
+    for attribute in (20, 19):
+        result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            ctypes.c_void_p(hwnd), attribute, ctypes.byref(value), ctypes.sizeof(value)
+        )
+        if result == 0:  # S_OK
+            return
+
+
+def apply_titlebar_theme(widget) -> None:
+    """依目前存的主題設定，把某個視窗的標題列調成對應深/淺色。"""
+    try:
+        set_titlebar_dark(int(widget.winId()), load_theme() == "dark")
+    except Exception:
+        pass  # 標題列調色是外觀加分項，失敗不影響程式其他功能

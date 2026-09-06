@@ -68,11 +68,13 @@ class LoginDialog(QDialog):
         saved_theme = theme.load_theme()
         self.dark_mode_checkbox.setChecked(saved_theme == "dark")
         QApplication.instance().setStyleSheet(theme.qss_for(saved_theme))
+        theme.apply_titlebar_theme(self)
 
     def _on_dark_mode_toggled(self, checked: bool):
         chosen = "dark" if checked else "light"
         QApplication.instance().setStyleSheet(theme.qss_for(chosen))
         theme.save_theme(chosen)
+        theme.apply_titlebar_theme(self)
 
     def _load_saved_credentials(self):
         saved = credential_store.load_credentials()

@@ -12,6 +12,7 @@ from PyQt5.QtGui import QColor, QBrush
 
 import taifex_symbols as sym
 from rtd_client import RTDClient
+import theme
 
 CALL_BG = QBrush(QColor("#fff2f2"))
 PUT_BG = QBrush(QColor("#f0f7ff"))
@@ -99,6 +100,7 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._populate_expiry_list()
         self._connect_rtd()
+        theme.apply_titlebar_theme(self)
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
