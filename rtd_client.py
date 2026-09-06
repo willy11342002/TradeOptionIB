@@ -27,6 +27,15 @@ from rtd_interfaces import IRTDUpdateEvent, IRtdServer
 PROGID = "xqrtd.rtdserverhns"
 
 
+def _unwrap_connect_result(raw):
+    """ConnectData 的 GetNewValues 參數是 in/out，comtypes 因此把回傳值包成
+    [GetNewValues結果, 真正的初始值(pvarOut)] 這種 2 元素結構，不能直接把
+    整包當成報價值使用，這裡把真正的值拆出來。"""
+    if isinstance(raw, (list, tuple)) and len(raw) == 2:
+        return raw[1]
+    return raw
+
+
 class RTDClient(COMObject):
     _com_interfaces_ = [IRTDUpdateEvent]
 
@@ -67,15 +76,15 @@ class RTDClient(COMObject):
             raise RuntimeError(f"ServerStart 失敗，回傳值: {result}")
 
     def subscribe(self, topic_str: str) -> int:
-        """topic_str 例如 'TX2N09C40900.TF-Price'。回傳 topic_id。"""
+        """topic_str 例如 'TX2N09C40900.TF-Price'。回傳 (topic_id, 初始值)。"""
         topic_id = self._next_topic_id
         self._next_topic_id += 1
         strings = (VARIANT * 1)()
         strings[0].value = topic_str
         get_new_values = VARIANT_BOOL(True)
-        initial = self.server.ConnectData(topic_id, strings, get_new_values)
+        raw = self.server.ConnectData(topic_id, strings, get_new_values)
         self.topics[topic_id] = topic_str
-        return topic_id, initial
+        return topic_id, _unwrap_connect_result(raw)
 
     def unsubscribe(self, topic_id: int) -> None:
         try:

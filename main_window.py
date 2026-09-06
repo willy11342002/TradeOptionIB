@@ -46,6 +46,7 @@ class MainWindow(QMainWindow):
         self.topic_row_col = {}  # topic_id -> (row, col)
         self.taiex_open_topic_id = None
         self.center_auto_filled = False
+        self.center_value = None  # 中心履約價，完全由 TSE 開盤價自動算出，不給手動改
 
         self.pump_timer = QTimer(self)
         self.pump_timer.setInterval(PUMP_INTERVAL_MS)
@@ -73,10 +74,7 @@ class MainWindow(QMainWindow):
 
         self.expiry_combo = QComboBox()
 
-        self.center_spin = QSpinBox()
-        self.center_spin.setRange(0, 100000)
-        self.center_spin.setSingleStep(100)
-        self.center_spin.setValue(22000)
+        self.center_label = QLabel("(等待加權指數開盤價...)")
 
         self.step_spin = QSpinBox()
         self.step_spin.setRange(1, 5000)
@@ -98,7 +96,7 @@ class MainWindow(QMainWindow):
 
         layout.addLayout(form)
         layout.addWidget(QLabel("中心履約價"))
-        layout.addWidget(self.center_spin)
+        layout.addWidget(self.center_label)
         layout.addWidget(QLabel("價格間距"))
         layout.addWidget(self.step_spin)
         layout.addWidget(QLabel("上下各幾檔"))
@@ -151,7 +149,8 @@ class MainWindow(QMainWindow):
         # 不然算出來的 Call/Put 代碼全部對不上實際合約。
         step = self.step_spin.value() or 100
         center = int(round(price / step) * step)
-        self.center_spin.setValue(center)
+        self.center_value = center
+        self.center_label.setText(str(center))
         self.center_auto_filled = True
         self.status_label.setText(f"已自動帶入加權指數開盤價 {price} → 中心履約價 {center}")
 
@@ -171,7 +170,11 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "提醒", "請先選擇到期別")
             return
 
-        center = self.center_spin.value()
+        if self.center_value is None:
+            QMessageBox.warning(self, "提醒", "中心履約價還沒抓到加權指數開盤價，請稍等")
+            return
+
+        center = self.center_value
         step = self.step_spin.value()
         rows = self.rows_spin.value()
         strikes = [center + i * step for i in range(-rows, rows + 1)]
