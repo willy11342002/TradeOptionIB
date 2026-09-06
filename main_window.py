@@ -339,6 +339,11 @@ class MainWindow(QMainWindow):
         item = QTableWidgetItem(text)
         item.setTextAlignment(Qt.AlignCenter)
         item.setBackground(bg)
+        # 這幾欄背景是固定的淺色(粉紅/淺藍/淺灰)，不會跟著深色模式變深，
+        # 文字顏色也要固定用深色，不然深色模式下字會變成淺灰、疊在淺色
+        # 底上完全看不清楚。價格欄位之後會被 _recolor_cell 蓋掉，這裡的
+        # 顏色只是暫時的初始值。
+        item.setForeground(QBrush(COLOR_DEFAULT_TEXT))
         if bold:
             font = item.font()
             font.setBold(True)
