@@ -15,14 +15,33 @@ CALL_BG = QBrush(QColor("#fff2f2"))
 PUT_BG = QBrush(QColor("#f0f7ff"))
 STRIKE_BG = QBrush(QColor("#eeeeee"))
 
-COLUMNS = ["買價", "賣價", "成交價", "履約價", "成交價", "買價", "賣價"]
-CALL_COLS = {"bid": 0, "ask": 1, "last": 2}
-STRIKE_COL = 3
-PUT_COLS = {"last": 4, "bid": 5, "ask": 6}
+COLUMNS = [
+    "Delta", "Theta", "隱波%", "理論價", "買價", "賣價", "成交價",   # Call
+    "履約價",
+    "成交價", "買價", "賣價", "理論價", "隱波%", "Theta", "Delta",   # Put
+]
+CALL_COLS = {"delta": 0, "theta": 1, "iv": 2, "theory": 3, "bid": 4, "ask": 5, "last": 6}
+STRIKE_COL = 7
+PUT_COLS = {"last": 8, "bid": 9, "ask": 10, "theory": 11, "iv": 12, "theta": 13, "delta": 14}
 
 FIELD_BID = "TF-Bid"
 FIELD_ASK = "TF-Ask"
 FIELD_LAST = "TF-Price"
+FIELD_DELTA = "TF-Delta"
+FIELD_THETA = "TF-Theta"
+FIELD_IV = "TF-ImplyVolatility"
+FIELD_THEORY = "TF-TheoryPrice"
+
+# CALL_COLS/PUT_COLS 共用的 key -> RTD 欄位名對照，訂閱時兩邊各自套用
+FIELD_BY_KEY = {
+    "bid": FIELD_BID,
+    "ask": FIELD_ASK,
+    "last": FIELD_LAST,
+    "delta": FIELD_DELTA,
+    "theta": FIELD_THETA,
+    "iv": FIELD_IV,
+    "theory": FIELD_THEORY,
+}
 
 # 加權指數(TSE)在 RTD 上的商品代碼跟欄位，用來自動帶入中心履約價。
 # 注意欄位前綴是 TW- 不是 TF-（TF- 是期貨/選擇權專用，TW- 是大盤指數專用），
@@ -190,17 +209,14 @@ class MainWindow(QMainWindow):
             self._init_side(row, CALL_COLS, CALL_BG)
             self._init_side(row, PUT_COLS, PUT_BG)
 
-            self._subscribe_field(row, CALL_COLS["bid"], call_symbol, FIELD_BID)
-            self._subscribe_field(row, CALL_COLS["ask"], call_symbol, FIELD_ASK)
-            self._subscribe_field(row, CALL_COLS["last"], call_symbol, FIELD_LAST)
-            self._subscribe_field(row, PUT_COLS["last"], put_symbol, FIELD_LAST)
-            self._subscribe_field(row, PUT_COLS["bid"], put_symbol, FIELD_BID)
-            self._subscribe_field(row, PUT_COLS["ask"], put_symbol, FIELD_ASK)
+            for key, field in FIELD_BY_KEY.items():
+                self._subscribe_field(row, CALL_COLS[key], call_symbol, field)
+                self._subscribe_field(row, PUT_COLS[key], put_symbol, field)
 
         preview_call = sym.build_symbol(expiry.product_code, strikes[0], expiry.expiry_date, True)
         preview_put = sym.build_symbol(expiry.product_code, strikes[0], expiry.expiry_date, False)
         self.status_label.setText(
-            f"已訂閱 {len(strikes)} 檔履約價 (共 {len(strikes) * 6} 個 RTD topic)｜"
+            f"已訂閱 {len(strikes)} 檔履約價 (共 {len(strikes) * len(FIELD_BY_KEY) * 2} 個 RTD topic)｜"
             f"例如第一檔代碼: {preview_call} / {preview_put}"
         )
 
