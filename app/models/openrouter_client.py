@@ -18,10 +18,10 @@ import os
 from typing import Literal
 
 from pydantic import BaseModel, Field
-from pydantic_ai import Agent
-from pydantic_ai.capabilities import NativeTool
-from pydantic_ai.models.openrouter import OpenRouterModelSettings
-from pydantic_ai.native_tools import WebSearchTool
+
+# pydantic_ai 本身匯入很重 (拉一堆 httpx/anyio/opentelemetry 之類的東西)，
+# 之前放在檔案最上面害整支程式一啟動就要載入，明明使用者可能根本還沒點
+# 「分析」。改成只在真的要呼叫 LLM 的時候 (judge_quadrant 執行時) 才匯入。
 
 
 class QuadrantJudgment(BaseModel):
@@ -95,6 +95,11 @@ def judge_quadrant(
     model_name = os.environ.get("OPENROUTER_MODEL")
     if not model_name:
         raise RuntimeError("OPENROUTER_MODEL 未設定，請確認 .env 檔")
+
+    from pydantic_ai import Agent
+    from pydantic_ai.capabilities import NativeTool
+    from pydantic_ai.models.openrouter import OpenRouterModelSettings
+    from pydantic_ai.native_tools import WebSearchTool
 
     agent = Agent(
         f"openrouter:{model_name}",

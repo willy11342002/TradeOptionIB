@@ -28,3 +28,7 @@ open_position_history.jsonl
 
 # 期交所選擇權波動率指數本地增量快取 (本機執行期產生/累積)
 data/taiwan_option_vix.csv
+
+# FinMind 加權指數/台指期價格本地增量快取 (本機執行期產生/累積)
+data/taiex_price_history.csv
+data/tx_futures_price_history.csv

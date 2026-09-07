@@ -1,9 +1,10 @@
 """
-「開倉」分頁的分析流程協調者。背景執行緒依序打財經日曆/大盤價格/選擇權
-波動率指數/選擇權籌碼分布四個外部資料源，交給 LLM 質化判斷振幅跟波動率
-高低，再用固定規則 (STRATEGY_MAP) 對應出策略，最後把判斷結果連同抓到的
-原始資料一起存進本機 JSONL 歷史檔 (方便之後在 UI 上點開回顧當時的原始
-資料)。
+「開倉」分頁的分析流程協調者。OpeningAnalysisService 背景執行緒依序打
+財經日曆/大盤價格/選擇權波動率指數/選擇權籌碼分布四個外部資料源，交給
+LLM 質化判斷振幅跟波動率高低，再用固定規則 (STRATEGY_MAP) 對應出策略，
+最後把判斷結果連同抓到的原始資料一起存進本機 JSONL 歷史檔 (方便之後在
+UI 上點開回顧當時的原始資料)。ChartDataService 是另一個獨立的服務，只
+負責抓主畫面圖表要畫的價格資料，跟分析流程無關。
 
 沿用 kgi_client.py 已經在用的 QObject + threading.Thread + pyqtSignal
 模式，確保網路 I/O 不會卡住 PyQt 主執行緒。
@@ -61,14 +62,43 @@ def delete_history_entry(timestamp: str) -> None:
     _rewrite_history(records)
 
 
-def update_history_reasoning(timestamp: str, reasoning: str) -> None:
-    """使用者在「本次分析結果」detail 裡手動修改理由文字後，寫回歷史檔。"""
+def update_history_record(timestamp: str, updates: dict) -> None:
+    """使用者在分析詳細視窗裡手動修改理由文字/壓力支撐價位後，寫回歷史檔。
+    updates 是要合併進該筆紀錄的欄位 (例如 {"reasoning": ..., "resistance_levels": [...], "support_levels": [...]})。"""
     records = load_history()
     for record in records:
         if record.get("timestamp") == timestamp:
-            record["reasoning"] = reasoning
+            record.update(updates)
             break
     _rewrite_history(records)
+
+
+class ChartDataService(QObject):
+    """獨立於分析流程之外，單純抓圖表要畫的加權指數 K 棒 + 台指期收盤價，
+    跟「分析」按鈕的四資料源+LLM流程無關，分開一個服務避免混在一起。"""
+
+    chart_ready = pyqtSignal(list, list)  # (taiex_history, futures_history)
+    chart_failed = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+        self._running = False
+
+    def run_async(self, days: int = 60):
+        if self._running:
+            return  # 上一次還在跑，不重複開執行緒 (CSV 快取有鎖擋著不會壞，但沒必要重工)
+        self._running = True
+        threading.Thread(target=self._worker, args=(days,), daemon=True).start()
+
+    def _worker(self, days: int):
+        try:
+            taiex_history = finmind_client.get_taiex_price_history(days=days)
+            futures_history = finmind_client.get_futures_price_history(days=days)
+            self.chart_ready.emit(taiex_history, futures_history)
+        except Exception as exc:  # noqa: BLE001 - 顯示給使用者看
+            self.chart_failed.emit(str(exc))
+        finally:
+            self._running = False
 
 
 class OpeningAnalysisService(QObject):
