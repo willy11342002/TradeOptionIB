@@ -1,5 +1,12 @@
 import os
 import sys
+
+from dotenv import load_dotenv
+
+from app.paths import PROJECT_ROOT
+
+load_dotenv(PROJECT_ROOT / ".env")
+
 from PyQt5.QtWidgets import QApplication, QDialog
 from app.views.login_dialog import LoginDialog
 from app.views.main_window import MainWindow

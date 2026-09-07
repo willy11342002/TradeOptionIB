@@ -13,6 +13,7 @@ from PyQt5.QtGui import QColor, QBrush
 from app.models import taifex_symbols as sym
 from app.models.rtd_client import RTDClient
 from app.services import theme
+from app.views.opening_tab import OpeningTab
 
 CALL_BG = QBrush(QColor("#fff2f2"))
 PUT_BG = QBrush(QColor("#f0f7ff"))
@@ -117,6 +118,9 @@ class MainWindow(QMainWindow):
         option_layout.addWidget(self._build_side_header_box())
         option_layout.addWidget(self._build_table())
         self.tabs.addTab(option_tab, "選擇權報價")
+
+        self.opening_tab = OpeningTab()
+        self.tabs.addTab(self.opening_tab, "開倉")
 
         self.status_label = QLabel("尚未連接 RTD")
         root.addWidget(self.status_label)

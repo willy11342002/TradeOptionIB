@@ -19,3 +19,12 @@ TradeCom.*.log
 
 # 本機使用者偏好設定 (深色模式等)
 .theme_pref.json
+
+# API 金鑰設定，不進版控 (參考 .env.example 填自己的 key)
+.env
+
+# 開倉判斷紀錄，本機執行期產生
+open_position_history.jsonl
+
+# 期交所選擇權波動率指數本地增量快取 (本機執行期產生/累積)
+data/taiwan_option_vix.csv
