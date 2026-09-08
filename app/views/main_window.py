@@ -39,6 +39,7 @@ COLOR_DOWN_TEXT = QColor("#3ecf6e")     # 下跌：綠字
 COLOR_LIMIT_UP_BG = QColor("#cc0000")   # 漲停：紅底白字
 COLOR_LIMIT_DOWN_BG = QColor("#008000")  # 跌停：綠底白字
 COLOR_WHITE_TEXT = QColor("white")
+COLOR_ATM_TEXT = QColor("#ff8c00")      # 價平：履約價文字用醒目橙色標示
 
 COLUMNS = [
     "Delta", "Theta", "隱波%", "理論價", "買價", "賣價", "成交價",   # Call
@@ -75,10 +76,13 @@ FIELD_BY_KEY = {
 PRICE_KEYS = ("bid", "ask", "last")
 
 # 加權指數(TSE)在 RTD 上的商品代碼跟欄位，用來自動帶入中心履約價。
-# 注意欄位前綴是 TW- 不是 TF-（TF- 是期貨/選擇權專用，TW- 是大盤指數專用），
-# 已用 uv run python 實測驗證過：TSE.TW-Open 真的會回傳當天開盤指數。
+# 注意欄位前綴是 TW- 不是 TF-（TF- 是期貨/選擇權專用，TW- 是大盤指數專用）。
+# 原本用 TW-Open(開盤價)，但盤中開盤價會跟目前指數差很多，中心履約價
+# 跟著跑掉；改用 TW-Price(即時成交價)，已用 uv run python 實測驗證過
+# 會回傳當下最新指數(例如 47105.78 @ 13:35:00)。TW-Close/TW-Last 兩個
+# 欄位試過是空的('--')，不是真的收盤價欄位，盤中沒有這種東西。
 TAIEX_INDEX_SYMBOL = "TSE"
-TAIEX_OPEN_FIELD = "TW-Open"
+TAIEX_PRICE_FIELD = "TW-Price"
 
 PUMP_INTERVAL_MS = 200
 
@@ -97,9 +101,11 @@ class MainWindow(QMainWindow):
         self.ref_topic_info = {}  # topic_id -> (row, side, "preclose"/"up"/"down")
         self.price_ref = {}  # (row, side) -> {"preclose":.., "up":.., "down":..}
         self.price_last_value = {}  # (row, col) -> 最後一次收到的原始價格值，供收到參考值時重新上色
-        self.taiex_open_topic_id = None
+        self.taiex_price_topic_id = None
         self.center_auto_filled = False
-        self.center_value = None  # 中心履約價，完全由 TSE 開盤價自動算出，不給手動改
+        self.center_value = None  # 中心履約價，完全由 TSE 即時成交價自動算出，不給手動改
+        self.strike_atm_row = None  # 目前「價平」(現貨即時價四捨五入)所在的列
+        self.strike_to_row = {}  # 履約價數值 -> 該列的 row index
 
         # 價格欄位 col -> 屬於 call 還是 put，漲跌停/漲跌顏色要分開比對
         self.col_side = {}
@@ -147,7 +153,7 @@ class MainWindow(QMainWindow):
         self.expiry_combo = QComboBox()
         self.expiry_combo.currentIndexChanged.connect(self._on_query_params_changed)
 
-        self.center_label = QLabel("(等待加權指數開盤價...)")
+        self.center_label = QLabel("(等待加權指數即時成交價...)")
 
         self.step_spin = QSpinBox()
         self.step_spin.setRange(1, 5000)
@@ -226,35 +232,41 @@ class MainWindow(QMainWindow):
         self.rtd_connected = True
         self.pump_timer.start()
         self.status_label.setText("已連接 RTD，可以開始查詢/訂閱")
-        self._subscribe_taiex_open()
+        self._subscribe_taiex_price()
 
-    def _subscribe_taiex_open(self):
+    def _subscribe_taiex_price(self):
         if not TAIEX_INDEX_SYMBOL:
             return
         try:
-            topic_id, initial = self.rtd.subscribe(f"{TAIEX_INDEX_SYMBOL}.{TAIEX_OPEN_FIELD}")
+            topic_id, initial = self.rtd.subscribe(f"{TAIEX_INDEX_SYMBOL}.{TAIEX_PRICE_FIELD}")
         except Exception:  # noqa: BLE001
             return
-        self.taiex_open_topic_id = topic_id
-        self._try_apply_taiex_open(initial)
+        self.taiex_price_topic_id = topic_id
+        self._try_apply_taiex_price(initial)
 
-    def _try_apply_taiex_open(self, value):
-        if self.center_auto_filled or value in (None, "", "--", "#N/A"):
+    def _try_apply_taiex_price(self, value):
+        if value in (None, "", "--", "#N/A"):
             return
         try:
             price = float(value)
         except (TypeError, ValueError):
             return
         # 選擇權履約價是以「價格間距」為級距報價的整數(例如百位)，
-        # 開盤價本身(帶小數)不是有效履約價，要先取整到最近的級距倍數，
+        # 指數本身(帶小數)不是有效履約價，要先取整到最近的級距倍數，
         # 不然算出來的 Call/Put 代碼全部對不上實際合約。
         step = self.step_spin.value() or 100
-        center = int(round(price / step) * step)
-        self.center_value = center
-        self.center_label.setText(str(center))
-        self.center_auto_filled = True
-        self.status_label.setText(f"已自動帶入加權指數開盤價 {price} → 中心履約價 {center}")
-        self._do_subscribe()
+        rounded = int(round(price / step) * step)
+
+        if not self.center_auto_filled:
+            self.center_value = rounded
+            self.center_label.setText(str(rounded))
+            self.center_auto_filled = True
+            self.status_label.setText(f"已自動帶入加權指數即時成交價 {price} → 中心履約價 {rounded}")
+            self._do_subscribe()
+
+        # 價平 = 現貨即時價四捨五入到百位，跟中心履約價一次性帶入不同，
+        # 這個每次跳動都要重算，畫面上的橙字標示才會跟著現貨移動。
+        self._highlight_atm_strike(rounded)
 
     # ------------------------------------------------------------- 查詢邏輯
     def _populate_expiry_list(self):
@@ -289,6 +301,7 @@ class MainWindow(QMainWindow):
         self.table.setRowCount(len(strikes))
 
         for row, strike in enumerate(strikes):
+            self.strike_to_row[strike] = row
             call_symbol = sym.build_symbol(expiry.product_code, strike, expiry.expiry_date, is_call=True)
             put_symbol = sym.build_symbol(expiry.product_code, strike, expiry.expiry_date, is_call=False)
 
@@ -351,6 +364,8 @@ class MainWindow(QMainWindow):
         self.ref_topic_info.clear()
         self.price_ref.clear()
         self.price_last_value.clear()
+        self.strike_atm_row = None
+        self.strike_to_row.clear()
 
     def _palette(self) -> dict:
         return PALETTES["dark" if theme.load_theme() == "dark" else "light"]
@@ -397,10 +412,10 @@ class MainWindow(QMainWindow):
         if not data:
             return
 
-        if self.taiex_open_topic_id is not None and not self.center_auto_filled:
-            taiex_topic_str = self.rtd.topics.get(self.taiex_open_topic_id)
+        if self.taiex_price_topic_id is not None:
+            taiex_topic_str = self.rtd.topics.get(self.taiex_price_topic_id)
             if taiex_topic_str in data:
-                self._try_apply_taiex_open(data[taiex_topic_str])
+                self._try_apply_taiex_price(data[taiex_topic_str])
 
         for topic_id, topic_str in list(self.rtd.topics.items()):
             if topic_str not in data:
@@ -504,6 +519,31 @@ class MainWindow(QMainWindow):
                         if item is not None:
                             item.setBackground(QBrush(side_bg))
                             item.setForeground(QBrush(palette["default_text"]))
+
+        if self.strike_atm_row is not None:
+            atm_item = self.table.item(self.strike_atm_row, STRIKE_COL)
+            if atm_item is not None:
+                atm_item.setForeground(QBrush(COLOR_ATM_TEXT))
+
+    def _highlight_atm_strike(self, strike_value: int):
+        """價平 = 加權指數即時成交價四捨五入到價格間距的整數，橙字標示
+        履約價等於這個值的那一列 (跟著現貨跳動即時更新)。"""
+        target_row = self.strike_to_row.get(strike_value)
+        if target_row == self.strike_atm_row:
+            return
+
+        default_text = self._palette()["default_text"]
+        if self.strike_atm_row is not None:
+            old_item = self.table.item(self.strike_atm_row, STRIKE_COL)
+            if old_item is not None:
+                old_item.setForeground(QBrush(default_text))
+
+        if target_row is not None:
+            new_item = self.table.item(target_row, STRIKE_COL)
+            if new_item is not None:
+                new_item.setForeground(QBrush(COLOR_ATM_TEXT))
+
+        self.strike_atm_row = target_row
 
     @staticmethod
     def _fmt(value) -> str:
