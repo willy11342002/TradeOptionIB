@@ -6,8 +6,8 @@ LLM 質化判斷振幅跟波動率高低，再用固定規則 (STRATEGY_MAP) 對
 UI 上點開回顧當時的原始資料)。ChartDataService 是另一個獨立的服務，只
 負責抓主畫面圖表要畫的價格資料，跟分析流程無關。
 
-沿用 kgi_client.py 已經在用的 QObject + threading.Thread + pyqtSignal
-模式，確保網路 I/O 不會卡住 PyQt 主執行緒。
+用 QObject + threading.Thread + pyqtSignal 模式，確保網路 I/O 不會卡住
+PyQt 主執行緒。
 """
 import datetime
 import json

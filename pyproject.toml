@@ -6,7 +6,6 @@ requires-python = ">=3.13"
 dependencies = [
     "comtypes>=1.4.16",
     "ipykernel>=7.3.0",
-    "kgisuperpy>=2.1.1",
     "pydantic-ai>=2.40.0",
     "pyqt5<5.15.11",
     "pyqt5-qt5<5.15.11",

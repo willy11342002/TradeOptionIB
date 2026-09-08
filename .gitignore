@@ -9,13 +9,20 @@ wheels/
 # Virtual environments
 .venv
 
-# kgisuperpy 套件執行時自動複製到工作目錄的範例/資料檔 (已改用 RTD 方案，非本專案程式碼)
-example/
-errMsg.ini
-TradeCom.*.log
+# 群益官方範例/COM 元件安裝包，體積大且是廠商原始檔案，不用進版控。
+# vendor/capital_api/ 底下的 SKCOM.dll 等執行期需要的 DLL 是從這裡複製過去
+# 的，同樣不進版控 (二進位檔案不適合放 git 歷史)——這台機器已經有了，換一
+# 台機器要重新把這個資料夾底下的 元件/x64 內容複製一份到 vendor/capital_api/x64。
+CapitalAPI_2.13.59_PythonExample/
+vendor/capital_api/
 
 # 加密後的登入帳密快取 (DPAPI 二進位，僅本機可解密)
+.capital_credentials.bin
+# 已改用群益 API，這個是舊的凱基帳密快取檔，本機可能還留著舊檔，一樣不能進版控
 .kgi_credentials.bin
+
+# kgisuperpy 舊版殘留在工作目錄的錯誤碼對照檔，已不再使用
+errMsg.ini
 
 # 本機使用者偏好設定 (深色模式等)
 .theme_pref.json

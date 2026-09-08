@@ -5,15 +5,18 @@ import win32event
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
     QComboBox, QSpinBox, QLabel, QTableWidget,
-    QTableWidgetItem, QGroupBox, QHeaderView, QMessageBox, QTabWidget,
+    QTableWidgetItem, QGroupBox, QHeaderView, QTabWidget,
 )
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor, QBrush
 
-from app.models import taifex_symbols as sym
-from app.models.rtd_client import RTDClient
+from app.models import capital_symbols as sym
+from app.models.capital_client import CapitalClient
+from app.models.capital_order_client import CapitalOrderClient
+from app.models.capital_quote_client import CapitalQuoteClient
 from app.services import theme
 from app.views.opening_tab import OpeningTab
+from app.views.order_dialog import OrderDialog
 
 # 表格底色跟著淺色/深色模式切換；漲跌紅綠字、漲跌停紅綠底白字這些「語意」
 # 顏色兩個主題共用，不受影響。
@@ -41,71 +44,46 @@ COLOR_LIMIT_DOWN_BG = QColor("#008000")  # 跌停：綠底白字
 COLOR_WHITE_TEXT = QColor("white")
 COLOR_ATM_TEXT = QColor("#ff8c00")      # 價平：履約價文字用醒目橙色標示
 
-COLUMNS = [
-    "Delta", "Theta", "隱波%", "理論價", "買價", "賣價", "成交價",   # Call
-    "履約價",
-    "成交價", "買價", "賣價", "理論價", "隱波%", "Theta", "Delta",   # Put
-]
-CALL_COLS = {"delta": 0, "theta": 1, "iv": 2, "theory": 3, "bid": 4, "ask": 5, "last": 6}
-STRIKE_COL = 7
-PUT_COLS = {"last": 8, "bid": 9, "ask": 10, "theory": 11, "iv": 12, "theta": 13, "delta": 14}
+# 群益基礎報價沒有華南 XQ RTD 那種「隱波%/理論價/Delta/Theta」加值欄位
+# (SKQuoteLib_Delta 等函式是本地 Black-Scholes 計算機，不是即時報價)，
+# 所以這裡只留買價/賣價/成交價，比原本少 4 欄。
+COLUMNS = ["買價", "賣價", "成交價", "履約價", "成交價", "買價", "賣價"]
+CALL_COLS = {"bid": 0, "ask": 1, "last": 2}
+STRIKE_COL = 3
+PUT_COLS = {"last": 4, "bid": 5, "ask": 6}
 
-FIELD_BID = "TF-Bid"
-FIELD_ASK = "TF-Ask"
-FIELD_LAST = "TF-Price"
-FIELD_DELTA = "TF-Delta"
-FIELD_THETA = "TF-Theta"
-FIELD_IV = "TF-ImplyVolatility"
-FIELD_THEORY = "TF-TheoryPrice"
-FIELD_PRECLOSE = "TF-PreClose"
-FIELD_UP_LIMIT = "TF-UpLimit"
-FIELD_DOWN_LIMIT = "TF-DownLimit"
-
-# CALL_COLS/PUT_COLS 共用的 key -> RTD 欄位名對照，訂閱時兩邊各自套用
-FIELD_BY_KEY = {
-    "bid": FIELD_BID,
-    "ask": FIELD_ASK,
-    "last": FIELD_LAST,
-    "delta": FIELD_DELTA,
-    "theta": FIELD_THETA,
-    "iv": FIELD_IV,
-    "theory": FIELD_THEORY,
-}
-
-# 需要漲跌顏色的欄位 (只有價格，不含 Delta/Theta/隱波/理論價)
 PRICE_KEYS = ("bid", "ask", "last")
 
-# 加權指數(TSE)在 RTD 上的商品代碼跟欄位，用來自動帶入中心履約價。
-# 注意欄位前綴是 TW- 不是 TF-（TF- 是期貨/選擇權專用，TW- 是大盤指數專用）。
-# 原本用 TW-Open(開盤價)，但盤中開盤價會跟目前指數差很多，中心履約價
-# 跟著跑掉；改用 TW-Price(即時成交價)，已用 uv run python 實測驗證過
-# 會回傳當下最新指數(例如 47105.78 @ 13:35:00)。TW-Close/TW-Last 兩個
-# 欄位試過是空的('--')，不是真的收盤價欄位，盤中沒有這種東西。
-TAIEX_INDEX_SYMBOL = "TSE"
-TAIEX_PRICE_FIELD = "TW-Price"
+# 加權指數在群益 SKQuoteLib 的代碼，用來自動帶入中心履約價。
+# 用群益官方範例 PythonExampleV2/Quote/Quote.py 的「個股資訊」查詢實測
+# 核對過："TSEA" 查回來的 bstrStockName 就是「加權指」，不是猜的。
+TAIEX_SYMBOL = "TSEA"
 
 PUMP_INTERVAL_MS = 200
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, kgi_client=None):
+    def __init__(self, capital_client: CapitalClient = None):
         super().__init__()
-        self.setWindowTitle("台指選擇權 T 字報價 (華南 XQ RTD)")
-        self.resize(1100, 700)
+        self.setWindowTitle("台指選擇權 T 字報價 (群益 API)")
+        self.resize(1000, 700)
 
-        self.kgi_client = kgi_client  # 登入後的凱基 api 物件，之後下單功能會用到
+        self.capital_client = capital_client
+        self.quote_client = CapitalQuoteClient(capital_client)
+        self.quote_client.quote_updated.connect(self._on_quote_updated)
+        self.quote_client.quote_error.connect(self._on_quote_error)
+        self.quote_client.connected.connect(self._on_quote_connected)
+        self.quote_client.disconnected.connect(self._on_quote_disconnected)
+        self.order_client = CapitalOrderClient(capital_client)
 
-        self.rtd = RTDClient(on_update=self._on_rtd_update)
-        self.rtd_connected = False
-        self.topic_row_col = {}  # topic_id -> (row, col)
-        self.ref_topic_info = {}  # topic_id -> (row, side, "preclose"/"up"/"down")
-        self.price_ref = {}  # (row, side) -> {"preclose":.., "up":.., "down":..}
+        self.row_meta = {}          # row -> {"strike":, "call_symbol":, "put_symbol":}
+        self.symbol_row_side = {}   # 商品代碼 -> (row, "call"/"put")
+        self.price_ref = {}         # (row, side) -> {"preclose":, "up":, "down":}
         self.price_last_value = {}  # (row, col) -> 最後一次收到的原始價格值，供收到參考值時重新上色
-        self.taiex_price_topic_id = None
         self.center_auto_filled = False
-        self.center_value = None  # 中心履約價，完全由 TSE 即時成交價自動算出，不給手動改
+        self.center_value = None    # 中心履約價，完全由加權指數開盤價自動算出，不給手動改
         self.strike_atm_row = None  # 目前「價平」(現貨即時價四捨五入)所在的列
-        self.strike_to_row = {}  # 履約價數值 -> 該列的 row index
+        self.strike_to_row = {}     # 履約價數值 -> 該列的 row index
 
         # 價格欄位 col -> 屬於 call 還是 put，漲跌停/漲跌顏色要分開比對
         self.col_side = {}
@@ -115,11 +93,12 @@ class MainWindow(QMainWindow):
 
         self.pump_timer = QTimer(self)
         self.pump_timer.setInterval(PUMP_INTERVAL_MS)
-        self.pump_timer.timeout.connect(self._pump_and_refresh)
+        self.pump_timer.timeout.connect(self._pump_messages)
+        self.pump_timer.start()
 
         self._build_ui()
         self._populate_expiry_list()
-        self._connect_rtd()
+        self._subscribe_taiex_open()
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
@@ -143,7 +122,7 @@ class MainWindow(QMainWindow):
         self.opening_tab = OpeningTab()
         self.tabs.addTab(self.opening_tab, "開倉")
 
-        self.status_label = QLabel("尚未連接 RTD")
+        self.status_label = QLabel("已連接群益 API，可以開始查詢/訂閱")
         root.addWidget(self.status_label)
 
     def _build_query_box(self) -> QGroupBox:
@@ -179,8 +158,8 @@ class MainWindow(QMainWindow):
         return box
 
     def _build_side_header_box(self) -> QWidget:
-        """買權(Call)/賣權(Put)分組標題列，用伸縮比例(7:1:7)對齊表格底下的
-        Call 7欄 / 履約價 1欄 / Put 7欄，不是塞進 QTableWidget 本身(表格表頭
+        """買權(Call)/賣權(Put)分組標題列，用伸縮比例(3:1:3)對齊表格底下的
+        Call 3欄 / 履約價 1欄 / Put 3欄，不是塞進 QTableWidget 本身(表格表頭
         不支援合併儲存格)。"""
         box = QWidget()
         layout = QHBoxLayout(box)
@@ -199,9 +178,9 @@ class MainWindow(QMainWindow):
         put_label.setAlignment(Qt.AlignCenter)
         put_label.setStyleSheet("background-color:#16a085; color:white; font-weight:bold; padding:4px;")
 
-        layout.addWidget(call_label, 7)
+        layout.addWidget(call_label, 3)
         layout.addWidget(self.days_label, 1)
-        layout.addWidget(put_label, 7)
+        layout.addWidget(put_label, 3)
         return box
 
     def _update_days_label(self):
@@ -218,42 +197,32 @@ class MainWindow(QMainWindow):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.cellDoubleClicked.connect(self._on_cell_double_clicked)
         return self.table
 
-    # ----------------------------------------------------------- RTD 連線
-    def _connect_rtd(self):
-        """登入後自動連接，不需要使用者按按鈕。"""
-        try:
-            self.rtd.start()
-        except Exception as exc:  # noqa: BLE001
-            self.status_label.setText(f"RTD 連接失敗: {exc}")
-            QMessageBox.critical(self, "RTD 連接失敗", str(exc))
-            return
-        self.rtd_connected = True
-        self.pump_timer.start()
-        self.status_label.setText("已連接 RTD，可以開始查詢/訂閱")
-        self._subscribe_taiex_price()
+    # ----------------------------------------------------------- 報價訂閱
+    def _subscribe_taiex_open(self):
+        self.quote_client.subscribe([TAIEX_SYMBOL])
 
-    def _subscribe_taiex_price(self):
-        if not TAIEX_INDEX_SYMBOL:
-            return
-        try:
-            topic_id, initial = self.rtd.subscribe(f"{TAIEX_INDEX_SYMBOL}.{TAIEX_PRICE_FIELD}")
-        except Exception:  # noqa: BLE001
-            return
-        self.taiex_price_topic_id = topic_id
-        self._try_apply_taiex_price(initial)
+    def _on_quote_error(self, symbol_or_action: str, message: str):
+        self.status_label.setText(f"報價查詢失敗 [{symbol_or_action}]: {message}")
 
-    def _try_apply_taiex_price(self, value):
-        if value in (None, "", "--", "#N/A"):
+    def _on_quote_connected(self):
+        self.status_label.setText("報價伺服器已連線，開始訂閱...")
+
+    def _on_quote_disconnected(self):
+        self.status_label.setText("報價伺服器斷線")
+
+    def _try_apply_taiex_open(self, data: dict):
+        price = data.get("last") or data.get("open")
+        if not price:
+            self.status_label.setText(
+                f"{TAIEX_SYMBOL} 查得到商品但成交價/開盤價目前是 0 或空值"
+                f"(可能非盤中，或代碼不對)，原始資料: {data}"
+            )
             return
-        try:
-            price = float(value)
-        except (TypeError, ValueError):
-            return
-        # 選擇權履約價是以「價格間距」為級距報價的整數(例如百位)，
-        # 指數本身(帶小數)不是有效履約價，要先取整到最近的級距倍數，
-        # 不然算出來的 Call/Put 代碼全部對不上實際合約。
+        # 選擇權履約價是以「價格間距」為級距報價的整數(例如百位)，指數
+        # 本身(帶小數)不是有效履約價，要先取整到最近的級距倍數。
         step = self.step_spin.value() or 100
         rounded = int(round(price / step) * step)
 
@@ -280,10 +249,6 @@ class MainWindow(QMainWindow):
         self._do_subscribe()
 
     def _do_subscribe(self):
-        if not self.rtd_connected:
-            self.status_label.setText("RTD 尚未連接，連上後會自動查詢")
-            return
-
         expiry = self.expiry_combo.currentData()
         if expiry is None:
             return
@@ -300,68 +265,42 @@ class MainWindow(QMainWindow):
         self._clear_subscriptions()
         self.table.setRowCount(len(strikes))
 
+        symbols = []
         for row, strike in enumerate(strikes):
             self.strike_to_row[strike] = row
             call_symbol = sym.build_symbol(expiry.product_code, strike, expiry.expiry_date, is_call=True)
             put_symbol = sym.build_symbol(expiry.product_code, strike, expiry.expiry_date, is_call=False)
+
+            self.row_meta[row] = {
+                "strike": strike,
+                "call_symbol": call_symbol,
+                "put_symbol": put_symbol,
+                "product_code": expiry.product_code,
+                "expiry_date": expiry.expiry_date,
+            }
+            self.symbol_row_side[call_symbol] = (row, "call")
+            self.symbol_row_side[put_symbol] = (row, "put")
+            symbols.append(call_symbol)
+            symbols.append(put_symbol)
 
             palette = self._palette()
             self._set_cell(row, STRIKE_COL, str(strike), QBrush(palette["strike_bg"]), bold=True)
             self._init_side(row, CALL_COLS, QBrush(palette["call_bg"]))
             self._init_side(row, PUT_COLS, QBrush(palette["put_bg"]))
 
-            for key, field in FIELD_BY_KEY.items():
-                self._subscribe_field(row, CALL_COLS[key], call_symbol, field)
-                self._subscribe_field(row, PUT_COLS[key], put_symbol, field)
+        self.quote_client.subscribe(symbols)
 
-            self._subscribe_ref(row, "call", call_symbol, "preclose", FIELD_PRECLOSE)
-            self._subscribe_ref(row, "call", call_symbol, "up", FIELD_UP_LIMIT)
-            self._subscribe_ref(row, "call", call_symbol, "down", FIELD_DOWN_LIMIT)
-            self._subscribe_ref(row, "put", put_symbol, "preclose", FIELD_PRECLOSE)
-            self._subscribe_ref(row, "put", put_symbol, "up", FIELD_UP_LIMIT)
-            self._subscribe_ref(row, "put", put_symbol, "down", FIELD_DOWN_LIMIT)
-
-        preview_call = sym.build_symbol(expiry.product_code, strikes[0], expiry.expiry_date, True)
-        preview_put = sym.build_symbol(expiry.product_code, strikes[0], expiry.expiry_date, False)
-        topics_per_row = len(FIELD_BY_KEY) * 2 + 6
         self.status_label.setText(
-            f"已訂閱 {len(strikes)} 檔履約價 (共 {len(strikes) * topics_per_row} 個 RTD topic)｜"
-            f"例如第一檔代碼: {preview_call} / {preview_put}"
+            f"已訂閱 {len(strikes)} 檔履約價 (共 {len(symbols)} 個商品)｜"
+            f"例如第一檔代碼: {symbols[0]} / {symbols[1]}"
         )
 
-    def _subscribe_field(self, row: int, col: int, symbol: str, field: str):
-        topic_str = f"{symbol}.{field}"
-        try:
-            topic_id, initial = self.rtd.subscribe(topic_str)
-        except Exception as exc:  # noqa: BLE001
-            self.status_label.setText(f"訂閱 {topic_str} 失敗: {exc}")
-            return
-        self.topic_row_col[topic_id] = (row, col)
-        if initial not in (None, "", "--"):
-            self._update_cell(row, col, initial)
-
-    def _subscribe_ref(self, row: int, side: str, symbol: str, kind: str, field: str):
-        topic_str = f"{symbol}.{field}"
-        try:
-            topic_id, initial = self.rtd.subscribe(topic_str)
-        except Exception:  # noqa: BLE001
-            return
-        self.ref_topic_info[topic_id] = (row, side, kind)
-        self._apply_ref_value(row, side, kind, initial)
-
     def _clear_subscriptions(self):
-        for topic_id in list(self.topic_row_col.keys()):
-            try:
-                self.rtd.unsubscribe(topic_id)
-            except Exception:  # noqa: BLE001
-                pass
-        self.topic_row_col.clear()
-        for topic_id in list(self.ref_topic_info.keys()):
-            try:
-                self.rtd.unsubscribe(topic_id)
-            except Exception:  # noqa: BLE001
-                pass
-        self.ref_topic_info.clear()
+        old_symbols = list(self.symbol_row_side.keys())
+        if old_symbols:
+            self.quote_client.unsubscribe(old_symbols)
+        self.row_meta.clear()
+        self.symbol_row_side.clear()
         self.price_ref.clear()
         self.price_last_value.clear()
         self.strike_atm_row = None
@@ -380,10 +319,6 @@ class MainWindow(QMainWindow):
         item = QTableWidgetItem(text)
         item.setTextAlignment(Qt.AlignCenter)
         item.setBackground(bg)
-        # 這幾欄背景是固定色(淺色模式粉紅/淺藍/淺灰，深色模式對應的深色版)，
-        # 不會被 QSS 蓋過，文字顏色要照目前主題搭配的深/淺色走，不然深色
-        # 模式下字會變成淺灰疊在(淺色模式的)淺色底上看不清楚。價格欄位
-        # 之後會被 _recolor_cell 蓋掉，這裡的顏色只是暫時的初始值。
         item.setForeground(QBrush(self._palette()["default_text"]))
         if bold:
             font = item.font()
@@ -392,48 +327,40 @@ class MainWindow(QMainWindow):
         self.table.setItem(row, col, item)
 
     # ------------------------------------------------------------- 行情更新
-    def _on_rtd_update(self):
-        # 由 RTD Server 的原生 COM callback 觸發 (透過 pump_timer 幫忙抽訊息才會送達)，
-        # 真正拉資料的動作交給 _pump_and_refresh 統一做，這裡不用做事。
-        pass
-
-    def _pump_and_refresh(self):
-        if not self.rtd_connected:
-            return
+    def _pump_messages(self):
+        """comtypes 的 COM 事件 (報價/委託回報) 靠訊息幫浦驅動，這裡定時抽
+        訊息讓 SKQuoteLib/SKReplyLib 的事件能真的被呼叫到；跟原本 RTD 版本
+        不同的是不用自己再手動 refresh 拉資料，事件本身就會直接推送。"""
         try:
             win32event.MsgWaitForMultipleObjects([], False, 0, win32event.QS_ALLINPUT)
             pythoncom.PumpWaitingMessages()
-            data = self.rtd.refresh()
         except Exception as exc:  # noqa: BLE001
-            self.status_label.setText(f"RTD 讀取失敗: {exc}")
+            self.status_label.setText(f"訊息幫浦失敗: {exc}")
             self.pump_timer.stop()
+
+    def _on_quote_updated(self, symbol: str, data: dict):
+        if symbol == TAIEX_SYMBOL:
+            self._try_apply_taiex_open(data)
             return
 
-        if not data:
+        entry = self.symbol_row_side.get(symbol)
+        if entry is None:
             return
+        row, side = entry
+        cols = CALL_COLS if side == "call" else PUT_COLS
 
-        if self.taiex_price_topic_id is not None:
-            taiex_topic_str = self.rtd.topics.get(self.taiex_price_topic_id)
-            if taiex_topic_str in data:
-                self._try_apply_taiex_price(data[taiex_topic_str])
-
-        for topic_id, topic_str in list(self.rtd.topics.items()):
-            if topic_str not in data:
+        self.price_ref[(row, side)] = {
+            "preclose": data.get("preclose"),
+            "up": data.get("up_limit"),
+            "down": data.get("down_limit"),
+        }
+        for key, col in cols.items():
+            value = data.get(key)
+            if value is None:
                 continue
-            value = data[topic_str]
-            entry = self.topic_row_col.get(topic_id)
-            if entry is not None:
-                row, col = entry
-                self._update_cell(row, col, value)
-                continue
-            ref_entry = self.ref_topic_info.get(topic_id)
-            if ref_entry is not None:
-                row, side, kind = ref_entry
-                self._apply_ref_value(row, side, kind, value)
+            self._update_cell(row, col, value)
 
     def _update_cell(self, row: int, col: int, value):
-        if value is None:
-            return
         item = self.table.item(row, col)
         if item is None:
             return
@@ -443,22 +370,6 @@ class MainWindow(QMainWindow):
         if side is not None:
             self.price_last_value[(row, col)] = value
             self._recolor_cell(row, col, value, side)
-
-    def _apply_ref_value(self, row: int, side: str, kind: str, value):
-        try:
-            v = float(value)
-        except (TypeError, ValueError):
-            return
-        self.price_ref.setdefault((row, side), {})[kind] = v
-        self._recolor_side(row, side)
-
-    def _recolor_side(self, row: int, side: str):
-        cols = CALL_COLS if side == "call" else PUT_COLS
-        for key in PRICE_KEYS:
-            col = cols[key]
-            value = self.price_last_value.get((row, col))
-            if value is not None:
-                self._recolor_cell(row, col, value, side)
 
     def _recolor_cell(self, row: int, col: int, value, side: str):
         palette = self._palette()
@@ -545,6 +456,38 @@ class MainWindow(QMainWindow):
 
         self.strike_atm_row = target_row
 
+    # --------------------------------------------------------------- 下單
+    def _on_cell_double_clicked(self, row: int, col: int):
+        meta = self.row_meta.get(row)
+        if meta is None:
+            return
+        if col in CALL_COLS.values():
+            is_call = True
+        elif col in PUT_COLS.values():
+            is_call = False
+        else:
+            return  # 履約價欄位本身不觸發下單
+
+        call_bid = self.price_last_value.get((row, CALL_COLS["bid"]), 0.0) or 0.0
+        call_ask = self.price_last_value.get((row, CALL_COLS["ask"]), 0.0) or 0.0
+        put_bid = self.price_last_value.get((row, PUT_COLS["bid"]), 0.0) or 0.0
+        put_ask = self.price_last_value.get((row, PUT_COLS["ask"]), 0.0) or 0.0
+
+        dialog = OrderDialog(
+            self.order_client,
+            meta["product_code"],
+            meta["expiry_date"],
+            meta["strike"],
+            is_call,
+            float(call_bid),
+            float(call_ask),
+            float(put_bid),
+            float(put_ask),
+            self.step_spin.value(),
+            parent=self,
+        )
+        dialog.exec_()
+
     @staticmethod
     def _fmt(value) -> str:
         if isinstance(value, float):
@@ -556,6 +499,4 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         self.pump_timer.stop()
         self._clear_subscriptions()
-        if self.rtd_connected:
-            self.rtd.stop()
         super().closeEvent(event)

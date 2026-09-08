@@ -10,7 +10,7 @@ from typing import Optional, Tuple
 
 from app.paths import PROJECT_ROOT
 
-CRED_FILE = PROJECT_ROOT / ".kgi_credentials.bin"
+CRED_FILE = PROJECT_ROOT / ".capital_credentials.bin"
 
 
 class _DATA_BLOB(ctypes.Structure):
