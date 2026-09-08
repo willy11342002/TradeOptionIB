@@ -15,16 +15,29 @@ from app.models.rtd_client import RTDClient
 from app.services import theme
 from app.views.opening_tab import OpeningTab
 
-CALL_BG = QBrush(QColor("#fff2f2"))
-PUT_BG = QBrush(QColor("#f0f7ff"))
-STRIKE_BG = QBrush(QColor("#eeeeee"))
-PRICE_BG = QBrush(QColor("white"))
+# 表格底色跟著淺色/深色模式切換；漲跌紅綠字、漲跌停紅綠底白字這些「語意」
+# 顏色兩個主題共用，不受影響。
+PALETTES = {
+    "light": {
+        "call_bg": QColor("#fff2f2"),
+        "put_bg": QColor("#f0f7ff"),
+        "strike_bg": QColor("#eeeeee"),
+        "price_bg": QColor("#ffffff"),
+        "default_text": QColor("black"),
+    },
+    "dark": {
+        "call_bg": QColor("#4a2c2c"),
+        "put_bg": QColor("#1f3444"),
+        "strike_bg": QColor("#3a3a3a"),
+        "price_bg": QColor("#1e1e1e"),
+        "default_text": QColor("#e0e0e0"),
+    },
+}
 
-COLOR_UP_TEXT = QColor("#cc0000")       # 上漲：白底紅字
-COLOR_DOWN_TEXT = QColor("#008000")     # 下跌：白底綠字
+COLOR_UP_TEXT = QColor("#e05050")       # 上漲：紅字 (淺色模式白底/深色模式深底都夠亮)
+COLOR_DOWN_TEXT = QColor("#3ecf6e")     # 下跌：綠字
 COLOR_LIMIT_UP_BG = QColor("#cc0000")   # 漲停：紅底白字
 COLOR_LIMIT_DOWN_BG = QColor("#008000")  # 跌停：綠底白字
-COLOR_DEFAULT_TEXT = QColor("black")
 COLOR_WHITE_TEXT = QColor("white")
 
 COLUMNS = [
@@ -109,7 +122,9 @@ class MainWindow(QMainWindow):
         root = QVBoxLayout(central)
 
         self.tabs = QTabWidget()
-        self.tabs.setCornerWidget(theme.make_theme_toggle(self), Qt.TopRightCorner)
+        self.theme_toggle = theme.make_theme_toggle(self)
+        self.theme_toggle.toggled.connect(lambda _checked: self._apply_table_theme())
+        self.tabs.setCornerWidget(self.theme_toggle, Qt.TopRightCorner)
         root.addWidget(self.tabs)
 
         option_tab = QWidget()
@@ -277,9 +292,10 @@ class MainWindow(QMainWindow):
             call_symbol = sym.build_symbol(expiry.product_code, strike, expiry.expiry_date, is_call=True)
             put_symbol = sym.build_symbol(expiry.product_code, strike, expiry.expiry_date, is_call=False)
 
-            self._set_cell(row, STRIKE_COL, str(strike), STRIKE_BG, bold=True)
-            self._init_side(row, CALL_COLS, CALL_BG)
-            self._init_side(row, PUT_COLS, PUT_BG)
+            palette = self._palette()
+            self._set_cell(row, STRIKE_COL, str(strike), QBrush(palette["strike_bg"]), bold=True)
+            self._init_side(row, CALL_COLS, QBrush(palette["call_bg"]))
+            self._init_side(row, PUT_COLS, QBrush(palette["put_bg"]))
 
             for key, field in FIELD_BY_KEY.items():
                 self._subscribe_field(row, CALL_COLS[key], call_symbol, field)
@@ -336,20 +352,24 @@ class MainWindow(QMainWindow):
         self.price_ref.clear()
         self.price_last_value.clear()
 
+    def _palette(self) -> dict:
+        return PALETTES["dark" if theme.load_theme() == "dark" else "light"]
+
     def _init_side(self, row: int, cols: dict, bg: QBrush):
+        price_bg = QBrush(self._palette()["price_bg"])
         for key, col in cols.items():
-            cell_bg = PRICE_BG if key in PRICE_KEYS else bg
+            cell_bg = price_bg if key in PRICE_KEYS else bg
             self._set_cell(row, col, "", cell_bg)
 
     def _set_cell(self, row: int, col: int, text: str, bg: QBrush, bold: bool = False):
         item = QTableWidgetItem(text)
         item.setTextAlignment(Qt.AlignCenter)
         item.setBackground(bg)
-        # 這幾欄背景是固定的淺色(粉紅/淺藍/淺灰)，不會跟著深色模式變深，
-        # 文字顏色也要固定用深色，不然深色模式下字會變成淺灰、疊在淺色
-        # 底上完全看不清楚。價格欄位之後會被 _recolor_cell 蓋掉，這裡的
-        # 顏色只是暫時的初始值。
-        item.setForeground(QBrush(COLOR_DEFAULT_TEXT))
+        # 這幾欄背景是固定色(淺色模式粉紅/淺藍/淺灰，深色模式對應的深色版)，
+        # 不會被 QSS 蓋過，文字顏色要照目前主題搭配的深/淺色走，不然深色
+        # 模式下字會變成淺灰疊在(淺色模式的)淺色底上看不清楚。價格欄位
+        # 之後會被 _recolor_cell 蓋掉，這裡的顏色只是暫時的初始值。
+        item.setForeground(QBrush(self._palette()["default_text"]))
         if bold:
             font = item.font()
             font.setBold(True)
@@ -426,10 +446,11 @@ class MainWindow(QMainWindow):
                 self._recolor_cell(row, col, value, side)
 
     def _recolor_cell(self, row: int, col: int, value, side: str):
+        palette = self._palette()
         try:
             v = float(value)
         except (TypeError, ValueError):
-            self._paint_cell(row, col, PRICE_BG.color(), COLOR_DEFAULT_TEXT)
+            self._paint_cell(row, col, palette["price_bg"], palette["default_text"])
             return
 
         ref = self.price_ref.get((row, side), {})
@@ -445,12 +466,12 @@ class MainWindow(QMainWindow):
             return
         if preclose is not None:
             if v > preclose:
-                self._paint_cell(row, col, PRICE_BG.color(), COLOR_UP_TEXT)
+                self._paint_cell(row, col, palette["price_bg"], COLOR_UP_TEXT)
                 return
             if v < preclose:
-                self._paint_cell(row, col, PRICE_BG.color(), COLOR_DOWN_TEXT)
+                self._paint_cell(row, col, palette["price_bg"], COLOR_DOWN_TEXT)
                 return
-        self._paint_cell(row, col, PRICE_BG.color(), COLOR_DEFAULT_TEXT)
+        self._paint_cell(row, col, palette["price_bg"], palette["default_text"])
 
     def _paint_cell(self, row: int, col: int, bg: QColor, fg: QColor):
         item = self.table.item(row, col)
@@ -458,6 +479,31 @@ class MainWindow(QMainWindow):
             return
         item.setBackground(QBrush(bg))
         item.setForeground(QBrush(fg))
+
+    def _apply_table_theme(self):
+        """深色/淺色模式切換時，把表格裡已經存在的儲存格重新上色一次，
+        新查詢的話 _do_subscribe 本來就會用目前主題的顏色，這裡是處理
+        「查詢完之後才切換主題」的情況。"""
+        palette = self._palette()
+        for row in range(self.table.rowCount()):
+            strike_item = self.table.item(row, STRIKE_COL)
+            if strike_item is not None:
+                strike_item.setBackground(QBrush(palette["strike_bg"]))
+                strike_item.setForeground(QBrush(palette["default_text"]))
+            for side, cols in (("call", CALL_COLS), ("put", PUT_COLS)):
+                side_bg = palette["call_bg"] if side == "call" else palette["put_bg"]
+                for key, col in cols.items():
+                    if key in PRICE_KEYS:
+                        value = self.price_last_value.get((row, col))
+                        if value is not None:
+                            self._recolor_cell(row, col, value, side)
+                        else:
+                            self._paint_cell(row, col, palette["price_bg"], palette["default_text"])
+                    else:
+                        item = self.table.item(row, col)
+                        if item is not None:
+                            item.setBackground(QBrush(side_bg))
+                            item.setForeground(QBrush(palette["default_text"]))
 
     @staticmethod
     def _fmt(value) -> str:
