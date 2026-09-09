@@ -5,8 +5,8 @@ import win32event
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
     QComboBox, QSpinBox, QLabel, QTableWidget,
-    QTableWidgetItem, QGroupBox, QHeaderView, QTabWidget, QPushButton,
-    QMessageBox,
+    QTableWidgetItem, QGroupBox, QHeaderView, QPushButton,
+    QMessageBox, QToolBar, QDockWidget, QInputDialog,
 )
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor, QBrush
@@ -16,10 +16,10 @@ from app.models.capital_client import CapitalClient
 from app.models.capital_order_client import CapitalOrderClient
 from app.models.capital_quote_client import CapitalQuoteClient
 from app.models.order_book import OrderBookManager
-from app.services import black_scholes, theme
+from app.services import black_scholes, layout_store, theme
 from app.views.opening_tab import OpeningTab
-from app.views.order_book_window import OrderBookWindow
-from app.views.order_dialog import OrderDialog
+from app.views.order_book_widgets import FillReportWidget, OrderBookWidget
+from app.views.order_entry_widget import OrderEntryWidget
 
 # 表格底色跟著淺色/深色模式切換；漲跌紅綠字、漲跌停紅綠底白字這些「語意」
 # 顏色兩個主題共用，不受影響。
@@ -93,7 +93,6 @@ class MainWindow(QMainWindow):
         # 使用者剛好開著那個視窗才看得到——接在 MainWindow 上，不管下單
         # 匣視窗有沒有開過都會跳。
         self.order_book_manager.record_rejected.connect(self._on_order_rejected)
-        self.order_book_window = None  # 單例，開過一次就重複使用同一個視窗
 
         self.row_meta = {}          # row -> {"strike":, "call_symbol":, "put_symbol":}
         self.symbol_row_side = {}   # 商品代碼 -> (row, "call"/"put")
@@ -122,40 +121,172 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
-        central = QWidget()
-        self.setCentralWidget(central)
-        root = QVBoxLayout(central)
+        # 不設 central widget：整個視窗讓給 dock 區域，T字報價/開倉/下單/
+        # 下單匣/成交回報全部是 QDockWidget，使用者自己拖動排列、拉出去
+        # 變獨立視窗，或用「視窗」選單重新叫回來。
+        self.setDockNestingEnabled(True)
+        self._build_toolbar()
+        self._build_docks()
+        self.status_label = QLabel("已連接群益 API，可以開始查詢/訂閱")
+        self.statusBar().addWidget(self.status_label, 1)
 
-        self.tabs = QTabWidget()
+        # 先記住「剛排好的預設版面」，「重設為預設版面」按鈕才有東西可還原；
+        # 之後才套用上次使用者自己存過的版面 (如果有的話)。
+        self._default_geometry = self.saveGeometry()
+        self._default_state = self.saveState()
+        self._restore_last_layout()
+
+    def _build_toolbar(self):
+        toolbar = QToolBar("工具列", self)
+        toolbar.setMovable(False)
+        self.addToolBar(toolbar)
+
         self.theme_toggle = theme.make_theme_toggle(self)
         self.theme_toggle.toggled.connect(lambda _checked: self._apply_table_theme())
-        self.tabs.setCornerWidget(self.theme_toggle, Qt.TopRightCorner)
-        root.addWidget(self.tabs)
+        toolbar.addWidget(self.theme_toggle)
+        toolbar.addSeparator()
 
-        option_tab = QWidget()
-        option_layout = QVBoxLayout(option_tab)
-        option_layout.addWidget(self._build_query_box())
-        option_layout.addWidget(self._build_side_header_box())
-        option_layout.addWidget(self._build_table())
-        self.tabs.addTab(option_tab, "選擇權報價")
+        toolbar.addWidget(QLabel(" 版面配置："))
+        self.layout_combo = QComboBox()
+        self.layout_combo.setMinimumWidth(140)
+        toolbar.addWidget(self.layout_combo)
+
+        apply_btn = QPushButton("套用")
+        apply_btn.clicked.connect(self._on_apply_layout)
+        toolbar.addWidget(apply_btn)
+
+        save_btn = QPushButton("儲存目前版面...")
+        save_btn.clicked.connect(self._on_save_layout)
+        toolbar.addWidget(save_btn)
+
+        delete_btn = QPushButton("刪除版面")
+        delete_btn.clicked.connect(self._on_delete_layout)
+        toolbar.addWidget(delete_btn)
+
+        reset_btn = QPushButton("重設為預設版面")
+        reset_btn.clicked.connect(self._on_reset_layout)
+        toolbar.addWidget(reset_btn)
+
+        self._reload_layout_combo()
+
+    def _build_docks(self):
+        self.quote_dock = self._make_dock("dock_quote", "T 字報價", self._build_option_quote_widget())
 
         self.opening_tab = OpeningTab()
-        self.tabs.addTab(self.opening_tab, "開倉")
+        self.opening_dock = self._make_dock("dock_opening", "開倉", self.opening_tab)
 
-        bottom_row = QHBoxLayout()
-        self.status_label = QLabel("已連接群益 API，可以開始查詢/訂閱")
-        bottom_row.addWidget(self.status_label, 1)
-        order_book_btn = QPushButton("下單匣 / 成交回報")
-        order_book_btn.clicked.connect(self._open_order_book_window)
-        bottom_row.addWidget(order_book_btn)
-        root.addLayout(bottom_row)
+        self.order_entry_widget = OrderEntryWidget(self.order_book_manager)
+        self.order_entry_dock = self._make_dock("dock_order_entry", "下單", self.order_entry_widget)
 
-    def _open_order_book_window(self):
-        if self.order_book_window is None:
-            self.order_book_window = OrderBookWindow(self.order_book_manager, parent=self)
-        self.order_book_window.show()
-        self.order_book_window.raise_()
-        self.order_book_window.activateWindow()
+        self.order_book_widget = OrderBookWidget(self.order_book_manager)
+        self.order_book_dock = self._make_dock("dock_order_book", "下單匣", self.order_book_widget)
+
+        self.fill_report_widget = FillReportWidget(self.order_book_manager)
+        self.fill_report_dock = self._make_dock("dock_fill_report", "成交回報", self.fill_report_widget)
+
+        # 預設版面：T字報價/開倉分頁在左邊(跟改版前的 QTabWidget 分頁習慣
+        # 一致)，下單/下單匣/成交回報疊在右邊；使用者可以再自己拖動調整，
+        # 這只是初次啟動、還沒存過版面時的起點。
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.quote_dock)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.opening_dock)
+        self.tabifyDockWidget(self.quote_dock, self.opening_dock)
+        self.quote_dock.raise_()
+
+        self.addDockWidget(Qt.RightDockWidgetArea, self.order_entry_dock)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.order_book_dock)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.fill_report_dock)
+        self.tabifyDockWidget(self.order_book_dock, self.fill_report_dock)
+        self.order_book_dock.raise_()
+
+        self.resizeDocks([self.quote_dock, self.order_entry_dock], [650, 350], Qt.Horizontal)
+
+        view_menu = self.menuBar().addMenu("視窗")
+        for dock in (
+            self.quote_dock, self.opening_dock, self.order_entry_dock,
+            self.order_book_dock, self.fill_report_dock,
+        ):
+            view_menu.addAction(dock.toggleViewAction())
+
+    def _make_dock(self, object_name: str, title: str, widget: QWidget) -> QDockWidget:
+        dock = QDockWidget(title, self)
+        dock.setObjectName(object_name)  # saveState() 靠 objectName 認回每個 dock，一定要設
+        dock.setWidget(widget)
+        dock.setFeatures(
+            QDockWidget.DockWidgetMovable | QDockWidget.DockWidgetFloatable | QDockWidget.DockWidgetClosable
+        )
+        return dock
+
+    def _build_option_quote_widget(self) -> QWidget:
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.addWidget(self._build_query_box())
+        layout.addWidget(self._build_side_header_box())
+        layout.addWidget(self._build_table())
+        return widget
+
+    # ------------------------------------------------------------ 版面配置
+    def _reload_layout_combo(self):
+        current = self.layout_combo.currentText()
+        names = layout_store.list_layouts()
+        self.layout_combo.clear()
+        self.layout_combo.addItems(names)
+        if current in names:
+            self.layout_combo.setCurrentText(current)
+
+    def _on_apply_layout(self):
+        name = self.layout_combo.currentText()
+        if not name:
+            return
+        result = layout_store.load_layout(name)
+        if result is None:
+            QMessageBox.warning(self, "套用版面失敗", f"找不到版面「{name}」")
+            return
+        geometry, state = result
+        self.restoreGeometry(geometry)
+        self.restoreState(state)
+        layout_store.set_last_layout_name(name)
+        self.status_label.setText(f"已套用版面「{name}」")
+
+    def _on_save_layout(self):
+        name, ok = QInputDialog.getText(self, "儲存版面", "版面名稱", text=self.layout_combo.currentText() or "預設")
+        name = name.strip() if ok else ""
+        if not name:
+            return
+        layout_store.save_layout(name, bytes(self.saveGeometry()), bytes(self.saveState()))
+        self._reload_layout_combo()
+        self.layout_combo.setCurrentText(name)
+        self.status_label.setText(f"已儲存版面「{name}」")
+
+    def _on_delete_layout(self):
+        name = self.layout_combo.currentText()
+        if not name:
+            return
+        confirm = QMessageBox.question(
+            self, "刪除版面", f"確定要刪除版面「{name}」嗎？",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+        )
+        if confirm != QMessageBox.Yes:
+            return
+        layout_store.delete_layout(name)
+        self._reload_layout_combo()
+        self.status_label.setText(f"已刪除版面「{name}」")
+
+    def _on_reset_layout(self):
+        self.restoreGeometry(self._default_geometry)
+        self.restoreState(self._default_state)
+        self.status_label.setText("已重設為預設版面")
+
+    def _restore_last_layout(self):
+        name = layout_store.get_last_layout_name()
+        if not name:
+            return
+        result = layout_store.load_layout(name)
+        if result is None:
+            return
+        geometry, state = result
+        self.restoreGeometry(geometry)
+        self.restoreState(state)
+        self.layout_combo.setCurrentText(name)
 
     def _on_order_rejected(self, label: str, error_msg: str):
         QMessageBox.critical(self, "委託失敗", f"{label}\n\n{error_msg}")
@@ -569,8 +700,7 @@ class MainWindow(QMainWindow):
         put_bid = self.price_last_value.get((row, PUT_COLS["bid"]), 0.0) or 0.0
         put_ask = self.price_last_value.get((row, PUT_COLS["ask"]), 0.0) or 0.0
 
-        dialog = OrderDialog(
-            self.order_book_manager,
+        self.order_entry_widget.set_context(
             meta["product_code"],
             meta["expiry_date"],
             meta["strike"],
@@ -580,9 +710,11 @@ class MainWindow(QMainWindow):
             float(put_bid),
             float(put_ask),
             self.step_spin.value(),
-            parent=self,
         )
-        dialog.exec_()
+        # 下單面板是常駐的 dock，不是彈出視窗：確保它是可見/最上層的，
+        # 不然使用者雙擊了報價卻看不到面板換了商品。
+        self.order_entry_dock.setVisible(True)
+        self.order_entry_dock.raise_()
 
     @staticmethod
     def _fmt(value) -> str:

@@ -1,8 +1,8 @@
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QTabWidget, QTableWidget,
+    QVBoxLayout, QHBoxLayout, QTableWidget,
     QTableWidgetItem, QWidget, QPushButton, QLabel, QHeaderView,
-    QComboBox, QSpinBox, QInputDialog, QMessageBox, QGroupBox, QFormLayout,
+    QComboBox, QSpinBox, QInputDialog, QGroupBox,
 )
 
 from app.models.order_book import (
@@ -37,33 +37,47 @@ _BOX_COLUMNS = ["商品", "方向", "價格", "口數", "委託條件", "狀態"
 _FILL_COLUMNS = ["商品", "方向", "成交價", "成交量", "時間"]
 
 
-class OrderBookWindow(QDialog):
-    """下單匣／成交回報。獨立彈窗，跟主視窗共用同一個 OrderBookManager，
-    所以就算關掉這個視窗，連續IOC 重送迴圈還是繼續在背景跑 (manager 活
-    在 MainWindow 上，比這個視窗長命)。"""
+def _direction_text(record) -> str:
+    # 複式單的 legs[0] 是依期交所編碼規則(履約價高低)排的，不是「買方
+    # /賣方」那個語意，一定要看 net_buyer，不能看 legs[0].buy——這正
+    # 是先前「下賣方價差顯示成買方」那個 bug 的成因，legs 重新排序後
+    # 用 legs[0].buy 判斷方向的寫法都要避免。
+    if record.kind == "duplex":
+        return "買方" if record.net_buyer else "賣方"
+    return "買進" if record.legs[0].buy else "賣出"
+
+
+def _set_cell(table: QTableWidget, row: int, col: int, text: str):
+    item = QTableWidgetItem(text)
+    item.setTextAlignment(Qt.AlignCenter)
+    table.setItem(row, col, item)
+
+
+def _build_table(columns) -> QTableWidget:
+    table = QTableWidget(0, len(columns))
+    table.setHorizontalHeaderLabels(columns)
+    table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+    table.verticalHeader().setVisible(False)
+    table.setEditTriggers(QTableWidget.NoEditTriggers)
+    return table
+
+
+class OrderBookWidget(QWidget):
+    """下單匣：委託頻率保護設定 + 尚未成交的委託表格 (待送出/掛單中/
+    連續送單中/已暫停/失敗/已取消)。跟 FillReportWidget 共用同一個
+    OrderBookManager，各自是獨立的 dock widget 內容，可以分開擺放。"""
 
     def __init__(self, manager: OrderBookManager, parent=None):
         super().__init__(parent)
         self._manager = manager
-        # 預設的 QDialog 沒有工作列圖示、也沒有最小化按鈕，縮小之後很難
-        # 找回來；改成獨立的頂層視窗 (有最小化/最大化按鈕+工作列圖示)。
-        self.setWindowFlags(Qt.Window)
-        self.setWindowTitle("下單匣 / 成交回報")
-        self.resize(900, 500)
-        self.setMinimumSize(600, 300)  # 避免被拖到看不見/量不到內容的尺寸
-
         self._manager.records_changed.connect(self._refresh)
         self._manager.order_book_error.connect(self._on_error)
 
         layout = QVBoxLayout(self)
         layout.addWidget(self._build_safety_box())
 
-        self.tabs = QTabWidget()
-        self.box_table = self._build_table(_BOX_COLUMNS)
-        self.fill_table = self._build_table(_FILL_COLUMNS)
-        self.tabs.addTab(self.box_table, "下單匣")
-        self.tabs.addTab(self.fill_table, "成交回報")
-        layout.addWidget(self.tabs)
+        self.table = _build_table(_BOX_COLUMNS)
+        layout.addWidget(self.table)
 
         # 查詢既有委託的原始字串可能很長，單行 QLabel 不換行的話會硬把
         # 整個視窗撐寬；開自動換行，長度也砍短，不讓內容決定視窗尺寸。
@@ -72,8 +86,8 @@ class OrderBookWindow(QDialog):
         layout.addWidget(self.status_label)
 
         self._refresh()
-        # 開窗當下先讓視窗畫出來，下一輪事件圈再做阻塞式查詢，不要卡在
-        # 建構子裡讓整個視窗連畫都畫不出來。
+        # 開窗當下先讓畫面畫出來，下一輪事件圈再做阻塞式查詢，不要卡在
+        # 建構子裡讓整個畫面連畫都畫不出來。
         QTimer.singleShot(0, self._fetch_existing_orders)
 
     def _build_safety_box(self) -> QGroupBox:
@@ -111,14 +125,6 @@ class OrderBookWindow(QDialog):
         layout.addWidget(unlock_btn)
         layout.addWidget(refresh_btn)
         return box
-
-    def _build_table(self, columns) -> QTableWidget:
-        table = QTableWidget(0, len(columns))
-        table.setHorizontalHeaderLabels(columns)
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        table.verticalHeader().setVisible(False)
-        table.setEditTriggers(QTableWidget.NoEditTriggers)
-        return table
 
     # ------------------------------------------------------------- 頻率保護
     def _selected_market_type(self) -> int:
@@ -158,27 +164,17 @@ class OrderBookWindow(QDialog):
     def _on_error(self, message: str):
         self.status_label.setText(f"操作失敗：{message}")
 
-    def _direction_text(self, record) -> str:
-        # 複式單的 legs[0] 是依期交所編碼規則(履約價高低)排的，不是「買方
-        # /賣方」那個語意，一定要看 net_buyer，不能看 legs[0].buy——這正
-        # 是先前「下賣方價差顯示成買方」那個 bug 的成因，legs 重新排序後
-        # 用 legs[0].buy 判斷方向的寫法都要避免。
-        if record.kind == "duplex":
-            return "買方" if record.net_buyer else "賣方"
-        return "買進" if record.legs[0].buy else "賣出"
-
     # ------------------------------------------------------------- 表格重繪
     def _refresh(self):
         box_records = [r for r in self._manager.records if r.status not in (STATUS_FILLED,)]
-        fill_records = [r for r in self._manager.records if r.status == STATUS_FILLED]
 
-        self.box_table.setRowCount(len(box_records))
+        self.table.setRowCount(len(box_records))
         for row, record in enumerate(box_records):
-            self._set_cell(self.box_table, row, 0, record.label())
-            self._set_cell(self.box_table, row, 1, self._direction_text(record))
-            self._set_cell(self.box_table, row, 2, f"{record.price:g}")
-            self._set_cell(self.box_table, row, 3, str(record.qty))
-            self._set_cell(self.box_table, row, 4, _TIF_LABELS.get(record.tif, str(record.tif)))
+            _set_cell(self.table, row, 0, record.label())
+            _set_cell(self.table, row, 1, _direction_text(record))
+            _set_cell(self.table, row, 2, f"{record.price:g}")
+            _set_cell(self.table, row, 3, str(record.qty))
+            _set_cell(self.table, row, 4, _TIF_LABELS.get(record.tif, str(record.tif)))
             if record.status == STATUS_LIVE and record.tif != TIF_ROD:
                 # IOC/FOK 送出後瞬間成交或死亡，不可能「掛單中」(那是 ROD
                 # 掛單才有的狀態)；卡在這裡代表回報沒配對到，用不同字樣
@@ -188,23 +184,9 @@ class OrderBookWindow(QDialog):
                 status_text = _STATUS_LABELS.get(record.status, record.status)
             if record.status == STATUS_REJECTED and record.error_msg:
                 status_text += f" ({record.error_msg})"
-            self._set_cell(self.box_table, row, 5, status_text)
-            self._set_cell(self.box_table, row, 6, str(record.retry_count) if record.auto_retry else "")
-            self.box_table.setCellWidget(row, 7, self._build_actions_widget(record))
-
-        self.fill_table.setRowCount(len(fill_records))
-        for row, record in enumerate(fill_records):
-            self._set_cell(self.fill_table, row, 0, record.label())
-            self._set_cell(self.fill_table, row, 1, self._direction_text(record))
-            self._set_cell(self.fill_table, row, 2, str(record.fill_price or ""))
-            self._set_cell(self.fill_table, row, 3, str(record.fill_qty or ""))
-            report = record.last_report or {}
-            self._set_cell(self.fill_table, row, 4, f"{report.get('date', '')} {report.get('time', '')}")
-
-    def _set_cell(self, table: QTableWidget, row: int, col: int, text: str):
-        item = QTableWidgetItem(text)
-        item.setTextAlignment(Qt.AlignCenter)
-        table.setItem(row, col, item)
+            _set_cell(self.table, row, 5, status_text)
+            _set_cell(self.table, row, 6, str(record.retry_count) if record.auto_retry else "")
+            self.table.setCellWidget(row, 7, self._build_actions_widget(record))
 
     def _build_actions_widget(self, record) -> QWidget:
         widget = QWidget()
@@ -260,3 +242,31 @@ class OrderBookWindow(QDialog):
         qty, ok = QInputDialog.getInt(self, "減量", "要減少的口數 (只能減不能加)", 1, 1, max_decrease)
         if ok:
             self._manager.amend_qty(record_id, qty)
+
+
+class FillReportWidget(QWidget):
+    """成交回報：唯讀表格，跟 OrderBookWidget 共用同一個 OrderBookManager
+    的 records_changed 訊號，各自是獨立的 dock widget 內容。"""
+
+    def __init__(self, manager: OrderBookManager, parent=None):
+        super().__init__(parent)
+        self._manager = manager
+        self._manager.records_changed.connect(self._refresh)
+
+        layout = QVBoxLayout(self)
+        self.table = _build_table(_FILL_COLUMNS)
+        layout.addWidget(self.table)
+
+        self._refresh()
+
+    def _refresh(self):
+        fill_records = [r for r in self._manager.records if r.status == STATUS_FILLED]
+
+        self.table.setRowCount(len(fill_records))
+        for row, record in enumerate(fill_records):
+            _set_cell(self.table, row, 0, record.label())
+            _set_cell(self.table, row, 1, _direction_text(record))
+            _set_cell(self.table, row, 2, str(record.fill_price or ""))
+            _set_cell(self.table, row, 3, str(record.fill_qty or ""))
+            report = record.last_report or {}
+            _set_cell(self.table, row, 4, f"{report.get('date', '')} {report.get('time', '')}")

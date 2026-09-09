@@ -154,7 +154,7 @@ class OrderBookManager(QObject):
         if tif not in (TIF_IOC, TIF_FOK):
             raise ValueError("價差複式單只能用 IOC 或 FOK")
         # symbol1/buy1 已經依期交所編碼規則(履約價高低)排好順序，跟「整
-        # 體是買方還是賣方」是兩回事，呼叫端(order_dialog.py)一定要明確
+        # 體是買方還是賣方」是兩回事，呼叫端(order_entry_widget.py)一定要明確
         # 傳 net_buyer，不能靠 buy1 反推——沒傳的話退回舊行為(等於 buy1)
         # 只是保底，不應該被依賴。
         record = OrderRecord(

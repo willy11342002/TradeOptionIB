@@ -27,6 +27,9 @@ errMsg.ini
 # 本機使用者偏好設定 (深色模式等)
 .theme_pref.json
 
+# 本機 dock 版面配置存檔 (視窗幾何座標，機器相依)
+.layout_pref.json
+
 # API 金鑰設定，不進版控 (參考 .env.example 填自己的 key)
 .env
 

@@ -1,8 +1,8 @@
 import datetime
 
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QFormLayout, QComboBox, QDoubleSpinBox,
-    QSpinBox, QLabel, QPushButton, QTabWidget, QWidget, QCheckBox,
+    QWidget, QVBoxLayout, QFormLayout, QComboBox, QDoubleSpinBox,
+    QSpinBox, QLabel, QPushButton, QTabWidget, QCheckBox,
     QMessageBox,
 )
 
@@ -16,17 +16,52 @@ _TIF_LABELS = {"ROD": TIF_ROD, "IOC": TIF_IOC, "FOK": TIF_FOK}
 _NEW_CLOSE_LABELS = {"新倉": NEW_POSITION, "平倉": CLOSE_POSITION}
 _SPREAD_POINT_CHOICES = ["50", "100", "150", "200"]
 
+NO_CONTEXT_TEXT = "尚未選擇履約價 (雙擊 T 字報價任一買價/賣價格開始下單)"
 
-class OrderDialog(QDialog):
-    """雙擊 T 字報價任一 Call/Put 價格格時跳出的下單視窗，兩個分頁：
+
+class OrderEntryWidget(QWidget):
+    """雙擊 T 字報價任一 Call/Put 價格格時要用的下單面板，兩個分頁：
     裸買賣 (單一商品) 跟 價差單 (群益原生複式單 SendDuplexOrder)。
 
-    按「送出」不會直接打到交易所，只是把這筆委託送進下單匣 (staged)，
-    真正送出/暫停/改條件/刪除都在下單匣視窗做，這裡按完就直接關窗。"""
+    這是常駐的 dock widget 內容，不是彈出式 QDialog：UI 只建一次，雙擊
+    不同的履約價時呼叫 set_context() 換掉目前鎖定的商品，不會重新開窗。
 
-    def __init__(
+    按「送出」不會直接打到交易所，只是把這筆委託送進下單匣 (staged)，
+    真正送出/暫停/改條件/刪除都在下單匣視窗做。"""
+
+    def __init__(self, order_book_manager: OrderBookManager, parent=None):
+        super().__init__(parent)
+        self._manager = order_book_manager
+        self._product_code = None
+        self._expiry_date = None
+        self._strike = None
+        self._is_call = None
+        self._call_symbol = None
+        self._put_symbol = None
+        self._market_bid = None
+        self._market_ask = None
+        self._strike_step = 100
+
+        self.title_label = QLabel(NO_CONTEXT_TEXT)
+        self.title_label.setWordWrap(True)
+
+        self.tabs = QTabWidget()
+        self.tabs.addTab(self._build_outright_tab(), "裸買賣")
+        self.tabs.addTab(self._build_duplex_tab(), "價差單")
+        self.tabs.setEnabled(False)  # 還沒雙擊選過履約價之前不能下單
+
+        self.status_label = QLabel("")
+        self.status_label.setWordWrap(True)
+
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.title_label)
+        layout.addWidget(self.tabs)
+        layout.addWidget(self.status_label)
+        layout.addStretch()
+
+    # ------------------------------------------------------------ 換商品
+    def set_context(
         self,
-        order_book_manager: OrderBookManager,
         product_code: str,
         expiry_date: datetime.date,
         strike: float,
@@ -36,37 +71,40 @@ class OrderDialog(QDialog):
         put_bid: float,
         put_ask: float,
         strike_step: int,
-        parent=None,
-    ):
-        super().__init__(parent)
-        self._manager = order_book_manager
+    ) -> None:
         self._product_code = product_code
         self._expiry_date = expiry_date
         self._strike = strike
         self._is_call = is_call
         self._call_symbol = sym.build_symbol(product_code, strike, expiry_date, True)
         self._put_symbol = sym.build_symbol(product_code, strike, expiry_date, False)
+        self._strike_step = strike_step
+        self._market_bid = call_bid if is_call else put_bid
+        self._market_ask = call_ask if is_call else put_ask
+
         leg1_symbol = self._call_symbol if is_call else self._put_symbol
+        self.title_label.setText(f"{leg1_symbol} ({'Call' if is_call else 'Put'} {strike:g})")
+        self.symbol_label.setText(leg1_symbol)
+        self.status_label.setText("")
+        self.tabs.setEnabled(True)
 
-        self.setWindowTitle(f"下單 - {leg1_symbol} ({'Call' if is_call else 'Put'} {strike:g})")
-        self.setMinimumWidth(380)
+        self._on_outright_side_changed(self.out_side_combo.currentIndex())
 
-        tabs = QTabWidget()
-        tabs.addTab(self._build_outright_tab(leg1_symbol, call_bid, call_ask, put_bid, put_ask), "裸買賣")
-        tabs.addTab(self._build_duplex_tab(strike_step), "價差單")
+        self.spread_cp_combo.setCurrentText("買權" if is_call else "賣權")
+        default_points = str(strike_step) if str(strike_step) in _SPREAD_POINT_CHOICES else "100"
+        self.spread_points_combo.setCurrentText(default_points)
 
-        layout = QVBoxLayout(self)
-        layout.addWidget(tabs)
+    def _has_context(self) -> bool:
+        return self._product_code is not None
 
     # ---------------------------------------------------------------- 裸買賣
-    def _build_outright_tab(self, leg1_symbol: str, call_bid, call_ask, put_bid, put_ask) -> QWidget:
+    def _build_outright_tab(self) -> QWidget:
         tab = QWidget()
         form = QFormLayout(tab)
 
-        self._market_bid = call_bid if self._is_call else put_bid
-        self._market_ask = call_ask if self._is_call else put_ask
+        self.symbol_label = QLabel("")
 
-        form.addRow("商品代碼", QLabel(leg1_symbol))
+        form.addRow("商品代碼", self.symbol_label)
 
         self.out_side_combo = QComboBox()
         self.out_side_combo.addItems(["買進", "賣出"])
@@ -76,7 +114,6 @@ class OrderDialog(QDialog):
         self.out_price_spin.setRange(0.1, 99999)
         self.out_price_spin.setDecimals(1)
         self.out_price_spin.setSingleStep(0.1)
-        self.out_price_spin.setValue(self._market_ask or self._market_bid or 1.0)
 
         self.out_qty_spin = QSpinBox()
         self.out_qty_spin.setRange(1, 999)
@@ -106,10 +143,11 @@ class OrderDialog(QDialog):
         return tab
 
     def _on_outright_side_changed(self, _index: int):
+        if not self._has_context():
+            return
         buying = self.out_side_combo.currentText() == "買進"
         price = self._market_ask if buying else self._market_bid
-        if price:
-            self.out_price_spin.setValue(price)
+        self.out_price_spin.setValue(price or self.out_price_spin.value() or 1.0)
 
     def _on_outright_tif_changed(self, _index: int):
         # ROD 送出後停在委託簿等成交，連續重送只會疊出一堆重複委託，
@@ -122,6 +160,9 @@ class OrderDialog(QDialog):
             self.out_auto_retry_checkbox.setChecked(True)
 
     def _on_stage_outright(self):
+        if not self._has_context():
+            QMessageBox.warning(self, "提醒", "請先雙擊 T 字報價選一個履約價")
+            return
         leg1_symbol = self._call_symbol if self._is_call else self._put_symbol
         buy = self.out_side_combo.currentText() == "買進"
         price = self.out_price_spin.value()
@@ -133,10 +174,10 @@ class OrderDialog(QDialog):
             leg1_symbol, buy, price, qty, tif, new_close, auto_retry,
             call_put="C" if self._is_call else "P", strike=self._strike,
         )
-        self.accept()
+        self.status_label.setText(f"已送進下單匣：{leg1_symbol}")
 
     # ---------------------------------------------------------------- 價差單
-    def _build_duplex_tab(self, strike_step: int) -> QWidget:
+    def _build_duplex_tab(self) -> QWidget:
         tab = QWidget()
         form = QFormLayout(tab)
 
@@ -145,7 +186,6 @@ class OrderDialog(QDialog):
         # 直接切換，不用關掉重新雙擊另一邊。
         self.spread_cp_combo = QComboBox()
         self.spread_cp_combo.addItems(["買權", "賣權"])
-        self.spread_cp_combo.setCurrentText("買權" if self._is_call else "賣權")
 
         # 買方/賣方：你是這組價差的買方(付權利金)還是賣方(收權利金)。
         # 第二腳履約價的方向(較高/較低)不用另外選，固定規則：買權價差＝
@@ -158,8 +198,6 @@ class OrderDialog(QDialog):
 
         self.spread_points_combo = QComboBox()
         self.spread_points_combo.addItems(_SPREAD_POINT_CHOICES)
-        default_points = str(strike_step) if str(strike_step) in _SPREAD_POINT_CHOICES else "100"
-        self.spread_points_combo.setCurrentText(default_points)
 
         self.price_limit_label = QLabel("")
         self.spread_price_spin = QDoubleSpinBox()
@@ -208,6 +246,9 @@ class OrderDialog(QDialog):
         return self._strike + sign * points
 
     def _on_stage_duplex(self):
+        if not self._has_context():
+            QMessageBox.warning(self, "提醒", "請先雙擊 T 字報價選一個履約價")
+            return
         is_call = self.spread_cp_combo.currentText() == "買權"
         buy_spread = self.spread_side_combo.currentText() == "買方"
 
@@ -223,7 +264,7 @@ class OrderDialog(QDialog):
         # leg1/leg2 放哪一腳只跟「履約價高低」有關，跟你雙擊的是哪一腳、
         # 加點還是減點無關：
         #     買權(Call) leg1 = 較高履約價，leg2 = 較低履約價
-        #     賣權(Put)  leg1 = 較低履約價，leg2 = 較高履約價
+        #     賣權(Put)  leg1 = 較低履約價，leg2 =較高履約價
         #
         # *** 買賣方向：用文件範例的真實報價數字驗證過，Call/Put 剛好相反
         # (先前版本兩者用同一套規則，導致 Put 價差的買方/賣方送反，已造
@@ -269,4 +310,4 @@ class OrderDialog(QDialog):
             call_put2=call_put, strike2=strike2,
             net_buyer=buy_spread,
         )
-        self.accept()
+        self.status_label.setText(f"已送進下單匣：{leg1_symbol} / {leg2_symbol}")
