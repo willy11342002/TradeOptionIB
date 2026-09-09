@@ -26,6 +26,7 @@ FUTURES_LINE_COLOR = "#1a5fb4"
 RESISTANCE_COLOR = "#e5a50a"
 SUPPORT_COLOR = "#9141ac"
 CROSSHAIR_COLOR = "#888888"
+DAY_BOUNDARY_COLOR = "#808080"  # 換日線：分/5分/30分這種盤中週期才需要，日/週/月線本身每根就是一個完整週期
 
 # 視圖左邊界離目前已載入資料的開頭小於這麼多根K棒，就觸發補抓更多歷史。
 EDGE_LOAD_THRESHOLD = 5
@@ -36,6 +37,9 @@ EDGE_LOAD_THRESHOLD = 5
 MAX_CHART_DAYS = 11000
 # 可見資料的高低點只佔畫面高度的 2/3，等同上下各留資料高度 25% 的邊界。
 Y_PADDING_RATIO = 0.25
+# 「即時跟隨」模式(set_live_follow)第一次套用、還沒有既有縮放程度可以沿
+# 用時，預設一次顯示幾根K棒(最新那根落在正中間，左右各半)。
+DEFAULT_LIVE_FOLLOW_BARS = 60
 
 
 class _DateAxisItem(pg.AxisItem):
@@ -154,12 +158,16 @@ class PriceChartWidget(QWidget):
         self._candles_by_index: dict[int, dict] = {}
         self._futures_by_index: dict[int, float] = {}
         self._level_lines: list[pg.InfiniteLine] = []
+        self._day_boundary_price_lines: list[pg.InfiniteLine] = []
+        self._day_boundary_volume_lines: list[pg.InfiniteLine] = []
         self._candlestick_item: _CandlestickItem | None = None
         self._futures_curve = None
         self._volume_item = None
         self._loading_more = False
         self._updating_y_range = False
         self._current_days = 0
+        self._live_follow = False
+        self._user_navigated = False
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -203,6 +211,26 @@ class PriceChartWidget(QWidget):
         # 縮小範圍」，初次載入自動 fit 全部資料也不會誤觸發。
         self.price_plot.getViewBox().sigRangeChangedManually.connect(self._on_range_changed_manually)
 
+    def set_live_follow(self, enabled: bool):
+        """盤中有正在即時組的那根K棒(1分/5分/30分/日線)時呼叫這個開啟「最新
+        那根K棒永遠待在畫面正中間」模式，跟原本「盡量保留使用者上次看的
+        範圍」互斥——不然新K棒一直長出來，右邊會不斷超出視野，盤中盯著看
+        反而要一直手動往右拉。切換週期/盤別時呼叫這個，等於重新開始置中
+        (使用者上次手動拉走的狀態也一併重置)。"""
+        self._live_follow = enabled
+        self._user_navigated = False
+
+    def _apply_live_follow_range(self):
+        if not self._dates:
+            return
+        last_index = len(self._dates) - 1
+        (x_min, x_max), _ = self.price_plot.getViewBox().viewRange()
+        span = x_max - x_min
+        if span <= 1:
+            span = min(DEFAULT_LIVE_FOLLOW_BARS, last_index + 1) or 1
+        half = span / 2
+        self.price_plot.setXRange(last_index - half, last_index + half, padding=0)
+
     def set_price_data(self, taiex_history: list[dict], futures_history: list[dict], days: int):
         self._current_days = days
 
@@ -220,17 +248,27 @@ class PriceChartWidget(QWidget):
             self.volume_plot.removeItem(self._volume_item)
             self._volume_item = None
 
-        self._dates = [row["date"] for row in taiex_history]
+        # x軸的日期清單要用兩條序列「聯集」，不能只用加權指數(taiex_history)
+        # 自己的日期——加權指數沒有夜盤，全盤模式下台指期(futures_history)
+        # 在15:00~次日05:00這段會有一堆加權指數完全沒有對應時間點的K棒，
+        # 如果只用加權指數的日期建索引，這些台指期夜盤資料會因為在
+        # date_to_index裡查無此日期而被整批捨棄(之前就是這樣被吃掉的)。
+        # 聯集後排序，字串是"YYYY-MM-DD"或"YYYY-MM-DD HH:MM"這種左補零、
+        # 定長的格式，字典序排序等於時間先後排序。加權指數在夜盤那些索引
+        # 上本來就沒有K棒，蠟燭圖那段自然留空，台指期的線會照樣畫過去。
+        self._dates = sorted({row["date"] for row in taiex_history} | {row["date"] for row in futures_history})
         self._date_axis.dates = self._dates
         date_to_index = {date: i for i, date in enumerate(self._dates)}
+        self._rebuild_day_boundaries()
 
         self._candles_by_index = {}
         candles = []
         volume_x, volume_height, volume_brushes = [], [], []
-        for i, row in enumerate(taiex_history):
+        for row in taiex_history:
             o, h, l, c = row.get("open"), row.get("high"), row.get("low"), row.get("close")
             if None in (o, h, l, c):
                 continue
+            i = date_to_index[row["date"]]
             candles.append((i, o, h, l, c))
             self._candles_by_index[i] = row
 
@@ -261,11 +299,13 @@ class PriceChartWidget(QWidget):
             futures_x, futures_y, pen=pg.mkPen(FUTURES_LINE_COLOR, width=2),
         )
 
-        if preserved_range:
-            start_date, end_date = preserved_range
+        if self._live_follow and not self._user_navigated:
+            self._apply_live_follow_range()
+        elif preserved_range:
+            start_date, end_date, overshoot_right, overshoot_left = preserved_range
             new_i0 = date_to_index.get(start_date, 0)
             new_i1 = date_to_index.get(end_date, len(self._dates) - 1)
-            self.price_plot.setXRange(new_i0, new_i1, padding=0)
+            self.price_plot.setXRange(new_i0 - overshoot_left, new_i1 + overshoot_right, padding=0)
         else:
             self.price_plot.enableAutoRange(x=True)
 
@@ -273,12 +313,23 @@ class PriceChartWidget(QWidget):
         self._update_y_range()
 
     def _current_view_dates(self):
+        """回傳目前視野對應的(起點日期, 終點日期, 右邊超出資料範圍多少,
+        左邊超出資料範圍多少)。「即時跟隨」模式(_apply_live_follow_range)
+        會故意讓右邊超出目前最後一根K棒、留白給接下來要長出來的新K棒——
+        如果這裡把超出範圍的部分直接 clamp 掉、只記錄「有資料的最後一根」
+        的日期，使用者手動拖曳離開跟隨模式後，下一次重畫(不管是即時跳動
+        還是補歷史觸發的)換算回新資料時就會把這段留白弄丟，畫面看起來像
+        突然「縮小、K棒變大」——所以超出範圍的量要另外記，換算新視野時
+        要加回去，不能只留日期字串本身。"""
         if not self._dates:
             return None
+        last_valid_index = len(self._dates) - 1
         (x_min, x_max), _ = self.price_plot.getViewBox().viewRange()
-        i0 = max(0, min(len(self._dates) - 1, round(x_min)))
-        i1 = max(0, min(len(self._dates) - 1, round(x_max)))
-        return self._dates[i0], self._dates[i1]
+        i0 = max(0, min(last_valid_index, round(x_min)))
+        i1 = max(0, min(last_valid_index, round(x_max)))
+        overshoot_right = max(0.0, x_max - last_valid_index)
+        overshoot_left = max(0.0, -x_min)
+        return self._dates[i0], self._dates[i1], overshoot_right, overshoot_left
 
     def _update_y_range(self):
         """讓可見範圍內的 K 棒 (連同疊加的台指期線) 佔畫面中間 2/3，不要
@@ -345,6 +396,37 @@ class PriceChartWidget(QWidget):
     def clear_levels(self):
         self.set_levels([], [])
 
+    def _rebuild_day_boundaries(self):
+        """盤中週期(分/5分/30分)的x軸標籤是"YYYY-MM-DD HH:MM"，K棒是連續排
+        列的索引，光看軸上偶爾出現的日期刻度很難看出「一天佔了幾根、現在
+        這根是當天第幾根」，所以在每次換到新的一天那個位置畫一條直的換日
+        虛線，貫穿價格圖跟成交量圖。日/週/月線的標籤沒有時間部分(沒有空
+        白)，代表每一根本身就是一個完整週期，不需要換日線。"""
+        for line in self._day_boundary_price_lines:
+            self.price_plot.removeItem(line)
+        for line in self._day_boundary_volume_lines:
+            self.volume_plot.removeItem(line)
+        self._day_boundary_price_lines.clear()
+        self._day_boundary_volume_lines.clear()
+
+        prev_calendar_date = None
+        for index, label in enumerate(self._dates):
+            if " " not in label:
+                return  # 日/週/月線，不需要換日線
+            calendar_date = label.split(" ", 1)[0]
+            if prev_calendar_date is not None and calendar_date != prev_calendar_date:
+                self._add_day_boundary_line(index - 0.5)
+            prev_calendar_date = calendar_date
+
+    def _add_day_boundary_line(self, pos: float):
+        pen = pg.mkPen(DAY_BOUNDARY_COLOR, width=1, style=Qt.DashLine)
+        price_line = pg.InfiniteLine(pos=pos, angle=90, movable=False, pen=pen)
+        volume_line = pg.InfiniteLine(pos=pos, angle=90, movable=False, pen=pen)
+        self.price_plot.addItem(price_line, ignoreBounds=True)
+        self.volume_plot.addItem(volume_line, ignoreBounds=True)
+        self._day_boundary_price_lines.append(price_line)
+        self._day_boundary_volume_lines.append(volume_line)
+
     def _on_mouse_moved(self, scene_pos):
         in_price = self.price_plot.sceneBoundingRect().contains(scene_pos)
         in_volume = self.volume_plot.sceneBoundingRect().contains(scene_pos)
@@ -393,7 +475,10 @@ class PriceChartWidget(QWidget):
         sigRangeChanged 不同，程式自己呼叫 setXRange 不會觸發這個)，
         用這個訊號判斷「要不要補更多歷史」就不用再猜測目前是不是使用者
         主動縮小範圍——不管是拖曳平移還是滾輪縮放，只要靠近目前已載入
-        資料的左邊界就該補。"""
+        資料的左邊界就該補。使用者只要自己動手拉/縮過一次，就代表他現在
+        想自己控制看哪一段，「即時跟隨最新K棒置中」模式(set_live_follow)
+        就先讓路，不要每次新K棒進來又把畫面搶回去。"""
+        self._user_navigated = True
         if self._loading_more or not self._dates or self._current_days >= MAX_CHART_DAYS:
             return
         (x_min, _x_max), _ = self.price_plot.getViewBox().viewRange()

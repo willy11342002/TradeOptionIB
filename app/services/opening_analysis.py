@@ -13,10 +13,12 @@ import datetime
 import json
 import os
 import threading
+from typing import Optional
 
-from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 
 from app.models import economic_calendar_client, finmind_client, openrouter_client, taifex_vix_client
+from app.models.capital_kline_client import CapitalKLineClient
 from app.paths import PROJECT_ROOT
 
 HISTORY_FILE = PROJECT_ROOT / "open_position_history.jsonl"
@@ -74,31 +76,90 @@ def update_history_record(timestamp: str, updates: dict) -> None:
 
 
 class ChartDataService(QObject):
-    """獨立於分析流程之外，單純抓圖表要畫的加權指數 K 棒 + 台指期收盤價，
-    跟「分析」按鈕的四資料源+LLM流程無關，分開一個服務避免混在一起。"""
+    """獨立於分析流程之外，單純抓圖表要畫的加權指數K棒+台指期K棒，跟
+    「分析」按鈕的四資料源+LLM流程無關 (那邊的選擇權籌碼/VIX/財經日曆沒有
+    群益對應的資料源，繼續走 finmind_client，不受這裡影響)。
 
-    chart_ready = pyqtSignal(list, list)  # (taiex_history, futures_history)
+    改用群益 CapitalKLineClient(SKQuoteLib_RequestKLineAMByDate) 查歷史K棒
+    取代原本的 FinMind：可以查到分/日/週/月線、日盤或全盤(含夜盤)，不用
+    自己維護本機 CSV 增量快取。這支API本身是「呼叫一次->事件陸續回傳」的
+    非同步模式(comtypes COM事件)，不是阻塞式I/O，所以不需要再開背景執行緒。"""
+
+    chart_ready = pyqtSignal(list, list)  # (primary_history, overlay_history)
     chart_failed = pyqtSignal(str)
+    chart_waiting = pyqtSignal()  # 上一批查詢還沒收完，正在等，不算失敗
 
-    def __init__(self):
+    PRIMARY_SYMBOL = "TSEA"  # 加權指數
+    OVERLAY_SYMBOL = "TX00"  # 台指期近月合約
+    TAG = "chart"  # 跟 kline_client 上其他呼叫端(例如背景的日K重試確認)區分
+    _RETRY_MS = 300
+
+    def __init__(self, kline_client: CapitalKLineClient):
         super().__init__()
-        self._running = False
+        self._kline_client = kline_client
+        self._kline_client.kline_ready.connect(self._on_kline_ready)
+        self._kline_client.kline_failed.connect(self._on_kline_failed)
+        self._pending: set = set()
+        self._results: dict = {}
+        # run_async() 呼叫時如果上一批(不管是自己前一次呼叫、還是背景重試
+        # 確認剛好撞在一起)還沒收完，不能立刻對同一代碼再發一次(會被
+        # kline_client 拒絕)，先記住「使用者現在真正想要的參數」，等
+        # is_pending 全部清空了再真的送出——這樣使用者連續切換下拉選單時，
+        # 只有最後一次選的會真的送出去，不會每切一次就噴一次失敗訊息。
+        self._desired: Optional[tuple] = None
+        self._retry_timer = QTimer(self)
+        self._retry_timer.setSingleShot(True)
+        self._retry_timer.timeout.connect(self._try_fire)
 
-    def run_async(self, days: int = 60):
-        if self._running:
-            return  # 上一次還在跑，不重複開執行緒 (CSV 快取有鎖擋著不會壞，但沒必要重工)
-        self._running = True
-        threading.Thread(target=self._worker, args=(days,), daemon=True).start()
+    def is_pending(self, symbol: str) -> bool:
+        return symbol in self._pending
 
-    def _worker(self, days: int):
-        try:
-            taiex_history = finmind_client.get_taiex_price_history(days=days)
-            futures_history = finmind_client.get_futures_price_history(days=days)
-            self.chart_ready.emit(taiex_history, futures_history)
-        except Exception as exc:  # noqa: BLE001 - 顯示給使用者看
-            self.chart_failed.emit(str(exc))
-        finally:
-            self._running = False
+    def run_async(self, days: int, kline_type: int, trade_session: int, minute_number: int = 1):
+        """kline_type: capital_kline_client.KLINE_TYPE_*；trade_session:
+        SESSION_FULL(全盤,含夜盤) 或 SESSION_AM(僅日盤)；minute_number 只在
+        kline_type=KLINE_TYPE_MINUTE 時有意義 (1/5/30分等)。"""
+        self._desired = (days, kline_type, trade_session, minute_number)
+        self._try_fire()
+
+    def _try_fire(self):
+        if self._desired is None:
+            return
+        if self._kline_client.is_pending(self.PRIMARY_SYMBOL) or self._kline_client.is_pending(self.OVERLAY_SYMBOL):
+            self.chart_waiting.emit()
+            self._retry_timer.start(self._RETRY_MS)
+            return
+
+        days, kline_type, trade_session, minute_number = self._desired
+        self._desired = None
+        self._results = {}
+        self._pending = {self.PRIMARY_SYMBOL, self.OVERLAY_SYMBOL}
+        end = datetime.date.today()
+        start = end - datetime.timedelta(days=days)
+        self._kline_client.request_range(self.TAG, self.PRIMARY_SYMBOL, kline_type, trade_session, start, end, minute_number)
+        self._kline_client.request_range(self.TAG, self.OVERLAY_SYMBOL, kline_type, trade_session, start, end, minute_number)
+
+    def _on_kline_ready(self, tag: str, symbol: str, bars: list):
+        if tag != self.TAG or symbol not in self._pending:
+            return  # 不是這一輪查詢等的代碼(可能是別的呼叫端、或上一輪的殘留結果)，忽略
+        self._results[symbol] = bars
+        self._pending.discard(symbol)
+        if not self._pending:
+            if self._desired is None:
+                self.chart_ready.emit(
+                    self._results.get(self.PRIMARY_SYMBOL, []),
+                    self._results.get(self.OVERLAY_SYMBOL, []),
+                )
+            # self._desired 不是 None 代表使用者在這批查詢還沒收完時又選了
+            # 別的週期/盤別——這批已經過時了，不用畫出來，讓下面 _try_fire()
+            # 直接送出使用者真正想要的那次，畫面才不會先閃一下舊的再跳到新的。
+        self._try_fire()
+
+    def _on_kline_failed(self, tag: str, symbol: str, message: str):
+        if tag != self.TAG or symbol not in self._pending:
+            return
+        self._pending.discard(symbol)
+        self.chart_failed.emit(f"{symbol}: {message}")
+        self._try_fire()
 
 
 class OpeningAnalysisService(QObject):

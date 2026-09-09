@@ -17,6 +17,7 @@ from app.models.capital_order_client import CapitalOrderClient
 from app.models.capital_quote_client import CapitalQuoteClient
 from app.models.order_book import OrderBookManager
 from app.services import black_scholes, layout_store, theme
+from app.views.equity_widget import EquityWidget
 from app.views.opening_tab import OpeningTab
 from app.views.order_book_widgets import FillReportWidget, OrderBookWidget
 from app.views.order_entry_widget import OrderEntryWidget
@@ -172,7 +173,7 @@ class MainWindow(QMainWindow):
     def _build_docks(self):
         self.quote_dock = self._make_dock("dock_quote", "T 字報價", self._build_option_quote_widget())
 
-        self.opening_tab = OpeningTab()
+        self.opening_tab = OpeningTab(self.capital_client, self.quote_client)
         self.opening_dock = self._make_dock("dock_opening", "開倉", self.opening_tab)
 
         self.order_entry_widget = OrderEntryWidget(self.order_book_manager)
@@ -184,9 +185,12 @@ class MainWindow(QMainWindow):
         self.fill_report_widget = FillReportWidget(self.order_book_manager)
         self.fill_report_dock = self._make_dock("dock_fill_report", "成交回報", self.fill_report_widget)
 
+        self.equity_widget = EquityWidget(self.order_client)
+        self.equity_dock = self._make_dock("dock_equity", "權益查詢", self.equity_widget)
+
         # 預設版面：T字報價/開倉分頁在左邊(跟改版前的 QTabWidget 分頁習慣
-        # 一致)，下單/下單匣/成交回報疊在右邊；使用者可以再自己拖動調整，
-        # 這只是初次啟動、還沒存過版面時的起點。
+        # 一致)，下單/下單匣/成交回報/權益查詢疊在右邊；使用者可以再自己
+        # 拖動調整，這只是初次啟動、還沒存過版面時的起點。
         self.addDockWidget(Qt.LeftDockWidgetArea, self.quote_dock)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.opening_dock)
         self.tabifyDockWidget(self.quote_dock, self.opening_dock)
@@ -195,7 +199,9 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, self.order_entry_dock)
         self.addDockWidget(Qt.RightDockWidgetArea, self.order_book_dock)
         self.addDockWidget(Qt.RightDockWidgetArea, self.fill_report_dock)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.equity_dock)
         self.tabifyDockWidget(self.order_book_dock, self.fill_report_dock)
+        self.tabifyDockWidget(self.fill_report_dock, self.equity_dock)
         self.order_book_dock.raise_()
 
         self.resizeDocks([self.quote_dock, self.order_entry_dock], [650, 350], Qt.Horizontal)
@@ -203,7 +209,7 @@ class MainWindow(QMainWindow):
         view_menu = self.menuBar().addMenu("視窗")
         for dock in (
             self.quote_dock, self.opening_dock, self.order_entry_dock,
-            self.order_book_dock, self.fill_report_dock,
+            self.order_book_dock, self.fill_report_dock, self.equity_dock,
         ):
             view_menu.addAction(dock.toggleViewAction())
 

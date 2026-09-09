@@ -205,6 +205,10 @@ class CapitalQuoteClient(QObject):
             "preclose": stock.nRef / scale,   # 昨收參考價
             "up_limit": stock.nUp / scale,    # 漲停價
             "down_limit": stock.nDown / scale,  # 跌停價
+            # 單量(這次報價事件伴隨的成交量，不是累計量)——文件 5-21
+            # SKSTOCKLONG 結構定義：nTickQty=單量，nTQty=總量(當日累計)，
+            # 兩個是不同欄位，即時組K棒的成交量要用單量，不能誤用總量。
+            "tick_qty": stock.nTickQty,
         }
 
 
