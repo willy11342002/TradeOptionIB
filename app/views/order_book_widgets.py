@@ -33,8 +33,10 @@ _MARKET_TYPE_LABELS = {
     "OS(複委託)": 3, "OF(海期)": 4, "OO(海選)": 5,
 }
 
-_BOX_COLUMNS = ["商品", "方向", "價格", "口數", "委託條件", "狀態", "已送次數", "動作"]
-_FILL_COLUMNS = ["商品", "方向", "成交價", "成交量", "時間"]
+_BOX_COLUMNS = ["商品", "買權/賣權", "方向", "價格", "口數", "委託條件", "狀態", "已送次數", "動作"]
+_FILL_COLUMNS = ["商品", "買權/賣權", "方向", "成交價", "成交量", "時間"]
+
+_CALL_PUT_LABELS = {"C": "買權", "P": "賣權"}
 
 
 def _direction_text(record) -> str:
@@ -47,6 +49,15 @@ def _direction_text(record) -> str:
     return "買進" if record.legs[0].buy else "賣出"
 
 
+def _call_put_text(record) -> str:
+    # 商品代碼本身看不出買權/賣權(要解代碼才知道)，另外開一欄用中文顯示；
+    # 價差單兩腳固定是同一種(買權價差或賣權價差)，只取用得到的第一個。
+    for leg in record.legs:
+        if leg.call_put:
+            return _CALL_PUT_LABELS.get(leg.call_put, leg.call_put)
+    return ""
+
+
 def _set_cell(table: QTableWidget, row: int, col: int, text: str):
     item = QTableWidgetItem(text)
     item.setTextAlignment(Qt.AlignCenter)
@@ -56,7 +67,9 @@ def _set_cell(table: QTableWidget, row: int, col: int, text: str):
 def _build_table(columns) -> QTableWidget:
     table = QTableWidget(0, len(columns))
     table.setHorizontalHeaderLabels(columns)
-    table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+    header = table.horizontalHeader()
+    header.setSectionResizeMode(QHeaderView.Interactive)  # 讓使用者自己拖曳調整每欄寬度
+    header.setStretchLastSection(True)  # 拖曳完剩下的空間仍交給最後一欄(動作)吃掉，不留空白
     table.verticalHeader().setVisible(False)
     table.setEditTriggers(QTableWidget.NoEditTriggers)
     return table
@@ -171,10 +184,11 @@ class OrderBookWidget(QWidget):
         self.table.setRowCount(len(box_records))
         for row, record in enumerate(box_records):
             _set_cell(self.table, row, 0, record.label())
-            _set_cell(self.table, row, 1, _direction_text(record))
-            _set_cell(self.table, row, 2, f"{record.price:g}")
-            _set_cell(self.table, row, 3, str(record.qty))
-            _set_cell(self.table, row, 4, _TIF_LABELS.get(record.tif, str(record.tif)))
+            _set_cell(self.table, row, 1, _call_put_text(record))
+            _set_cell(self.table, row, 2, _direction_text(record))
+            _set_cell(self.table, row, 3, f"{record.price:g}")
+            _set_cell(self.table, row, 4, str(record.qty))
+            _set_cell(self.table, row, 5, _TIF_LABELS.get(record.tif, str(record.tif)))
             if record.status == STATUS_LIVE and record.tif != TIF_ROD:
                 # IOC/FOK 送出後瞬間成交或死亡，不可能「掛單中」(那是 ROD
                 # 掛單才有的狀態)；卡在這裡代表回報沒配對到，用不同字樣
@@ -184,9 +198,9 @@ class OrderBookWidget(QWidget):
                 status_text = _STATUS_LABELS.get(record.status, record.status)
             if record.status == STATUS_REJECTED and record.error_msg:
                 status_text += f" ({record.error_msg})"
-            _set_cell(self.table, row, 5, status_text)
-            _set_cell(self.table, row, 6, str(record.retry_count) if record.auto_retry else "")
-            self.table.setCellWidget(row, 7, self._build_actions_widget(record))
+            _set_cell(self.table, row, 6, status_text)
+            _set_cell(self.table, row, 7, str(record.retry_count) if record.auto_retry else "")
+            self.table.setCellWidget(row, 8, self._build_actions_widget(record))
 
     def _build_actions_widget(self, record) -> QWidget:
         widget = QWidget()
@@ -265,8 +279,9 @@ class FillReportWidget(QWidget):
         self.table.setRowCount(len(fill_records))
         for row, record in enumerate(fill_records):
             _set_cell(self.table, row, 0, record.label())
-            _set_cell(self.table, row, 1, _direction_text(record))
-            _set_cell(self.table, row, 2, str(record.fill_price or ""))
-            _set_cell(self.table, row, 3, str(record.fill_qty or ""))
+            _set_cell(self.table, row, 1, _call_put_text(record))
+            _set_cell(self.table, row, 2, _direction_text(record))
+            _set_cell(self.table, row, 3, str(record.fill_price or ""))
+            _set_cell(self.table, row, 4, str(record.fill_qty or ""))
             report = record.last_report or {}
-            _set_cell(self.table, row, 4, f"{report.get('date', '')} {report.get('time', '')}")
+            _set_cell(self.table, row, 5, f"{report.get('date', '')} {report.get('time', '')}")
