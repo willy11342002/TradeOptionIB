@@ -173,7 +173,7 @@ class MainWindow(QMainWindow):
     def _build_docks(self):
         self.quote_dock = self._make_dock("dock_quote", "T 字報價", self._build_option_quote_widget())
 
-        self.opening_tab = OpeningTab(self.capital_client, self.quote_client)
+        self.opening_tab = OpeningTab(self.capital_client)
         self.opening_dock = self._make_dock("dock_opening", "開倉", self.opening_tab)
 
         self.order_entry_widget = OrderEntryWidget(self.order_book_manager)

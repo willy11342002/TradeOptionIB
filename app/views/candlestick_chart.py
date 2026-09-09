@@ -13,6 +13,8 @@ x 軸刻意不用真實日期座標，而是用「第幾個交易日」的整數
 AxisItem 動態把索引換成日期字串——如果直接用日期當座標，週末/假日會在
 圖上留下難看的空白區段，這是畫日K線圖的標準做法。
 """
+import datetime
+
 import pyqtgraph as pg
 from PyQt5.QtCore import Qt, QRectF, pyqtSignal
 from PyQt5.QtGui import QPainter, QPicture, QColor
@@ -27,6 +29,11 @@ RESISTANCE_COLOR = "#e5a50a"
 SUPPORT_COLOR = "#9141ac"
 CROSSHAIR_COLOR = "#888888"
 DAY_BOUNDARY_COLOR = "#808080"  # 換日線：分/5分/30分這種盤中週期才需要，日/週/月線本身每根就是一個完整週期
+# 換日線用早上8點當分界，不是午夜——夜盤大約15:00~次日05:00，跨過午夜還
+# 在繼續走，用午夜切的話同一個連續的夜盤會被切成兩天看；8點這個時間點日
+# 盤(TX00 08:45/TSEA 09:00)都還沒開盤、夜盤也早就收了(05:00收)，落在這個
+# 空檔切最不會誤傷任何一段連續的交易時段。
+DAY_BOUNDARY_HOUR = 8
 
 # 視圖左邊界離目前已載入資料的開頭小於這麼多根K棒，就觸發補抓更多歷史。
 EDGE_LOAD_THRESHOLD = 5
@@ -409,14 +416,26 @@ class PriceChartWidget(QWidget):
         self._day_boundary_price_lines.clear()
         self._day_boundary_volume_lines.clear()
 
-        prev_calendar_date = None
+        prev_trading_day = None
         for index, label in enumerate(self._dates):
             if " " not in label:
                 return  # 日/週/月線，不需要換日線
-            calendar_date = label.split(" ", 1)[0]
-            if prev_calendar_date is not None and calendar_date != prev_calendar_date:
+            trading_day = self._trading_day_for_label(label)
+            if prev_trading_day is not None and trading_day != prev_trading_day:
                 self._add_day_boundary_line(index - 0.5)
-            prev_calendar_date = calendar_date
+            prev_trading_day = trading_day
+
+    @staticmethod
+    def _trading_day_for_label(label: str) -> datetime.date:
+        """凌晨0點~8點這段算前一天的交易日(夜盤延續)，8點以後才算新的一
+        天——不能直接拿calendar_date比較，不然午夜會把同一個連續的夜盤切
+        成兩天。"""
+        date_part, time_part = label.split(" ", 1)
+        calendar_date = datetime.date.fromisoformat(date_part)
+        hour = int(time_part.split(":", 1)[0])
+        if hour < DAY_BOUNDARY_HOUR:
+            return calendar_date - datetime.timedelta(days=1)
+        return calendar_date
 
     def _add_day_boundary_line(self, pos: float):
         pen = pg.mkPen(DAY_BOUNDARY_COLOR, width=1, style=Qt.DashLine)
@@ -431,19 +450,26 @@ class PriceChartWidget(QWidget):
         in_price = self.price_plot.sceneBoundingRect().contains(scene_pos)
         in_volume = self.volume_plot.sceneBoundingRect().contains(scene_pos)
         if not (in_price or in_volume):
-            self._v_line_price.hide()
-            self._h_line_price.hide()
-            self._v_line_volume.hide()
+            self._hide_crosshair()
             return
 
         view_box = self.price_plot.getViewBox()
         point = view_box.mapSceneToView(scene_pos)
         index = round(point.x())
+        if not (0 <= index < len(self._dates)):
+            self._hide_crosshair()
+            self.hover_label.setText(" ")
+            return
+
+        # 原本只看 self._candles_by_index 有沒有這個index，全盤(含夜盤)模式
+        # 下加權指數沒有夜盤資料，那段索引在_candles_by_index裡本來就是空
+        # 的，導致滑鼠移到夜盤那段(只有台指期的線、沒有蠟燭)時十字線跟資訊
+        # 整個不顯示——只要蠟燭或台指期線任一邊在這個索引有資料就該顯示，
+        # 不能只認蠟燭圖。
         row = self._candles_by_index.get(index)
-        if row is None:
-            self._v_line_price.hide()
-            self._h_line_price.hide()
-            self._v_line_volume.hide()
+        futures_close = self._futures_by_index.get(index)
+        if row is None and futures_close is None:
+            self._hide_crosshair()
             self.hover_label.setText(" ")
             return
 
@@ -457,11 +483,19 @@ class PriceChartWidget(QWidget):
         else:
             self._h_line_price.hide()
 
-        text = f"{row['date']}　開:{row['open']:g}　高:{row['high']:g}　低:{row['low']:g}　收:{row['close']:g}"
-        futures_close = self._futures_by_index.get(index)
+        date_label = self._dates[index]
+        if row is not None:
+            text = f"{date_label}　開:{row['open']:g}　高:{row['high']:g}　低:{row['low']:g}　收:{row['close']:g}"
+        else:
+            text = f"{date_label}　(加權指數無資料，僅台指期夜盤)"
         if futures_close is not None:
             text += f"　台指期收:{futures_close:g}"
         self.hover_label.setText(text)
+
+    def _hide_crosshair(self):
+        self._v_line_price.hide()
+        self._h_line_price.hide()
+        self._v_line_volume.hide()
 
     def _on_range_changed(self, view_box, view_range, changed=None):
         """任何範圍變動都會觸發 (包含我們自己呼叫 setXRange/enableAutoRange)，

@@ -133,6 +133,13 @@ class ChartDataService(QObject):
         self._desired = None
         self._results = {}
         self._pending = {self.PRIMARY_SYMBOL, self.OVERLAY_SYMBOL}
+        # end 用「今天」——RequestKLineAMByDate 對「今天已經走完的盤」查得
+        # 到(實測過：今天日盤收盤後查 end=today，正常拿到當天完整日盤資料)，
+        # 只有「還在進行中、還沒結束的那個盤」查不到，不是整個「今天」都查
+        # 不到。所以會有「今天已經結束的盤(history) + 今天還在進行中的盤
+        # (CapitalTickClient tick回補/即時)」都指向同一個「今天」的情況，
+        # opening_tab.py 合併時要用日期時間去重，history 有的以 history
+        # 為準(伺服器正式資料)，不能整個排除今天。
         end = datetime.date.today()
         start = end - datetime.timedelta(days=days)
         self._kline_client.request_range(self.TAG, self.PRIMARY_SYMBOL, kline_type, trade_session, start, end, minute_number)

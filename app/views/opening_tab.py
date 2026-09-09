@@ -11,8 +11,8 @@ from app.models.capital_kline_client import (
     CapitalKLineClient, KLINE_TYPE_MINUTE, KLINE_TYPE_DAY, KLINE_TYPE_WEEK,
     KLINE_TYPE_MONTH, SESSION_FULL, SESSION_AM,
 )
-from app.models.capital_quote_client import CapitalQuoteClient
-from app.services.intraday_bar_builder import IntradayBarBuilder, DAY_PERIOD_MINUTES
+from app.models.capital_tick_client import CapitalTickClient
+from app.services.intraday_bar_builder import MinuteBarAggregator, DAY_PERIOD_MINUTES
 from app.services.opening_analysis import ChartDataService, OpeningAnalysisService, delete_history_entry, load_history
 from app.views.analysis_detail_dialog import AnalysisDetailDialog
 from app.views.candlestick_chart import PriceChartWidget
@@ -57,10 +57,9 @@ RECONCILE_RETRY_MS = 60_000
 
 
 class OpeningTab(QWidget):
-    def __init__(self, capital_client: CapitalClient, quote_client: CapitalQuoteClient):
+    def __init__(self, capital_client: CapitalClient):
         super().__init__()
         self._current_record = None
-        self._quote_client = quote_client
 
         self.service = OpeningAnalysisService()
         self.service.progress.connect(self._on_progress)
@@ -84,19 +83,39 @@ class OpeningTab(QWidget):
         self._chart_days = 0
         self._chart_loaded = False
         self._chart_busy = False
-        self._primary_bars: list[dict] = []
-        self._overlay_bars: list[dict] = []
+        # 日/週/月線走這組：history是ChartDataService查來的(日/週/月線
+        # 沒有對齊問題，直接用伺服器給的)，today是MinuteBarAggregator用
+        # tick組的「今天」day-bucket，兩者事後合併去重(_merge_history_and_today)。
+        self._primary_history: list[dict] = []
+        self._overlay_history: list[dict] = []
+        self._primary_today: list[dict] = []
+        self._overlay_today: list[dict] = []
+        # 1/5/30分這種「分鐘週期」改走這組：歷史(1分鐘K)跟今天(tick組的
+        # 1分鐘K)灌進同一個MinuteBarAggregator，統一用整點/半點對齊二次
+        # 聚合，aggregator吐出來的就是最終結果，不用再另外合併——見
+        # intraday_bar_builder.py 開頭說明「為什麼歷史也要拆成1分鐘K自己
+        # 重疊」(伺服器給的多分鐘K是照各商品自己的開盤時間對齊，不是整點/
+        # 半點，TX00跟TSEA疊在一起會對不齊)。
+        self._is_minute_period = False
+        self._primary_final: list[dict] = []
+        self._overlay_final: list[dict] = []
 
-        self._primary_bar_builder = IntradayBarBuilder()
-        self._overlay_bar_builder = IntradayBarBuilder()
-        self._primary_bar_builder.bar_updated.connect(
-            lambda bar, is_new: self._on_live_bar(self._primary_bars, bar, is_new)
-        )
-        self._overlay_bar_builder.bar_updated.connect(
-            lambda bar, is_new: self._on_live_bar(self._overlay_bars, bar, is_new)
-        )
-        self._quote_client.quote_updated.connect(self._on_quote_updated)
-        self._quote_client.subscribe([ChartDataService.PRIMARY_SYMBOL, ChartDataService.OVERLAY_SYMBOL])
+        # 「今天」的資料改用 CapitalTickClient(SKQuoteLib_RequestTicks) 拿，
+        # 不再靠即時報價(RequestStocks)的tick_qty欄位組——那個機制只有訂閱
+        # 之後才會有資料，沒辦法回補「開盤到訂閱那一刻」這段，RequestTicks
+        # 訂閱時會先回補當天的逐筆成交(OnNotifyHistoryTicksLONG)，之後才是
+        # 即時tick(OnNotifyTicksLONG)，兩者都餵給MinuteBarAggregator，用tick
+        # 自己的時間戳記分K棒，回補的歷史tick才不會被誤判成「現在」。
+        self._tick_client = CapitalTickClient(capital_client)
+        self._tick_client.tick_received.connect(self._on_tick_received)
+        self._tick_client.subscribe_failed.connect(self._on_tick_subscribe_failed)
+        self._tick_client.subscribe(ChartDataService.PRIMARY_SYMBOL)
+        self._tick_client.subscribe(ChartDataService.OVERLAY_SYMBOL)
+
+        self._primary_aggregator = MinuteBarAggregator()
+        self._overlay_aggregator = MinuteBarAggregator()
+        self._primary_aggregator.bars_changed.connect(self._on_primary_today_changed)
+        self._overlay_aggregator.bars_changed.connect(self._on_overlay_today_changed)
 
         # 即時跳動每一個tick都重畫K線圖太浪費(K棒是整包重新產生QPicture)，
         # 用一個短計時器把同一批tick coalesce成一次重畫。
@@ -239,12 +258,20 @@ class OpeningTab(QWidget):
         self._current_kline_type = kline_type
         self._current_minute_number = minute_number
         self._chart_days = DEFAULT_DAYS_BY_PERIOD[label]
+        self._is_minute_period = (kline_type == KLINE_TYPE_MINUTE)
 
         self._chart_loaded = False
-        self._primary_bars = []
-        self._overlay_bars = []
-        self._primary_bar_builder.set_period(live_period or 1)
-        self._overlay_bar_builder.set_period(live_period or 1)
+        self._primary_history = []
+        self._overlay_history = []
+        self._primary_today = []
+        self._overlay_today = []
+        self._primary_final = []
+        self._overlay_final = []
+        # set_period不清掉已經收到的1分鐘K(不管是回補還是即時)，只是換一
+        # 種粒度重新疊一次——不然切個週期，剛回補到的「開盤到現在」就白費
+        # 了(見 intraday_bar_builder.py 的說明)。
+        self._primary_aggregator.set_period(minute_number if self._is_minute_period else (live_period or 1))
+        self._overlay_aggregator.set_period(minute_number if self._is_minute_period else (live_period or 1))
         self._live_period_minutes = live_period
         # 有「正在即時組的那根K棒」的週期(1/5/30分/日線)，圖表開盤中要讓
         # 最新那根K棒待在畫面正中間看；週/月線沒有即時組棒，維持原本「盡
@@ -257,13 +284,19 @@ class OpeningTab(QWidget):
         self._apply_period(index)
 
     def _on_session_combo_changed(self, index: int):
+        # RequestTicks沒有盤別的概念，tick不分日盤/全盤——切換盤別時「今天」
+        # 這部分沒辦法只挑合乎新盤別的部分保留，只能整批清掉重來(reset)，
+        # 等新的歷史查詢+新tick重新填，這段期間「今天」會暫時是空的。
         self._session = SESSION_OPTIONS[index][1]
         self._chart_loaded = False
-        self._primary_bars = []
-        self._overlay_bars = []
-        self._primary_bar_builder.reset()
-        self._overlay_bar_builder.reset()
-        self.chart.set_live_follow(self._live_period_minutes is not None)
+        self._primary_history = []
+        self._overlay_history = []
+        self._primary_today = []
+        self._overlay_today = []
+        self._primary_final = []
+        self._overlay_final = []
+        self._primary_aggregator.reset()
+        self._overlay_aggregator.reset()
         self._request_chart()
 
     def _request_chart(self):
@@ -278,7 +311,12 @@ class OpeningTab(QWidget):
         self.period_combo.setEnabled(False)
         self.session_combo.setEnabled(False)
         self.chart_status_label.setText("K線圖讀取中…")
-        self.chart_service.run_async(self._chart_days, self._current_kline_type, self._session, self._current_minute_number)
+        # 分鐘週期一律跟伺服器要1分鐘K，5分/30分完全自己在本地對齊聚合——
+        # 伺服器給的多分鐘K是照各商品自己的開盤時間對齊，不是整點/半點，
+        # TX00(08:45開盤)跟TSEA(09:00開盤)疊在一起會對不齊(實測過，見
+        # intraday_bar_builder.py)。
+        server_minute_number = 1 if self._is_minute_period else self._current_minute_number
+        self.chart_service.run_async(self._chart_days, self._current_kline_type, self._session, server_minute_number)
 
     def _finish_chart_request(self):
         self._chart_busy = False
@@ -287,11 +325,18 @@ class OpeningTab(QWidget):
 
     def _on_chart_ready(self, primary_history: list, overlay_history: list):
         self._finish_chart_request()
-        self._primary_bars = primary_history
-        self._overlay_bars = overlay_history
         self._chart_loaded = True
         self.chart_status_label.setText("")
-        self._redraw_now()
+        if self._is_minute_period:
+            # 這裡收到的其實是1分鐘K(不管使用者選5分還是30分)，跟今天
+            # tick組的1分鐘K灌進同一個池子，由aggregator統一對齊聚合成
+            # 使用者真正選的週期，結果會從bars_changed訊號回來觸發重畫。
+            self._primary_aggregator.load_minute_bars(primary_history)
+            self._overlay_aggregator.load_minute_bars(overlay_history)
+        else:
+            self._primary_history = primary_history
+            self._overlay_history = overlay_history
+            self._redraw_now()
         if self._current_record:
             self.chart.set_levels(
                 self._current_record.get("resistance_levels") or [],
@@ -315,21 +360,32 @@ class OpeningTab(QWidget):
         self._request_chart()
 
     # --------------------------------------------------------- 即時跳動
-    def _on_quote_updated(self, symbol: str, data: dict):
-        if not self._chart_loaded or self._live_period_minutes is None:
-            return  # 還沒載入歷史資料打底，或目前選的是週/月線(不即時組棒)
-        price = data.get("last")
-        tick_qty = data.get("tick_qty")
+    def _on_tick_received(self, symbol: str, dt, price: float, qty: float):
+        if self._live_period_minutes is None:
+            return  # 目前選的是週/月線，不即時組棒
         if symbol == ChartDataService.PRIMARY_SYMBOL:
-            self._primary_bar_builder.on_tick(price, tick_qty)
+            self._primary_aggregator.on_tick(dt, price, qty)
         elif symbol == ChartDataService.OVERLAY_SYMBOL:
-            self._overlay_bar_builder.on_tick(price, tick_qty)
+            self._overlay_aggregator.on_tick(dt, price, qty)
 
-    def _on_live_bar(self, bars: list, bar: dict, is_new_bar: bool):
-        if not bars or is_new_bar:
-            bars.append(bar)
+    def _on_tick_subscribe_failed(self, symbol: str, message: str):
+        self.chart_status_label.setText(f"{symbol} 即時報價訂閱失敗：{message}")
+
+    def _on_primary_today_changed(self, bars: list):
+        # 分鐘週期下，aggregator吐出來的已經是「歷史1分鐘K+今天1分鐘K」
+        # 統一對齊聚合完的最終結果，不用再合併；日/週/月線下，這裡只是
+        # 「今天」，還要跟歷史事後合併去重(_merge_history_and_today)。
+        if self._is_minute_period:
+            self._primary_final = bars
         else:
-            bars[-1] = bar
+            self._primary_today = bars
+        self._redraw_pending = True
+
+    def _on_overlay_today_changed(self, bars: list):
+        if self._is_minute_period:
+            self._overlay_final = bars
+        else:
+            self._overlay_today = bars
         self._redraw_pending = True
 
     def _flush_redraw(self):
@@ -338,7 +394,24 @@ class OpeningTab(QWidget):
 
     def _redraw_now(self):
         self._redraw_pending = False
-        self.chart.set_price_data(self._primary_bars, self._overlay_bars, self._chart_days)
+        if self._is_minute_period:
+            primary = self._primary_final
+            overlay = self._overlay_final
+        else:
+            primary = self._merge_history_and_today(self._primary_history, self._primary_today)
+            overlay = self._merge_history_and_today(self._overlay_history, self._overlay_today)
+        self.chart.set_price_data(primary, overlay, self._chart_days)
+
+    @staticmethod
+    def _merge_history_and_today(history: list, today: list) -> list:
+        """history(ChartDataService查來的)跟today(CapitalTickClient tick組
+        的)可能重疊——history查詢範圍是到「今天」，今天已經結束的盤(例如
+        現在是夜盤時間，今天的日盤早就收盤了)會出現在history裡；today是
+        自己用tick組的，只要今天訂閱過就有資料，不管那個盤結束了沒。同一
+        個時間點(同一個date標籤)兩邊都有的話，以history(伺服器正式資料)
+        為準，today只補history沒有的部分(通常就是還在進行中的那個盤)。"""
+        history_dates = {bar["date"] for bar in history}
+        return history + [bar for bar in today if bar["date"] not in history_dates]
 
     # --------------------------------------------------- 今天日K的重試確認
     RECONCILE_TAG = "reconcile"
@@ -363,14 +436,15 @@ class OpeningTab(QWidget):
         if tag != self.RECONCILE_TAG or symbol != ChartDataService.PRIMARY_SYMBOL:
             return
         today = datetime.date.today()
-        has_today = any(bar.get("calendar_date") == today.isoformat() for bar in bars)
-        if has_today:
+        today_bar = next((b for b in bars if b.get("calendar_date") == today.isoformat()), None)
+        if today_bar is not None:
             self._daily_reconciled_date = today
             self.chart_status_label.setText("")
-            # 使用者現在剛好在看日線的話，拿伺服器確認過的正式日K重新整理
-            # 一次，取代原本用tick自己組的暫定值 (收盤價等細節可能跟正式
-            # 結算資料有些微差異)。
-            if self._current_period()[0] == "日線" and not self._kline_client.is_pending(ChartDataService.PRIMARY_SYMBOL):
+            # 使用者現在剛好在看日線的話，重新查一次歷史——這次會員含伺服
+            # 器正式確認過的今天日K，跟tick組的today合併時(_merge_history_
+            # and_today)以歷史為準，自然取代掉tick自己組的暫定值，不用手動
+            # 拼接。
+            if self._current_period()[0] == "日線" and not self._chart_busy:
                 self._request_chart()
         else:
             self.chart_status_label.setText("今天的日K還沒出現，1分鐘後自動重試…")
