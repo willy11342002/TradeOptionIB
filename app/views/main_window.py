@@ -5,7 +5,8 @@ import win32event
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
     QComboBox, QSpinBox, QLabel, QTableWidget,
-    QTableWidgetItem, QGroupBox, QHeaderView, QTabWidget,
+    QTableWidgetItem, QGroupBox, QHeaderView, QTabWidget, QPushButton,
+    QMessageBox,
 )
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor, QBrush
@@ -14,8 +15,10 @@ from app.models import capital_symbols as sym
 from app.models.capital_client import CapitalClient
 from app.models.capital_order_client import CapitalOrderClient
 from app.models.capital_quote_client import CapitalQuoteClient
-from app.services import theme
+from app.models.order_book import OrderBookManager
+from app.services import black_scholes, theme
 from app.views.opening_tab import OpeningTab
+from app.views.order_book_window import OrderBookWindow
 from app.views.order_dialog import OrderDialog
 
 # 表格底色跟著淺色/深色模式切換；漲跌紅綠字、漲跌停紅綠底白字這些「語意」
@@ -45,14 +48,21 @@ COLOR_WHITE_TEXT = QColor("white")
 COLOR_ATM_TEXT = QColor("#ff8c00")      # 價平：履約價文字用醒目橙色標示
 
 # 群益基礎報價沒有華南 XQ RTD 那種「隱波%/理論價/Delta/Theta」加值欄位
-# (SKQuoteLib_Delta 等函式是本地 Black-Scholes 計算機，不是即時報價)，
-# 所以這裡只留買價/賣價/成交價，比原本少 4 欄。
-COLUMNS = ["買價", "賣價", "成交價", "履約價", "成交價", "買價", "賣價"]
-CALL_COLS = {"bid": 0, "ask": 1, "last": 2}
-STRIKE_COL = 3
-PUT_COLS = {"last": 4, "bid": 5, "ask": 6}
+# (SKQuoteLib_Delta 等函式是本地 Black-Scholes 計算機，不是即時報價)。
+# Delta 自己用 app/services/black_scholes.py 算：拿買賣中價反推隱含波動
+# 率，再算 Delta，近似值 (歐式、無股利調整)，用來感受勝率，不是精確風控。
+COLUMNS = ["買價", "賣價", "成交價", "Delta", "履約價", "Delta", "成交價", "買價", "賣價"]
+CALL_COLS = {"bid": 0, "ask": 1, "last": 2, "delta": 3}
+STRIKE_COL = 4
+PUT_COLS = {"delta": 5, "last": 6, "bid": 7, "ask": 8}
 
 PRICE_KEYS = ("bid", "ask", "last")
+CALL_DELTA_COL = CALL_COLS["delta"]
+PUT_DELTA_COL = PUT_COLS["delta"]
+
+# Delta 反推用的無風險利率，近似值——短天期選擇權對這個數字很不敏感，不用
+# 精確；不是即時資料，固定寫死即可。
+RISK_FREE_RATE = 0.015
 
 # 加權指數在群益 SKQuoteLib 的代碼，用來自動帶入中心履約價。
 # 用群益官方範例 PythonExampleV2/Quote/Quote.py 的「個股資訊」查詢實測
@@ -65,7 +75,8 @@ PUMP_INTERVAL_MS = 200
 class MainWindow(QMainWindow):
     def __init__(self, capital_client: CapitalClient = None):
         super().__init__()
-        self.setWindowTitle("台指選擇權 T 字報價 (群益 API)")
+        account_suffix = f" - 帳號 {capital_client.account}" if capital_client and capital_client.account else ""
+        self.setWindowTitle(f"台指選擇權 T 字報價 (群益 API){account_suffix}")
         self.resize(1000, 700)
 
         self.capital_client = capital_client
@@ -74,7 +85,15 @@ class MainWindow(QMainWindow):
         self.quote_client.quote_error.connect(self._on_quote_error)
         self.quote_client.connected.connect(self._on_quote_connected)
         self.quote_client.disconnected.connect(self._on_quote_disconnected)
+        self.capital_client.report_connect_status.connect(self._on_report_connect_status)
+        self.capital_client.report_ready.connect(self._on_report_ready)
         self.order_client = CapitalOrderClient(capital_client)
+        self.order_book_manager = OrderBookManager(self.order_client, self.quote_client)
+        # 委託被交易所退單/失敗一定要跳出來，不能只寫在下單匣表格裡等
+        # 使用者剛好開著那個視窗才看得到——接在 MainWindow 上，不管下單
+        # 匣視窗有沒有開過都會跳。
+        self.order_book_manager.record_rejected.connect(self._on_order_rejected)
+        self.order_book_window = None  # 單例，開過一次就重複使用同一個視窗
 
         self.row_meta = {}          # row -> {"strike":, "call_symbol":, "put_symbol":}
         self.symbol_row_side = {}   # 商品代碼 -> (row, "call"/"put")
@@ -84,6 +103,7 @@ class MainWindow(QMainWindow):
         self.center_value = None    # 中心履約價，完全由加權指數開盤價自動算出，不給手動改
         self.strike_atm_row = None  # 目前「價平」(現貨即時價四捨五入)所在的列
         self.strike_to_row = {}     # 履約價數值 -> 該列的 row index
+        self.underlying_price = None  # TSEA 即時成交價，Delta 反推用
 
         # 價格欄位 col -> 屬於 call 還是 put，漲跌停/漲跌顏色要分開比對
         self.col_side = {}
@@ -122,8 +142,23 @@ class MainWindow(QMainWindow):
         self.opening_tab = OpeningTab()
         self.tabs.addTab(self.opening_tab, "開倉")
 
+        bottom_row = QHBoxLayout()
         self.status_label = QLabel("已連接群益 API，可以開始查詢/訂閱")
-        root.addWidget(self.status_label)
+        bottom_row.addWidget(self.status_label, 1)
+        order_book_btn = QPushButton("下單匣 / 成交回報")
+        order_book_btn.clicked.connect(self._open_order_book_window)
+        bottom_row.addWidget(order_book_btn)
+        root.addLayout(bottom_row)
+
+    def _open_order_book_window(self):
+        if self.order_book_window is None:
+            self.order_book_window = OrderBookWindow(self.order_book_manager, parent=self)
+        self.order_book_window.show()
+        self.order_book_window.raise_()
+        self.order_book_window.activateWindow()
+
+    def _on_order_rejected(self, label: str, error_msg: str):
+        QMessageBox.critical(self, "委託失敗", f"{label}\n\n{error_msg}")
 
     def _build_query_box(self) -> QGroupBox:
         box = QGroupBox("選擇權合約查詢")
@@ -213,6 +248,19 @@ class MainWindow(QMainWindow):
     def _on_quote_disconnected(self):
         self.status_label.setText("報價伺服器斷線")
 
+    def _on_report_connect_status(self, ok: bool, message: str):
+        # 委託/成交回報要靠這個連線才收得到 (OnNewData)，之前漏呼叫
+        # SKReplyLib_ConnectByID，導致回報永遠進不來、下單匣狀態卡在「掛
+        # 單中」出不來——連線失敗一定要讓使用者看到，不能默默吞掉。
+        if not ok:
+            self.status_label.setText(f"回報主機連線異常：{message}（委託/成交回報可能收不到）")
+
+    def _on_report_ready(self):
+        # 文件：收到 OnComplete 才代表回報回補完成、真的能正常收委託/成
+        # 交回報了；沒收到的話代表連線異常 (不是這裡處理，OnConnect 失敗
+        # 已經有訊息了)。
+        self.status_label.setText("回報主機連線完成，可正常接收委託/成交回報")
+
     def _try_apply_taiex_open(self, data: dict):
         price = data.get("last") or data.get("open")
         if not price:
@@ -236,6 +284,13 @@ class MainWindow(QMainWindow):
         # 價平 = 現貨即時價四捨五入到百位，跟中心履約價一次性帶入不同，
         # 這個每次跳動都要重算，畫面上的橙字標示才會跟著現貨移動。
         self._highlight_atm_strike(rounded)
+
+        # Delta 反推要用現貨價，現貨每跳一次全部列都要重算 (不是只有中心
+        # 履約價那一次)。
+        self.underlying_price = price
+        for row in self.row_meta:
+            self._recompute_delta(row, "call")
+            self._recompute_delta(row, "put")
 
     # ------------------------------------------------------------- 查詢邏輯
     def _populate_expiry_list(self):
@@ -360,6 +415,47 @@ class MainWindow(QMainWindow):
                 continue
             self._update_cell(row, col, value)
 
+        self._recompute_delta(row, side)
+
+    def _recompute_delta(self, row: int, side: str) -> None:
+        """拿買賣中價反推隱含波動率，算出 Delta 填進表格。群益基礎報價
+        沒有現成的 Delta/IV，這是我們自己用 Black-Scholes 算的近似值 (見
+        app/services/black_scholes.py)，不是交易所/券商提供的即時資料。"""
+        delta_col = CALL_DELTA_COL if side == "call" else PUT_DELTA_COL
+        item = self.table.item(row, delta_col)
+        if item is None:
+            return
+        meta = self.row_meta.get(row)
+        if meta is None or self.underlying_price is None:
+            item.setText("")
+            return
+
+        cols = CALL_COLS if side == "call" else PUT_COLS
+        bid = self.price_last_value.get((row, cols["bid"]))
+        ask = self.price_last_value.get((row, cols["ask"]))
+        last = self.price_last_value.get((row, cols["last"]))
+        if bid and ask and bid > 0 and ask > 0:
+            mid = (bid + ask) / 2
+        elif last and last > 0:
+            mid = last
+        else:
+            item.setText("")
+            return
+
+        days = (meta["expiry_date"] - datetime.date.today()).days
+        if days <= 0:
+            item.setText("")
+            return
+        time_to_expiry = days / 365.0
+        is_call = side == "call"
+
+        iv = black_scholes.implied_vol(is_call, self.underlying_price, meta["strike"], RISK_FREE_RATE, time_to_expiry, mid)
+        if iv is None:
+            item.setText("")
+            return
+        d = black_scholes.delta(is_call, self.underlying_price, meta["strike"], RISK_FREE_RATE, time_to_expiry, iv)
+        item.setText(f"{d:.2f}" if d is not None else "")
+
     def _update_cell(self, row: int, col: int, value):
         item = self.table.item(row, col)
         if item is None:
@@ -474,7 +570,7 @@ class MainWindow(QMainWindow):
         put_ask = self.price_last_value.get((row, PUT_COLS["ask"]), 0.0) or 0.0
 
         dialog = OrderDialog(
-            self.order_client,
+            self.order_book_manager,
             meta["product_code"],
             meta["expiry_date"],
             meta["strike"],

@@ -32,6 +32,8 @@ class CapitalClient(QObject):
 
     login_failed = pyqtSignal(str)
     accounts_ready = pyqtSignal(list)  # 每次收到新帳號都會送出目前完整清單
+    report_connect_status = pyqtSignal(bool, str)  # 回報主機連線結果 (OnConnect)
+    report_ready = pyqtSignal()                    # 回報回補完成 (OnComplete)，之前沒收到過
 
     def __init__(self):
         super().__init__()
@@ -56,7 +58,7 @@ class CapitalClient(QObject):
         # SK_WARNING_REGISTER_REPLYLIB_ONREPLYMESSAGE_FIRST。這裡先掛一個最
         # 小的事件槽，實際的委託/成交回報 (OnNewData) 交給
         # capital_order_client.py 另外掛一個獨立的事件槽處理。
-        self._reply_events = _ReplyEvents()
+        self._reply_events = _ReplyEvents(self)
         self._reply_handler = comtypes.client.GetEvents(self.reply, self._reply_events)
 
     @property
@@ -86,10 +88,37 @@ class CapitalClient(QObject):
             self.login_failed.emit(self._center_msg(code))
             return False
 
+        # 下單前一定要讀憑證，不然憑證沒驗證過，送單時會回
+        # SK_ERROR_CERT_NOT_VERIFIED (查報價/查帳號不需要憑證，所以這步
+        # 漏掉時前面都測得過，只有真的送單才會爆——親身踩過)。順序照官
+        # 方文件《群益PythonAPI使用前看我看我.docx》：Initialize →
+        # ReadCertByID → GetUserAccount。
+        code = self.order.ReadCertByID(user_id)
+        if code != 0:
+            self.login_failed.emit(self._center_msg(code))
+            return False
+
         code = self.order.GetUserAccount()
         if code != 0:
             self.login_failed.emit(self._center_msg(code))
             return False
+
+        # *** 這一步之前漏掉，是委託回報 OnNewData 收不到、狀態卡在「掛
+        # 單中」出不來的根因 ***：SKReplyLib_ConnectByID 是連線回報主機的
+        # 必要呼叫，跟前面掛 OnReplyMessage/OnNewData 事件槽是兩回事——掛
+        # 事件槽只是「準備好接收的管道」，沒呼叫這個的話回報主機根本沒把
+        # 你接上，事件永遠不會觸發。核對自官方範例
+        # PythonExample/Reply_Service/Reply.py 的 btnConnect_Click，文件
+        # 《12.回報.docx》也明講「不需先做回報連線」就能登入，所以放在登
+        # 入流程最後一步呼叫，不影響登入本身成不成功。連線結果非同步從
+        # OnConnect 事件回報 (report_connect_status 訊號)，回報回補完成
+        # 從 OnComplete 事件回報 (report_ready 訊號)；文件明講「若未收到
+        # OnComplete 通知，代表新建立的回報連線及回傳回報資料異常」，所以
+        # 這個事件值得讓 UI 顯示出來，不要默默失敗。
+        code = self.reply.SKReplyLib_ConnectByID(user_id)
+        print(f"[SKReplyLib_ConnectByID] code={code} ({self._center_msg(code) if code != 0 else 'OK，等待 OnConnect/OnComplete'})")
+        if code != 0:
+            self.report_connect_status.emit(False, self._center_msg(code))
 
         return True
 
@@ -112,21 +141,61 @@ class _OrderEvents:
         self._client = client
 
     def OnAccount(self, bstrLogInID, bstrAccountData):
-        # bstrAccountData 逗號分隔欄位，完整帳號 = IB代號(index 1) + 帳號
-        # (index 3)，組法照抄群益官方範例 LoginForm.py 的 OnAccount。
+        # bstrAccountData 逗號分隔欄位，依官方文件《4.下單準備介紹.docx》：
+        # 市場,分公司代碼,分公司,帳號,身份證字號,姓名。完整帳號 = 分公司
+        # 代碼(index 1) + 帳號(index 3)，組法照抄官方範例
+        # order_service/Order.py 的 OnAccount。
+        #
+        # 同一個登入 ID 底下每種市場別(TS證券/TF期貨/OF海期/OS複委託...)
+        # 都會各自呼叫一次 OnAccount，不是只有一筆。這支程式只做期貨/
+        # 選擇權下單 (SendOptionOrder/SendDuplexOrder 都要求期貨帳號)，
+        # 期貨、選擇權文件上是共用同一個 TF 帳號 (Order.py 裡
+        # boxFutureAccount 選好之後同時 SetAccount 給 future 跟 option
+        # 兩個下單物件)，所以這裡只留 market == 'TF' 的帳號，非期貨帳號
+        # 一律忽略，不會混進選單、也不會被誤選成下單帳號。
         values = bstrAccountData.split(',')
         if len(values) < 4:
             return
-        full_account = values[1] + values[3]
-        if full_account not in self._client.accounts:
-            self._client.accounts.append(full_account)
+        market, broker, _branch, account_no = values[0], values[1], values[2], values[3]
+        if market != 'TF':
+            return
+        full_account = broker + account_no
+        existing = {a["full_account"] for a in self._client.accounts}
+        if full_account not in existing:
+            self._client.accounts.append({
+                "full_account": full_account,
+                "market": market,
+                "raw": bstrAccountData,
+            })
             self._client.accounts_ready.emit(list(self._client.accounts))
 
 
 class _ReplyEvents:
     """OnReplyMessage 是公告訊息 (跟委託/成交回報 OnNewData 無關)，SKCOM
     規定這個事件槽要先掛好才能登入。官方範例的回傳值固定給 -1 (代表不處
-    理這則公告)，照抄。"""
+    理這則公告)，照抄。OnConnect/OnComplete/OnDisconnect 是回報主機連線
+    狀態，OnNewData(委託/成交回報本身) 由 capital_order_client.py 另外掛
+    一個獨立事件槽處理 (comtypes 同一個 COM 物件可以掛多個事件槽)。"""
+
+    def __init__(self, client: "CapitalClient"):
+        self._client = client
 
     def OnReplyMessage(self, bstrUserID, bstrMessages):
         return -1
+
+    def OnConnect(self, bstrUserID, nErrorCode):
+        print(f"[OnConnect] userID={bstrUserID} errorCode={nErrorCode}")
+        if nErrorCode == 0:
+            self._client.report_connect_status.emit(True, "已連線")
+        else:
+            self._client.report_connect_status.emit(False, self._client._center_msg(nErrorCode))
+
+    def OnComplete(self, bstrUserID):
+        # 文件：「回報連線後會進行回報回補，等收到此事件通知後表示回補
+        # 完成」「若未收到此通知，代表新建立的回報連線及回傳回報資料異
+        # 常」——這個事件本身就是「回報現在真的能正常收了」的證明。
+        print(f"[OnComplete] userID={bstrUserID} 回報回補完成")
+        self._client.report_ready.emit()
+
+    def OnDisconnect(self, bstrUserID, nErrorCode):
+        self._client.report_connect_status.emit(False, self._client._center_msg(nErrorCode))

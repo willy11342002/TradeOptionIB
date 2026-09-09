@@ -106,7 +106,11 @@ class LoginDialog(QDialog):
 
     def _on_accounts_ready(self, accounts):
         self.account_combo.clear()
-        self.account_combo.addItems(accounts)
+        for acc in accounts:
+            # 顯示市場別+完整帳號+原始字串，帳號選錯/組錯的話一眼就看得
+            # 出來，不用再回頭加 log 才能查。
+            display = f"[{acc['market']}] {acc['full_account']}  ({acc['raw']})"
+            self.account_combo.addItem(display, acc["full_account"])
         self.account_combo.setEnabled(True)
         self.account_combo.setVisible(True)
         self.confirm_account_btn.setVisible(True)
@@ -115,7 +119,7 @@ class LoginDialog(QDialog):
             self._on_confirm_account_clicked()
 
     def _on_confirm_account_clicked(self):
-        account = self.account_combo.currentText()
+        account = self.account_combo.currentData()
         if not account:
             QMessageBox.warning(self, "提醒", "請選擇交易帳號")
             return

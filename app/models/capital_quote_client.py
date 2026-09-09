@@ -32,6 +32,17 @@
     4. 價格欄位(nBid/nAsk/nClose 等)是整數，要除以 10**sDecimal 還原成
        實際價格 (跟群益官方範例 Quote.py 的算法一致)
 
+*** 第三個坑：psPageNo 不是遞增的分頁編號，是固定值 ***
+官方文件《13.國內報價.docx》對 RequestStocks 的 psPageNo 參數寫得很明
+確：「請固定帶1」，而且「一個 SKQuoteLib 物件，僅可擇一使用一個即時報
+價訂閱」——每次呼叫 RequestStocks 其實是**重新宣告整份訂閱清單**，不是
+疊加。第一版把 psPageNo 當成每次呼叫都要遞增的分頁號碼在用 (0, 1,
+2...)，對一般用戶是無效頁碼，導致換到期別/價格間距時重新訂閱靜默失效
+(main_window.py 自己無條件顯示「已訂閱 N 檔」，就算 RequestStocks 回傳
+非 0 也不會被注意到)。改成：`_subscribed_symbols` 維護「目前想要的完整
+清單」，任何新增/移除都用固定 psPageNo=1 重新呼叫一次 RequestStocks 把
+完整清單重送一次，不是只送異動的部分。
+
 因為連線是非同步的，呼叫端 (main_window.py) 在還沒連上前就呼叫
 subscribe() 是很正常的情況 (例如剛登入、視窗還在建構)，這裡的做法是把
 還沒連線時的 subscribe() 要求先排進 _pending_symbols，等真的收到
@@ -68,6 +79,9 @@ CONN_DISCONNECTED = 3002
 CONN_STOCKS_READY = 3003
 CONN_ERROR = 3021
 
+# 文件：「請固定帶1」，不是遞增的分頁編號。
+SUBSCRIBE_PAGE = 1
+
 
 class CapitalQuoteClient(QObject):
     quote_updated = pyqtSignal(str, dict)  # 代碼, {"bid":, "ask":, "last":, "open":, "high":, "low":}
@@ -80,7 +94,6 @@ class CapitalQuoteClient(QObject):
         self._client = client
         self._quote = client.quote
         self._sk = client.sk
-        self._next_page = 0
         self._subscribed_symbols: Set[str] = set()
         self._pending_symbols: Set[str] = set()
         self._connected = False
@@ -94,28 +107,26 @@ class CapitalQuoteClient(QObject):
             self.quote_error.emit("EnterMonitorLONG", self._center_msg(code))
 
     def subscribe(self, symbols) -> None:
-        """一次訂閱一批商品代碼 (逗號分隔字串上限由 SKCOM 決定，這裡假設
-        T 字報價一次的檔數不會超過，超過的話要自己分批呼叫)。還沒連上報
-        價主機的話會先排進待訂閱清單，連線成功後自動補送，呼叫端不用等
-        待/重試。"""
-        symbols = [s for s in symbols if s not in self._subscribed_symbols and s not in self._pending_symbols]
-        if not symbols:
+        """加入商品代碼到「目前想要訂閱的完整清單」。還沒連上報價主機的
+        話會先排進待訂閱清單，連線成功後自動補送，呼叫端不用等待/重
+        試。實際送出時一定是整份清單一起送 (見檔案開頭說明)。"""
+        new_symbols = [s for s in symbols if s not in self._subscribed_symbols and s not in self._pending_symbols]
+        if not new_symbols:
             return
         if not self._connected:
-            self._pending_symbols.update(symbols)
+            self._pending_symbols.update(new_symbols)
             return
-        self._do_subscribe(symbols)
-
-    def _do_subscribe(self, symbols) -> None:
-        page = self._next_page
-        self._next_page += 1
-        _echo_page, code = self._quote.SKQuoteLib_RequestStocks(page, ",".join(symbols))
-        if code != 0:
-            self.quote_error.emit(",".join(symbols), self._center_msg(code))
-            return
-        for s in symbols:
-            self._subscribed_symbols.add(s)
+        self._subscribed_symbols.update(new_symbols)
+        self._resubscribe_all()
+        for s in new_symbols:
             self.fetch_snapshot(s)
+
+    def _resubscribe_all(self) -> None:
+        if not self._subscribed_symbols:
+            return
+        _echo, code = self._quote.SKQuoteLib_RequestStocks(SUBSCRIBE_PAGE, ",".join(self._subscribed_symbols))
+        if code != 0:
+            self.quote_error.emit(",".join(self._subscribed_symbols), self._center_msg(code))
 
     def fetch_snapshot(self, symbol: str) -> None:
         """主動查一次目前的報價快照 (不需要等事件觸發)，隨時可以呼叫。"""
@@ -127,14 +138,17 @@ class CapitalQuoteClient(QObject):
 
     def unsubscribe(self, symbols) -> None:
         self._pending_symbols.difference_update(symbols)
-        symbols = [s for s in symbols if s in self._subscribed_symbols]
-        if not symbols:
+        removed = [s for s in symbols if s in self._subscribed_symbols]
+        if not removed:
             return
         try:
-            self._quote.SKQuoteLib_CancelRequestStocks(",".join(symbols))
+            self._quote.SKQuoteLib_CancelRequestStocks(",".join(removed))
         except Exception:  # noqa: BLE001
             pass
-        self._subscribed_symbols.difference_update(symbols)
+        self._subscribed_symbols.difference_update(removed)
+        # 重新宣告剩下的清單：RequestStocks 是「整份重新宣告」語意，不
+        # 能假設 CancelRequestStocks 之後剩下的商品會自動繼續有效。
+        self._resubscribe_all()
 
     def unsubscribe_all(self) -> None:
         self.unsubscribe(list(self._subscribed_symbols) + list(self._pending_symbols))
@@ -158,7 +172,14 @@ class CapitalQuoteClient(QObject):
             if self._pending_symbols:
                 pending = list(self._pending_symbols)
                 self._pending_symbols.clear()
-                QTimer.singleShot(0, lambda: self._do_subscribe(pending))
+                self._subscribed_symbols.update(pending)
+
+                def _flush():
+                    self._resubscribe_all()
+                    for s in pending:
+                        self.fetch_snapshot(s)
+
+                QTimer.singleShot(0, _flush)
         elif n_kind == CONN_DISCONNECTED:
             self._connected = False
             self.disconnected.emit()

@@ -20,7 +20,7 @@ def main():
         return
 
     window = MainWindow(capital_client=login.capital_client)
-    window.show()
+    window.showMaximized()
     app.exec_()
     # SKCOM 用的 comtypes COM 物件在 Python 直譯器自己收尾(GC)時，跟原生
     # vtable 的釋放時機對不上容易直接 segfault；closeEvent 裡該做的清理
