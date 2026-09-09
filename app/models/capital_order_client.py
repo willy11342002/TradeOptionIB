@@ -128,11 +128,47 @@ _REPORT_FIELDS = [
     "field46_unconfirmed", "seq_no", "timefff",
 ]
 
+# 官方文件《策略王COM元件使用說明_V2.13.59.docx》4-2-i OnFutureRights 逐欄
+# 位核對過 (不是猜的)，[0]-[40] 共 41 欄：
+#   [21] 又是一個「原始保證金」，文件本身就是重複命名，不是轉寫錯誤——保
+#   留 initial_margin_2 這個名字誠實反映這件事，不去猜它跟 [13] 差在哪。
+FUTURE_RIGHTS_FIELDS = [
+    "account_balance", "floating_pnl", "realized_fee", "transaction_tax",
+    "withheld_premium", "premium_settled", "equity", "excess_margin",
+    "deposit_withdrawal", "long_option_value", "short_option_value",
+    "futures_realized_pnl", "intraday_unrealized_pnl", "initial_margin",
+    "maintenance_margin", "position_initial_margin", "position_maintenance_margin",
+    "order_margin", "excess_best_margin", "total_premium_value", "withheld_fee",
+    "initial_margin_2", "previous_day_balance", "option_combo_margin_flag",
+    "maintenance_ratio", "currency", "full_initial_margin", "full_maintenance_margin",
+    "full_available", "collateral_amount", "securities_available", "available_balance",
+    "full_cash_available", "securities_value", "risk_indicator", "option_expiry_diff",
+    "option_expiry_loss", "futures_expiry_pnl", "additional_margin", "login_id",
+    "account_no",
+]
+
+# 中文標籤給 UI 顯示用，順序跟 FUTURE_RIGHTS_FIELDS 一一對應，文字照抄文件。
+FUTURE_RIGHTS_LABELS = [
+    "帳戶餘額", "浮動損益", "已實現費用", "交易稅", "預扣權利金", "權利金收付",
+    "權益數", "超額保證金", "存提款", "買方市值", "賣方市值", "期貨平倉損益",
+    "盤中未實現", "原始保證金", "維持保證金", "部位原始保證金", "部位維持保證金",
+    "委託保證金", "超額最佳保證金", "權利總值", "預扣費用", "原始保證金",
+    "昨日餘額", "選擇權組合單加不加收保證金", "維持率", "幣別", "足額原始保證金",
+    "足額維持保證金", "足額可用", "抵繳金額", "有價可用", "可用餘額", "足額現金可用",
+    "有價價值", "風險指標", "選擇權到期差異", "選擇權到期差損", "期貨到期損益",
+    "加收保證金", "LOGIN_ID", "ACCOUNT_NO",
+]
+
+# 幣別：0:全幣別(含基幣) 1:基幣(台幣TWD) 2:人民幣RMB (4-2-38 GetFutureRights)。
+COIN_TYPE_TWD = 1
+
 
 class CapitalOrderClient(QObject):
     order_sent = pyqtSignal(str)       # 送出當下的訊息 (SendXxxOrder 回傳的 bstrMessage)
     order_failed = pyqtSignal(str)     # 送出失敗 (SendXxxOrder 呼叫本身 retCode != 0)
     order_report = pyqtSignal(dict)    # OnNewData 解析後的欄位 dict (見 _REPORT_FIELDS)，含 "raw" 原始字串
+    future_rights = pyqtSignal(dict)   # OnFutureRights 解析後的欄位 dict (見 FUTURE_RIGHTS_FIELDS)，含 "raw" 原始字串
+    future_rights_failed = pyqtSignal(str)  # GetFutureRights 呼叫本身失敗 (retCode != 0)
 
     def __init__(self, client: CapitalClient):
         super().__init__()
@@ -284,6 +320,22 @@ class CapitalOrderClient(QObject):
         self._require_login()
         return self._order.GetFulfillReport(self._client.user_id, self._client.account, n_format)
 
+    def query_future_rights(self, s_coin_type: int = COIN_TYPE_TWD) -> None:
+        """查詢期貨/選擇權帳戶權益數 (期貨、選擇權共用同一期貨帳戶，權益
+        數已經合併選擇權部位，不需要另外查)。非同步查詢，結果透過
+        OnFutureRights 事件回傳，解析後從 future_rights 訊號送出。
+
+        s_coin_type 對應官方文件 4-2-38 GetFutureRights 的「幣別」參數
+        (不是查詢格式碼)：0:全幣別含基幣 1:基幣(台幣TWD) 2:人民幣RMB。
+        這支專案只用台幣帳戶，固定用 COIN_TYPE_TWD，不處理 0 時每個幣別
+        各回傳一筆、最後多回傳一筆 "##" 開頭結束標記的情況。
+
+        不要連續呼叫，太頻繁會回 SK_ERROR_QUERY_IN_PROCESSING (1019)。"""
+        self._require_login()
+        code = self._order.GetFutureRights(self._client.user_id, self._client.account, s_coin_type)
+        if code != 0:
+            self.future_rights_failed.emit(self._center_msg(code))
+
     # ------------------------------------------------------------- 頻率保護
     def set_max_qty(self, market_type: int, max_qty: int) -> Optional[str]:
         code = self._order.SetMaxQty(market_type, int(max_qty))
@@ -320,6 +372,18 @@ class CapitalOrderClient(QObject):
               f"seq_no={report.get('seq_no')}")
         self.order_report.emit(report)
 
+    def _handle_future_rights(self, bstr_data: str) -> None:
+        # 文件：查詢結束時會多回傳一筆以 "##" 開頭的內容——這支只查
+        # COIN_TYPE_TWD 單一幣別，理論上不會像全幣別查詢那樣收到多筆，
+        # 但結束標記這筆還是可能出現，濾掉不當成資料解析/送出。
+        if bstr_data.startswith("##"):
+            return
+        parts = bstr_data.split(',')
+        rights: Dict[str, str] = {"raw": bstr_data}
+        for name, value in zip(FUTURE_RIGHTS_FIELDS, parts):
+            rights[name] = value
+        self.future_rights.emit(rights)
+
 
 class _ReplyEvents:
     def __init__(self, owner: CapitalOrderClient):
@@ -338,3 +402,6 @@ class _OrderAsyncEvents:
         print(f"[OnAsyncOrder] ThreadID={nThreadID} Code={nCode} Message={bstrMessage}")
         if nCode != 0:
             self._owner.order_failed.emit(f"{self._owner._center_msg(nCode)}：{bstrMessage}")
+
+    def OnFutureRights(self, bstrData):
+        self._owner._handle_future_rights(bstrData)
