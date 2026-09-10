@@ -8,9 +8,9 @@ import json
 from ctypes import wintypes
 from typing import Optional, Tuple
 
-from app.paths import PROJECT_ROOT
+from app.paths import PREF_DIR
 
-CRED_FILE = PROJECT_ROOT / ".capital_credentials.bin"
+CRED_FILE = PREF_DIR / "capital_credentials.bin"
 
 
 class _DATA_BLOB(ctypes.Structure):

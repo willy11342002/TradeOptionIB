@@ -10,9 +10,9 @@ store 模組一致(純 IO，不懂業務邏輯)。
 """
 import json
 
-from app.paths import PROJECT_ROOT
+from app.paths import PREF_DIR
 
-ORDER_BOOK_FILE = PROJECT_ROOT / ".order_book_pref.json"
+ORDER_BOOK_FILE = PREF_DIR / "order_book_pref.json"
 
 
 def load() -> list:

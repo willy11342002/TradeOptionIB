@@ -169,6 +169,11 @@ class MainWindow(QMainWindow):
         if expiry is not None:
             query_pref.save(expiry.label, self.step_spin.value(), self.rows_spin.value())
         self._subscribe_taiex_open()
+        # 登入完成後(這裡建構時已經是登入完成狀態)主動查一次未平倉部位，
+        # 不用每次都手動按「重新整理」；GetOpenInterestGW 本身是快速的非
+        # 同步查詢呼叫(結果透過事件回傳)，不像 GetOrderReport 那樣要顧慮
+        # 阻塞，不需要 QTimer 延後執行。
+        self.position_manager.refresh()
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):

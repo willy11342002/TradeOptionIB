@@ -19,9 +19,9 @@ from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 
 from app.models import economic_calendar_client, finmind_client, openrouter_client, taifex_vix_client
 from app.models.capital_kline_client import CapitalKLineClient
-from app.paths import PROJECT_ROOT
+from app.paths import PREF_DIR
 
-HISTORY_FILE = PROJECT_ROOT / "open_position_history.jsonl"
+HISTORY_FILE = PREF_DIR / "open_position_history.jsonl"
 
 # 振幅低的兩象限共用鐵禿鷹；策略內容本身之後再談，這裡先只定象限對應規則。
 STRATEGY_MAP = {

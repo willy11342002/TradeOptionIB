@@ -6,9 +6,9 @@ QByteArray，不能直接塞進 json，用 base64 轉成字串再存成本機小
 import base64
 import json
 
-from app.paths import PROJECT_ROOT
+from app.paths import PREF_DIR
 
-LAYOUT_FILE = PROJECT_ROOT / ".layout_pref.json"
+LAYOUT_FILE = PREF_DIR / "layout_pref.json"
 
 
 def _load_all() -> dict:

@@ -16,34 +16,17 @@ wheels/
 CapitalAPI_2.13.59_PythonExample/
 vendor/capital_api/
 
-# 加密後的登入帳密快取 (DPAPI 二進位，僅本機可解密)
-.capital_credentials.bin
-# 已改用群益 API，這個是舊的凱基帳密快取檔，本機可能還留著舊檔，一樣不能進版控
-.kgi_credentials.bin
-
 # kgisuperpy 舊版殘留在工作目錄的錯誤碼對照檔，已不再使用
 errMsg.ini
 
-# 本機使用者偏好設定 (深色模式等)
-.theme_pref.json
+# 所有「記憶狀態」的本機檔案 (帳密快取/版面配置/查詢條件/委託紀錄等)統一
+# 放這裡，見 app/paths.py 的 PREF_DIR 說明——一個資料夾規則就夠，不用每
+# 加一個新的偏好檔案就手動補一行。
+pref/
 
-# 本機 dock 版面配置存檔 (視窗幾何座標，機器相依)
-.layout_pref.json
-
-# 本機下單匣/成交回報保存檔 (重開視窗仍要看到委託紀錄，機器相依)
-.order_book_pref.json
-
-# 本機未平倉部位手動分組/標籤存檔
-.position_groups_pref.json
-
-# 本機 T 字報價查詢條件存檔 (到期別/價格間距/上下幾檔，機器相依)
-.quote_query_pref.json
-
-# API 金鑰設定，不進版控 (參考 .env.example 填自己的 key)
+# API 金鑰設定，不進版控 (參考 .env.example 填自己的 key)——唯一不搬進
+# pref/ 的例外，見 app/paths.py 的說明。
 .env
-
-# 開倉判斷紀錄，本機執行期產生
-open_position_history.jsonl
 
 # 期交所選擇權波動率指數本地增量快取 (本機執行期產生/累積)
 data/taiwan_option_vix.csv

@@ -11,9 +11,9 @@ Qt 裡儲存格自己設定的顏色優先權高於樣式表，所以報價格�
 import ctypes
 import json
 
-from app.paths import PROJECT_ROOT
+from app.paths import PREF_DIR
 
-PREF_FILE = PROJECT_ROOT / ".theme_pref.json"
+PREF_FILE = PREF_DIR / "theme_pref.json"
 
 DARK_QSS = """
 QWidget { background-color: #2b2b2b; color: #e0e0e0; }

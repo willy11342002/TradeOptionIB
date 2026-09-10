@@ -11,9 +11,9 @@
 import json
 import uuid
 
-from app.paths import PROJECT_ROOT
+from app.paths import PREF_DIR
 
-POSITION_GROUPS_FILE = PROJECT_ROOT / ".position_groups_pref.json"
+POSITION_GROUPS_FILE = PREF_DIR / "position_groups_pref.json"
 
 
 def _load_all() -> dict:

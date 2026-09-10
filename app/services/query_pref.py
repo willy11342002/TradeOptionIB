@@ -10,9 +10,9 @@ label 已經不在最新清單裡 (代表那份合約已經到期下架)，呼�
 """
 import json
 
-from app.paths import PROJECT_ROOT
+from app.paths import PREF_DIR
 
-QUERY_PREF_FILE = PROJECT_ROOT / ".quote_query_pref.json"
+QUERY_PREF_FILE = PREF_DIR / "quote_query_pref.json"
 
 
 def save(expiry_label: str, step: int, rows: int) -> None:
