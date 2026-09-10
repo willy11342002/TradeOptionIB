@@ -73,6 +73,11 @@ TIF_FOK = 2
 
 NEW_POSITION = 0
 CLOSE_POSITION = 1
+# 官方文件《策略王COM元件使用說明_V2.13.59.htm》5-2 FUTUREORDER 結構逐欄位
+# 核對過(不是猜的)：sNewClose 註解原文「新平倉，0:新倉 1:平倉 2:自動
+# {新期貨、選擇權使用}」——2 是文件明講支援的合法值，讓交易所自己依帳
+# 戶既有部位判斷新倉/平倉，不是我們自己發明的值。
+AUTO_POSITION = 2
 
 MARKET_STOCK = 0        # TS 證券
 MARKET_FUTURE = 1       # TF 期貨

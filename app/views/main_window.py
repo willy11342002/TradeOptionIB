@@ -236,7 +236,7 @@ class MainWindow(QMainWindow):
         # 分頁裡切到別的分頁」兩種情況，Qt 都算「不可見」。
         self.opening_dock.visibilityChanged.connect(self._on_opening_dock_visibility_changed)
 
-        self.order_entry_widget = OrderEntryWidget(self.order_book_manager)
+        self.order_entry_widget = OrderEntryWidget(self.order_book_manager, self.position_manager)
         self.order_entry_widget.active_legs_changed.connect(self._on_active_legs_changed)
         self.order_entry_dock = self._make_dock("dock_order_entry", "下單", self.order_entry_widget)
 
