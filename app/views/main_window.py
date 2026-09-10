@@ -17,7 +17,7 @@ from app.models.capital_order_client import CapitalOrderClient
 from app.models.capital_quote_client import CapitalQuoteClient
 from app.models.order_book import OrderBookManager
 from app.models.positions import PositionManager
-from app.services import black_scholes, layout_store, theme
+from app.services import black_scholes, layout_store, query_pref, theme
 from app.views.equity_widget import EquityWidget
 from app.views.opening_tab import OpeningTab
 from app.views.order_book_widgets import FillReportWidget, OrderBookWidget
@@ -140,6 +140,14 @@ class MainWindow(QMainWindow):
         self.strike_to_row = {}     # 履約價數值 -> 該列的 row index
         self.underlying_price = None  # TSEA 即時成交價，Delta 反推用
         self._active_price_cells = set()  # {(row, col)}：下單面板目前算價格用到的儲存格，畫框線用
+        # 填清單/還原上次設定的過程中，expiry_combo 的 index 從 -1 變成
+        # 0 (清單第一筆)、以及 setCurrentIndex/setValue 都會觸發
+        # currentIndexChanged/valueChanged，如果不擋住，_on_query_params_
+        # changed 會在真正讀到上次存檔之前，先把「清單第一筆」存檔覆蓋
+        # 掉——這是之前「明明改成月選，一開視窗又跑回週選」的成因。這段
+        # 期間一律不存檔，全部弄完 (_restore_query_params 結束) 再存一次
+        # 乾淨的最終狀態。
+        self._restoring_query_params = True
 
         # 價格欄位 col -> 屬於 call 還是 put，漲跌停/漲跌顏色要分開比對
         self.col_side = {}
@@ -154,6 +162,12 @@ class MainWindow(QMainWindow):
 
         self._build_ui()
         self._populate_expiry_list()
+        self._restore_query_params()
+        self._restoring_query_params = False
+        self._update_days_label()
+        expiry = self.expiry_combo.currentData()
+        if expiry is not None:
+            query_pref.save(expiry.label, self.step_spin.value(), self.rows_spin.value())
         self._subscribe_taiex_open()
 
     # ------------------------------------------------------------------ UI
@@ -502,10 +516,47 @@ class MainWindow(QMainWindow):
         for expiry in sym.list_all_expiries():
             self.expiry_combo.addItem(expiry.label, expiry)
 
+    def _restore_query_params(self):
+        """重開視窗自動套用上次的到期別/價格間距/上下幾檔。到期別存的是
+        label (相對位置，如「第2週三選」)，如果那個 label 已經不在最新清
+        單裡 (那份合約到期下架、捲到下一輪了)，依序改選最近的週三選、找
+        不到再選最近的月選——都是清單裡「最近到期」的那筆，因為
+        list_all_expiries() 已經照到期日排序過。"""
+        expiry_label, step, rows = query_pref.load()
+
+        target_index = -1
+        if expiry_label is not None:
+            target_index = self.expiry_combo.findText(expiry_label)
+        if target_index < 0:
+            target_index = self._first_index_by_category(sym.CATEGORY_WED)
+        if target_index < 0:
+            target_index = self._first_index_by_category(sym.CATEGORY_MONTHLY)
+        if target_index >= 0:
+            self.expiry_combo.setCurrentIndex(target_index)
+
+        if step is not None:
+            self.step_spin.setValue(step)
+        if rows is not None:
+            self.rows_spin.setValue(rows)
+
+    def _first_index_by_category(self, category: str) -> int:
+        for i in range(self.expiry_combo.count()):
+            expiry = self.expiry_combo.itemData(i)
+            if expiry is not None and expiry.category == category:
+                return i
+        return -1
+
     def _on_query_params_changed(self):
         """到期別/價格間距/上下幾檔任何一個變動時直接查詢，不需要按鈕。"""
         self._update_days_label()
         self._do_subscribe()
+        if self._restoring_query_params:
+            # 填清單/還原上次設定的過程中間狀態不存檔，見 __init__ 的說
+            # 明；還原結束後 __init__ 自己會存一次最終狀態。
+            return
+        expiry = self.expiry_combo.currentData()
+        if expiry is not None:
+            query_pref.save(expiry.label, self.step_spin.value(), self.rows_spin.value())
 
     def _do_subscribe(self):
         expiry = self.expiry_combo.currentData()

@@ -1,8 +1,9 @@
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QTableWidget,
+    QVBoxLayout, QHBoxLayout, QFormLayout, QTableWidget,
     QTableWidgetItem, QWidget, QPushButton, QLabel, QHeaderView,
-    QComboBox, QSpinBox, QInputDialog, QGroupBox,
+    QComboBox, QSpinBox, QDoubleSpinBox, QInputDialog, QGroupBox, QDialog,
+    QDialogButtonBox,
 )
 
 from app.models.order_book import (
@@ -69,6 +70,10 @@ def _build_table(columns) -> QTableWidget:
     table.setHorizontalHeaderLabels(columns)
     header = table.horizontalHeader()
     header.setSectionResizeMode(QHeaderView.Interactive)  # 讓使用者自己拖曳調整每欄寬度
+    # 「商品」欄(index 0)內容長度差很多(裸買賣一個代碼 vs 價差單兩個代碼
+    # 用"/"連起來)，固定寬度不是被截斷就是浪費空間，改成自動依內容寬度調
+    # 整；其餘欄位維持可手動拖曳。
+    header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
     header.setStretchLastSection(True)  # 拖曳完剩下的空間仍交給最後一欄(動作)吃掉，不留空白
     table.verticalHeader().setVisible(False)
     table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -236,9 +241,28 @@ class OrderBookWidget(QWidget):
         record = next((r for r in self._manager.records if r.id == record_id), None)
         if record is None:
             return
-        price, ok = QInputDialog.getDouble(self, "改條件", "新的權利金限價", record.price, 0.1, 99999, 1)
-        if ok:
-            self._manager.change_condition(record_id, price=price)
+        dialog = QDialog(self)
+        dialog.setWindowTitle("改條件")
+        form = QFormLayout(dialog)
+
+        price_spin = QDoubleSpinBox()
+        price_spin.setRange(0.1, 99999)
+        price_spin.setDecimals(1)
+        price_spin.setValue(record.price)
+        form.addRow("新的權利金限價", price_spin)
+
+        qty_spin = QSpinBox()
+        qty_spin.setRange(1, 999)
+        qty_spin.setValue(record.qty)
+        form.addRow("新口數", qty_spin)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        form.addRow(buttons)
+
+        if dialog.exec_() == QDialog.Accepted:
+            self._manager.change_condition(record_id, price=price_spin.value(), qty=qty_spin.value())
 
     def _prompt_amend_price(self, record_id: str):
         record = next((r for r in self._manager.records if r.id == record_id), None)

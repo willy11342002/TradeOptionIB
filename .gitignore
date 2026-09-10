@@ -36,6 +36,9 @@ errMsg.ini
 # 本機未平倉部位手動分組/標籤存檔
 .position_groups_pref.json
 
+# 本機 T 字報價查詢條件存檔 (到期別/價格間距/上下幾檔，機器相依)
+.quote_query_pref.json
+
 # API 金鑰設定，不進版控 (參考 .env.example 填自己的 key)
 .env
 
