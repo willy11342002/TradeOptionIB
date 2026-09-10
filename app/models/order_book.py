@@ -39,7 +39,7 @@ IOC 每次重送都是全新的委託 (IOC 瞬間成交或死亡，沒有「改�
 """
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Dict, List, Optional
 
 from PyQt5.QtCore import QObject, pyqtSignal
@@ -48,6 +48,7 @@ from app.models.capital_order_client import (
     CapitalOrderClient, TIF_ROD, TIF_IOC, TIF_FOK, NEW_POSITION,
 )
 from app.models.capital_quote_client import CapitalQuoteClient
+from app.services import order_book_store
 
 STATUS_STAGED = "staged"
 STATUS_LIVE = "live"           # 已送出，沒有自動重送 (ROD 掛單，或單發 IOC/FOK 等回報)
@@ -61,6 +62,22 @@ TERMINAL_STATUSES = (STATUS_FILLED, STATUS_REJECTED, STATUS_CANCELLED)
 
 GET_ORDER_REPORT_COOLDOWN_SEC = 5.0  # 官方文件要求查詢間隔至少 5 秒
 ORDER_REPORT_FORMAT_ALL = 1  # GetOrderReport nFormat：1=全部
+
+# 連續IOC 的限價條件比較方向。_condition_met 算出來的 total_cost/threshold
+# 是「買方視角的淨成本」(買方=正、賣方=負，見 _condition_met 說明)，這裡的
+# le/ge 就是直接比較這兩個數字，跟買賣方向本身無關：
+#   CONDITION_LE：total_cost <= threshold —— 現在的成本比預期「更好」才送
+#       (買方付得比預期少、賣方收得比預期多)，適合新倉「追一個有利的價
+#       格」。這是原本唯一支援、寫死的行為。
+#   CONDITION_GE：total_cost >= threshold —— 反過來，成本比預期「更差」也
+#       送，適合平倉「停損出場」(價格往不利的方向走也要出場，不是隨便亂
+#       跳都送——只有跳到比設定門檻更差才送)。
+# 使用者要選的是「真實成交價」跟委託價的 ≦/≧ 關係 (order_entry_widget.py
+# 的下拉選單)，那個符號在買方/賣方時對應到這裡的 le/ge 會相反(因為賣方
+# 那一腳算成本時用的是 -bid)，換算邏輯在 order_entry_widget.py 做，這裡
+# 只認 le/ge 兩個值，不處理買賣方向轉換。
+CONDITION_LE = "le"
+CONDITION_GE = "ge"
 
 
 @dataclass
@@ -86,9 +103,19 @@ class OrderRecord:
                              # 限價條件判斷 (_condition_met) 一定要看這個欄位，不能看
                              # legs[0].buy。裸買賣則等於 legs[0].buy 本身。
     auto_retry: bool = False
+    condition_op: str = CONDITION_LE  # 連續IOC 限價條件比較方向，見上面 CONDITION_LE/GE 說明
     status: str = STATUS_STAGED
     seq_no: Optional[str] = None
     retry_count: int = 0
+    awaiting_report: bool = False  # 上一次 _send_once 送出後，這筆委託的終態回報
+                                    # (Type=D/C 或 S/OrderErr=Y) 還沒回來——回來之前
+                                    # 不能再送下一張。沒有這個鎖的話，quote 事件觸發
+                                    # 頻率如果快過送單→回報的往返時間，會在同一張還
+                                    # 沒收到終態回報前又送出下一張，兩張都可能各自成
+                                    # 交，變成使用者要的 1 口變成 2 口(實際發生過：兩
+                                    # 個不同委託書號、同時間、都顯示全部成交1口)。
+                                    # Type=N(委託確認，交易所已受理但還沒撮合結果)不
+                                    # 是終態，不能清這個鎖。
     last_report: Optional[dict] = None
     error_msg: Optional[str] = None
     fill_price: Optional[str] = None
@@ -120,16 +147,71 @@ class OrderBookManager(QObject):
 
         self._records: Dict[str, OrderRecord] = {}
         self._last_get_order_report_at = 0.0
+        self._load_persisted()
+        # 一定要在 _load_persisted() 之後才接，不然載入當下逐筆塞進
+        # self._records 不會經過 emit，但也不需要——widget 建構子自己會
+        # 呼叫一次 _refresh()，第一次畫面本來就會畫出載入好的內容(見
+        # order_book_widgets.py)。之後才接上，任何異動都自動存檔，不用在
+        # 每個會改到 _records 的地方各自補一行存檔呼叫。
+        self.records_changed.connect(self._persist)
 
     @property
     def records(self) -> List[OrderRecord]:
         return list(self._records.values())
+
+    def get_quote(self, symbol: str) -> Optional[dict]:
+        """回傳目前快取的最新報價 (bid/ask)。_on_quote_updated 是「不管
+        這檔商品跟哪一筆委託有沒有關係，quote_client 推送過就存」，所以
+        只要 T字報價表格訂閱過這個商品 (main_window 用的是同一個
+        quote_client 實例)，這裡就查得到——下單面板用這個查價差單另一腳
+        的即時報價，自動算出淨權利金現價，不用使用者自己心算。查不到回
+        傳 None (從沒收過這檔報價，或還沒訂閱)。"""
+        return self._latest_quotes.get(symbol)
+
+    # --------------------------------------------------------------- 本地保存
+    def _persist(self) -> None:
+        order_book_store.save([asdict(record) for record in self._records.values()])
+
+    def _load_persisted(self) -> None:
+        """*** 重開機後不能直接把 STATUS_RETRYING 原封不動地恢復 ***：連
+        續IOC監看靠的是「這個 session 一直訂閱著報價」(_on_quote_updated
+        收到就檢查 _maybe_fire)，重開機後這個訂閱從零開始，就算把狀態原
+        樣搬回來，只要剛好有其他地方(例如T字報價表)也訂閱了同一個商品、
+        任何一次報價跳動都可能在使用者還沒看過畫面、還沒確認這筆單現在
+        到底該不該繼續追價之前，就把新單默默送出去——這是絕對不能接受的
+        行為。所以載入時把「原本在自動監看中」的單一律凍結成
+        STATUS_PAUSED，要使用者自己按「恢復」才會重新開始監看送單；但
+        還是先把這幾腳的報價訂閱補回去(訂閱本身只是被動收報價，沒有送單
+        風險)，不然使用者按恢復的當下手上完全沒有報價快取，會直接卡住送
+        不出去。STATUS_STAGED(還沒送出過，未曾對交易所產生任何動作)跟
+        STATUS_LIVE(沒有自動重送行為綁在這個狀態上)原樣載入沒有風險。"""
+        symbols_to_resubscribe: List[str] = []
+        for raw in order_book_store.load():
+            try:
+                raw = dict(raw)
+                raw["legs"] = [OrderLeg(**leg) for leg in raw["legs"]]
+                record = OrderRecord(**raw)
+            except (TypeError, KeyError) as exc:
+                print(f"[OrderBook] 本地保存的委託格式對不上目前的欄位定義，這筆跳過不載入: {exc}")
+                continue
+            if record.status in (STATUS_RETRYING, STATUS_PAUSED):
+                record.status = STATUS_PAUSED
+                # 上一個 session 若剛好卡在「送出但終態回報還沒回來」就關
+                # 程式，這個鎖永遠不會有回報來解——重開機後這個 session
+                # 沒送過任何一張，不可能還有本地未完成的送單在飛，清掉避
+                # 免使用者按恢復後被卡死。
+                record.awaiting_report = False
+                symbols_to_resubscribe.extend(leg.symbol for leg in record.legs)
+            self._records[record.id] = record
+        if symbols_to_resubscribe:
+            self._quote_client.subscribe(symbols_to_resubscribe)
 
     # --------------------------------------------------------------- 暫存
     def stage_outright(
         self, symbol: str, buy: bool, price: float, qty: int,
         tif: int = TIF_ROD, new_close: int = NEW_POSITION, auto_retry: bool = False,
         call_put: Optional[str] = None, strike: Optional[float] = None,
+        condition_op: str = CONDITION_LE,
     ) -> str:
         if auto_retry and tif == TIF_ROD:
             raise ValueError("ROD 不能連續重送 (會一直停在委託簿上疊單)，只有 IOC/FOK 可以")
@@ -138,6 +220,7 @@ class OrderBookManager(QObject):
             kind="outright",
             legs=[OrderLeg(symbol=symbol, buy=buy, call_put=call_put, strike=strike)],
             price=price, qty=qty, tif=tif, new_close=new_close, net_buyer=buy, auto_retry=auto_retry,
+            condition_op=condition_op,
         )
         self._records[record.id] = record
         self.records_changed.emit()
@@ -150,6 +233,7 @@ class OrderBookManager(QObject):
         call_put1: Optional[str] = None, strike1: Optional[float] = None,
         call_put2: Optional[str] = None, strike2: Optional[float] = None,
         net_buyer: Optional[bool] = None,
+        condition_op: str = CONDITION_LE,
     ) -> str:
         if tif not in (TIF_IOC, TIF_FOK):
             raise ValueError("價差複式單只能用 IOC 或 FOK")
@@ -166,6 +250,7 @@ class OrderBookManager(QObject):
             ],
             price=net_price, qty=qty, tif=tif, new_close=new_close,
             net_buyer=buy1 if net_buyer is None else net_buyer, auto_retry=auto_retry,
+            condition_op=condition_op,
         )
         self._records[record.id] = record
         self.records_changed.emit()
@@ -207,6 +292,7 @@ class OrderBookManager(QObject):
 
     def _send_once(self, record: OrderRecord) -> None:
         record.retry_count += 1
+        record.awaiting_report = True
         # auto_retry(連續IOC) 這條路徑會被報價更新高頻觸發(_maybe_fire)，
         # 一定要用非同步(is_async=True)，不然重送愈頻繁 UI 卡愈久，會重
         # 現先前「暫停/刪除按了沒反應」的問題(PyQt 沒有安全的方式把這個
@@ -257,10 +343,16 @@ class OrderBookManager(QObject):
                 return False
             total_cost += ask if leg.buy else -bid
         threshold = record.price if record.net_buyer else -record.price
+        if record.condition_op == CONDITION_GE:
+            return total_cost >= threshold
         return total_cost <= threshold
 
     def _maybe_fire(self, record: OrderRecord) -> None:
         if record.status != STATUS_RETRYING:
+            return
+        if record.awaiting_report:
+            # 上一張還沒收到終態回報，不能再送——見 OrderRecord.awaiting_report
+            # 的說明，這是「連續IOC多成交一口」那個 bug 的防線。
             return
         if not self._condition_met(record):
             return
@@ -380,21 +472,27 @@ class OrderBookManager(QObject):
         order_err = report.get("order_err")
 
         if report_type == "D":
+            record.awaiting_report = False
             record.status = STATUS_FILLED
             record.fill_price = report.get("price1") or report.get("price")
             record.fill_qty = report.get("qty")
         elif order_err == "Y" or report_type == "S":
+            record.awaiting_report = False
             record.status = STATUS_REJECTED
             record.error_msg = report.get("error_msg") or report.get("raw")
             self.record_rejected.emit(record.label(), record.error_msg)
         elif report_type == "C":
+            record.awaiting_report = False
             if not record.auto_retry:
                 record.status = STATUS_CANCELLED
             # auto_retry 的情況：IOC 沒成交被取消是正常現象，留在
             # STATUS_RETRYING，立刻用目前快取的報價再檢查一次條件——可能
-            # 只是排隊搓合輸掉、價格其實還在，值得馬上再試。
+            # 只是排隊搓合輸掉、價格其實還在，值得馬上再試。這裡已經把
+            # awaiting_report 清掉了，_maybe_fire 才可能真的送出下一張。
             elif record.status == STATUS_RETRYING:
                 self._maybe_fire(record)
+        # Type=='N'(委託確認，交易所已受理但還沒有撮合結果)：不是終態，
+        # awaiting_report 保持 True，避免下一次報價跳動又送出下一張。
 
         self.records_changed.emit()
 

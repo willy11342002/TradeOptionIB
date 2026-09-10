@@ -6,21 +6,24 @@ from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
     QComboBox, QSpinBox, QLabel, QTableWidget,
     QTableWidgetItem, QGroupBox, QHeaderView, QPushButton,
-    QMessageBox, QToolBar, QDockWidget, QInputDialog,
+    QMessageBox, QToolBar, QDockWidget, QInputDialog, QStyledItemDelegate,
 )
 from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QColor, QBrush
+from PyQt5.QtGui import QColor, QBrush, QPen
 
 from app.models import capital_symbols as sym
 from app.models.capital_client import CapitalClient
 from app.models.capital_order_client import CapitalOrderClient
 from app.models.capital_quote_client import CapitalQuoteClient
 from app.models.order_book import OrderBookManager
+from app.models.positions import PositionManager
 from app.services import black_scholes, layout_store, theme
 from app.views.equity_widget import EquityWidget
 from app.views.opening_tab import OpeningTab
 from app.views.order_book_widgets import FillReportWidget, OrderBookWidget
 from app.views.order_entry_widget import OrderEntryWidget
+from app.views.payoff_chart_widget import PayoffChartWidget
+from app.views.position_widgets import PositionTreeWidget
 
 # 表格底色跟著淺色/深色模式切換；漲跌紅綠字、漲跌停紅綠底白字這些「語意」
 # 顏色兩個主題共用，不受影響。
@@ -52,8 +55,12 @@ COLOR_ATM_TEXT = QColor("#ff8c00")      # 價平：履約價文字用醒目橙�
 # (SKQuoteLib_Delta 等函式是本地 Black-Scholes 計算機，不是即時報價)。
 # Delta 自己用 app/services/black_scholes.py 算：拿買賣中價反推隱含波動
 # 率，再算 Delta，近似值 (歐式、無股利調整)，用來感受勝率，不是精確風控。
-COLUMNS = ["買價", "賣價", "成交價", "Delta", "履約價", "Delta", "成交價", "買價", "賣價"]
-CALL_COLS = {"bid": 0, "ask": 1, "last": 2, "delta": 3}
+# Call/Put 兩側要以履約價為中心輻射對稱：離中心由近到遠都是
+# Delta、成交價、買價、賣價，所以 Call 側「賣價」要放在離中心最遠的位
+# 置(index 0)、「買價」放內側(index 1)——跟 Put 側「買價」在內側
+# (index 7)、「賣價」在外側(index 8)對稱。
+COLUMNS = ["賣價", "買價", "成交價", "Delta", "履約價", "Delta", "成交價", "買價", "賣價"]
+CALL_COLS = {"bid": 1, "ask": 0, "last": 2, "delta": 3}
 STRIKE_COL = 4
 PUT_COLS = {"delta": 5, "last": 6, "bid": 7, "ask": 8}
 
@@ -71,6 +78,32 @@ RISK_FREE_RATE = 0.015
 TAIEX_SYMBOL = "TSEA"
 
 PUMP_INTERVAL_MS = 200
+
+ACTIVE_PRICE_CELL_BORDER = QColor("#ff8c00")  # 跟價平橙字同色系，但用框線不動背景色
+
+
+class _ActivePriceCellDelegate(QStyledItemDelegate):
+    """在下單面板目前實際用來算價格(委託價欄位的預設值/現價)的那幾格
+    (買價或賣價) 疊一層框線，故意不改背景色——背景色已經用來表示商品類
+    別(call/put)、漲跌、漲跌停，改背景色會跟這些既有語意衝突，疊框線可
+    以不干擾它們，一眼就看出「這格現在算進委託價了」。
+    哪幾格算「目前在用」由 MainWindow._active_price_cells 決定，來源是
+    OrderEntryWidget.active_legs_changed (裸買賣一格、價差單兩格)。"""
+
+    def __init__(self, get_active_cells, parent=None):
+        super().__init__(parent)
+        self._get_active_cells = get_active_cells
+
+    def paint(self, painter, option, index):
+        super().paint(painter, option, index)
+        if (index.row(), index.column()) not in self._get_active_cells():
+            return
+        painter.save()
+        pen = QPen(ACTIVE_PRICE_CELL_BORDER)
+        pen.setWidth(2)
+        painter.setPen(pen)
+        painter.drawRect(option.rect.adjusted(1, 1, -2, -2))
+        painter.restore()
 
 
 class MainWindow(QMainWindow):
@@ -94,6 +127,8 @@ class MainWindow(QMainWindow):
         # 使用者剛好開著那個視窗才看得到——接在 MainWindow 上，不管下單
         # 匣視窗有沒有開過都會跳。
         self.order_book_manager.record_rejected.connect(self._on_order_rejected)
+        self.position_manager = PositionManager(self.order_client, self.order_book_manager, self.quote_client)
+        self.position_manager.query_failed.connect(self._on_position_query_failed)
 
         self.row_meta = {}          # row -> {"strike":, "call_symbol":, "put_symbol":}
         self.symbol_row_side = {}   # 商品代碼 -> (row, "call"/"put")
@@ -104,6 +139,7 @@ class MainWindow(QMainWindow):
         self.strike_atm_row = None  # 目前「價平」(現貨即時價四捨五入)所在的列
         self.strike_to_row = {}     # 履約價數值 -> 該列的 row index
         self.underlying_price = None  # TSEA 即時成交價，Delta 反推用
+        self._active_price_cells = set()  # {(row, col)}：下單面板目前算價格用到的儲存格，畫框線用
 
         # 價格欄位 col -> 屬於 call 還是 put，漲跌停/漲跌顏色要分開比對
         self.col_side = {}
@@ -175,8 +211,14 @@ class MainWindow(QMainWindow):
 
         self.opening_tab = OpeningTab(self.capital_client)
         self.opening_dock = self._make_dock("dock_opening", "開倉", self.opening_tab)
+        # dock 沒打開(關掉，或疊在分頁裡但不是目前顯示的那個分頁)就不要
+        # 打 K 線查詢/訂閱即時 tick——見 opening_tab.py 的 activate()/
+        # deactivate()。visibilityChanged 涵蓋「用選單勾掉關閉」跟「疊在
+        # 分頁裡切到別的分頁」兩種情況，Qt 都算「不可見」。
+        self.opening_dock.visibilityChanged.connect(self._on_opening_dock_visibility_changed)
 
         self.order_entry_widget = OrderEntryWidget(self.order_book_manager)
+        self.order_entry_widget.active_legs_changed.connect(self._on_active_legs_changed)
         self.order_entry_dock = self._make_dock("dock_order_entry", "下單", self.order_entry_widget)
 
         self.order_book_widget = OrderBookWidget(self.order_book_manager)
@@ -188,9 +230,16 @@ class MainWindow(QMainWindow):
         self.equity_widget = EquityWidget(self.order_client)
         self.equity_dock = self._make_dock("dock_equity", "權益查詢", self.equity_widget)
 
+        self.position_widget = PositionTreeWidget(self.position_manager)
+        self.position_dock = self._make_dock("dock_positions", "未平倉部位", self.position_widget)
+
+        self.payoff_chart_widget = PayoffChartWidget(self.position_manager, self.order_book_manager)
+        self.payoff_dock = self._make_dock("dock_payoff", "到期損益圖", self.payoff_chart_widget)
+
         # 預設版面：T字報價/開倉分頁在左邊(跟改版前的 QTabWidget 分頁習慣
-        # 一致)，下單/下單匣/成交回報/權益查詢疊在右邊；使用者可以再自己
-        # 拖動調整，這只是初次啟動、還沒存過版面時的起點。
+        # 一致)，下單/下單匣/成交回報/權益查詢/未平倉疊在右邊，損益圖放
+        # 最下面(圖表要寬，不適合疊在右側窄欄裡)；使用者可以再自己拖動
+        # 調整，這只是初次啟動、還沒存過版面時的起點。
         self.addDockWidget(Qt.LeftDockWidgetArea, self.quote_dock)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.opening_dock)
         self.tabifyDockWidget(self.quote_dock, self.opening_dock)
@@ -200,9 +249,13 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, self.order_book_dock)
         self.addDockWidget(Qt.RightDockWidgetArea, self.fill_report_dock)
         self.addDockWidget(Qt.RightDockWidgetArea, self.equity_dock)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.position_dock)
         self.tabifyDockWidget(self.order_book_dock, self.fill_report_dock)
         self.tabifyDockWidget(self.fill_report_dock, self.equity_dock)
+        self.tabifyDockWidget(self.equity_dock, self.position_dock)
         self.order_book_dock.raise_()
+
+        self.addDockWidget(Qt.BottomDockWidgetArea, self.payoff_dock)
 
         self.resizeDocks([self.quote_dock, self.order_entry_dock], [650, 350], Qt.Horizontal)
 
@@ -210,6 +263,7 @@ class MainWindow(QMainWindow):
         for dock in (
             self.quote_dock, self.opening_dock, self.order_entry_dock,
             self.order_book_dock, self.fill_report_dock, self.equity_dock,
+            self.position_dock, self.payoff_dock,
         ):
             view_menu.addAction(dock.toggleViewAction())
 
@@ -297,6 +351,15 @@ class MainWindow(QMainWindow):
     def _on_order_rejected(self, label: str, error_msg: str):
         QMessageBox.critical(self, "委託失敗", f"{label}\n\n{error_msg}")
 
+    def _on_opening_dock_visibility_changed(self, visible: bool):
+        if visible:
+            self.opening_tab.activate()
+        else:
+            self.opening_tab.deactivate()
+
+    def _on_position_query_failed(self, message: str):
+        self.status_label.setText(f"未平倉查詢失敗：{message}")
+
     def _build_query_box(self) -> QGroupBox:
         box = QGroupBox("選擇權合約查詢")
         layout = QHBoxLayout(box)
@@ -370,6 +433,7 @@ class MainWindow(QMainWindow):
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.cellDoubleClicked.connect(self._on_cell_double_clicked)
+        self.table.setItemDelegate(_ActivePriceCellDelegate(lambda: self._active_price_cells, self.table))
         return self.table
 
     # ----------------------------------------------------------- 報價訂閱
@@ -425,6 +489,9 @@ class MainWindow(QMainWindow):
         # Delta 反推要用現貨價，現貨每跳一次全部列都要重算 (不是只有中心
         # 履約價那一次)。
         self.underlying_price = price
+        self.payoff_chart_widget.set_underlying_price(price)
+        self.order_entry_widget.set_underlying_price(price)
+        self.position_manager.set_underlying_price(price)
         for row in self.row_meta:
             self._recompute_delta(row, "call")
             self._recompute_delta(row, "put")
@@ -497,6 +564,11 @@ class MainWindow(QMainWindow):
         self.price_last_value.clear()
         self.strike_atm_row = None
         self.strike_to_row.clear()
+        # 表格重新查詢後 row 編號可能整個重排，舊的 (row, col) 框線座標
+        # 沒有意義了，不清掉的話重查後可能框到不相干的儲存格。
+        if self._active_price_cells:
+            self._active_price_cells = set()
+            self.table.viewport().update()
 
     def _palette(self) -> dict:
         return PALETTES["dark" if theme.load_theme() == "dark" else "light"]
@@ -689,6 +761,27 @@ class MainWindow(QMainWindow):
 
         self.strike_atm_row = target_row
 
+    def _on_active_legs_changed(self, legs: list) -> None:
+        """下單面板目前用哪幾格算價格變了 (換履約價、切買賣別/新倉平
+        倉、切裸買賣/價差單分頁、改價差單的買權賣權/點數都會觸發)，重算
+        T字表格要框哪幾格。legs 是 [(symbol, "bid"/"ask"), ...]，查不到
+        對應的 row (例如這檔已經不在目前訂閱範圍內) 就跳過那一筆，不報
+        錯——下單面板換履約價時本來就會暫時對不上。"""
+        new_cells = set()
+        for symbol, side in legs:
+            entry = self.symbol_row_side.get(symbol)
+            if entry is None:
+                continue
+            row, leg_side = entry
+            cols = CALL_COLS if leg_side == "call" else PUT_COLS
+            col = cols.get(side)
+            if col is not None:
+                new_cells.add((row, col))
+        if new_cells == self._active_price_cells:
+            return
+        self._active_price_cells = new_cells
+        self.table.viewport().update()
+
     # --------------------------------------------------------------- 下單
     def _on_cell_double_clicked(self, row: int, col: int):
         meta = self.row_meta.get(row)
@@ -733,4 +826,5 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         self.pump_timer.stop()
         self._clear_subscriptions()
+        self.position_manager.shutdown()
         super().closeEvent(event)

@@ -56,6 +56,7 @@ FUTUREORDER 結構只有一組 bstrStockNo/bstrStockNo2，沒有第三、四腳�
 *** comtypes 回傳值形狀是實測過的，不是照 IDL 猜的 (整支專案通用規則，
 見 capital_quote_client.py 開頭的說明) ***
 """
+import json
 from typing import Dict, Optional
 
 import comtypes.client
@@ -162,6 +163,28 @@ FUTURE_RIGHTS_LABELS = [
 # 幣別：0:全幣別(含基幣) 1:基幣(台幣TWD) 2:人民幣RMB (4-2-38 GetFutureRights)。
 COIN_TYPE_TWD = 1
 
+# *** 這份欄位表是用真實帳號的 GetOpenInterestGW 回傳字串逐欄位核對出來
+# 的，不是照文件表格猜的 ***：官方文件《策略王COM元件使用說明_V2.13.59
+# .htm》4-2-x OnOpenInterestJson 章節寫的是 11 欄(多一欄「一點價值」+
+# 「單口手續費」+「交易稅」三個都有)，但文件自己附的「回傳範例」字串只有
+# 10 個逗號分隔值，跟它自己的表格對不上——文件本身就自相矛盾，所以不能只
+# 照表格編，要等真實資料。2026-09-10 實測(使用者提供)兩筆真實 TM 複式單
+# 回傳:
+#   TM,F0200009516065,TXO45900/46000U6,S,1,0,24.0000,20,13,F123456789
+#   TM,F0200009516065,TXO47900/47800I6,S,2,0,16.5000,20,7,F1223456789
+# 逐欄比對：[0]市場別 [1]帳號 [2]商品 [3]買賣別(S=賣方，跟
+# _BUY_SELL_GUESSES 的"S":False 吻合) [4]未平倉部位 [5]當沖未平倉部位
+# [6]平均成本 [7]應該是文件講的「一點價值」(兩筆都是20，TXO契約規格值，
+# 不是逐筆變動的損益/成本數字，符合「規格值」的特徵) [8]「單口手續費」跟
+# 「交易稅」文件說是兩個獨立欄位，但真實資料只有一個數字(13/7)夾在一點價
+# 值跟 LOGIN_ID 之間——是哪一個、還是兩者合併，無法從這兩筆樣本確認，誠實
+# 標成 unconfirmed，不要亂猜 [9]LOGIN_ID。
+OPEN_INTEREST_FIELDS = [
+    "market_type", "account", "symbol", "buy_sell", "open_qty",
+    "day_trade_open_qty", "avg_cost", "point_value",
+    "fee_or_tax_unconfirmed", "login_id",
+]
+
 
 class CapitalOrderClient(QObject):
     order_sent = pyqtSignal(str)       # 送出當下的訊息 (SendXxxOrder 回傳的 bstrMessage)
@@ -169,6 +192,9 @@ class CapitalOrderClient(QObject):
     order_report = pyqtSignal(dict)    # OnNewData 解析後的欄位 dict (見 _REPORT_FIELDS)，含 "raw" 原始字串
     future_rights = pyqtSignal(dict)   # OnFutureRights 解析後的欄位 dict (見 FUTURE_RIGHTS_FIELDS)，含 "raw" 原始字串
     future_rights_failed = pyqtSignal(str)  # GetFutureRights 呼叫本身失敗 (retCode != 0)
+    open_interest_rows = pyqtSignal(list)  # 一次 OnOpenInterestJson 事件解析出的「這次查詢全部部位」dict 清單 (見 OPEN_INTEREST_FIELDS)，每個 dict 含 "raw" 原始字串
+    open_interest_failed = pyqtSignal(str)          # GetOpenInterestGW 呼叫本身失敗 (retCode != 0)
+    open_interest_query_status = pyqtSignal(int, str)  # OnOpenInterestGWStatus(nQueryStatus, bstrErrorMsg)：0=查詢成功 1=查詢失敗——*** 實測(2026-09-10)這個事件會在 OnOpenInterestJson 之前就先觸發，不能拿它當「資料收完」的完成訊號，只能拿來看查詢本身失敗與否 ***
 
     def __init__(self, client: CapitalClient):
         super().__init__()
@@ -336,6 +362,30 @@ class CapitalOrderClient(QObject):
         if code != 0:
             self.future_rights_failed.emit(self._center_msg(code))
 
+    def query_open_interest(self, n_format: int = 1) -> None:
+        """查詢未平倉部位 (國內期貨/選擇權，新版 GW，4-2-89
+        GetOpenInterestGW)。非同步查詢，結果透過 OnOpenInterestJson 事件
+        回傳；*** 實測(2026-09-10)這個事件一次呼叫就帶這次查詢的完整部
+        位清單(包成一個 JSON 陣列字串，不是文件/事件名稱字面上看起來的
+        「一筆事件=一筆資料」)，解析細節見 _handle_open_interest ***，解
+        析後從 open_interest_rows 訊號一次送出整批清單；查詢本身成功/失
+        敗透過 OnOpenInterestGWStatus 回傳，從 open_interest_query_status
+        送出——*** 這個事件實測會在 OnOpenInterestJson 之前就先觸發，不
+        能拿它當「資料已經收完」的完成訊號，只能拿來看查詢本身失敗與
+        否。***
+
+        n_format 目前只查到文件寫「回傳格式：1」，固定帶 1。
+
+        官方文件沒有像 GetOrderReport 那樣明講這支查詢的最低呼叫間隔，這
+        裡沒有查到數字就不編造，呼叫端(app/models/positions.py)要自己保
+        守節流，不要連續呼叫。"""
+        self._require_login()
+        code = self._order.GetOpenInterestGW(self._client.user_id, self._client.account, n_format)
+        print(f"[GetOpenInterestGW] retCode={code}"
+              + ("" if code == 0 else f" 呼叫失敗 msg={self._center_msg(code)}"))
+        if code != 0:
+            self.open_interest_failed.emit(self._center_msg(code))
+
     # ------------------------------------------------------------- 頻率保護
     def set_max_qty(self, market_type: int, max_qty: int) -> Optional[str]:
         code = self._order.SetMaxQty(market_type, int(max_qty))
@@ -384,6 +434,53 @@ class CapitalOrderClient(QObject):
             rights[name] = value
         self.future_rights.emit(rights)
 
+    def _handle_open_interest(self, bstr_data: str) -> None:
+        # *** 2026-09-10 用真實帳號資料核對出來的格式，不是猜的：儘管事
+        # 件名稱/文件描述都暗示「每一筆資料以逗號分隔」，實測 bstrData 整
+        # 包其實是一個 JSON 陣列字串，陣列裡每個元素才是一筆逗號分隔的部
+        # 位資料 (這次查詢的全部部位一次性包在同一次事件呼叫裡，不是一筆
+        # 一次事件、分批觸發)，例如：
+        #   ["TM,F0200009516065,TXO45900/46000U6,S,1,0,24.0000,20,13,F123456789",
+        #    "TM,F0200009516065,TXO47900/47800I6,S,2,0,16.5000,20,7,F1223456789"]
+        # 原本直接對整包字串做 bstr_data.split(',')，會把陣列的中括號/引
+        # 號也切進欄位裡、還把兩筆資料的欄位混在一起，導致只剩一筆殘缺資
+        # 料甚至整批解析失敗——這是先前「成交後未平倉部位查不到」的根因
+        # 之一。
+        #
+        # *** 另一個根因(同樣是實測發現，文件完全沒提)：
+        # OnOpenInterestGWStatus(查詢成功/失敗) 會在這個事件「之前」就先
+        # 觸發，不是資料全部送完才觸發——原本的設計(收集逐列資料、等
+        # status 事件才整批換上)在這個真實順序下，status 到的時候資料根
+        # 本還沒進來，會直接拿空集合覆蓋掉。改成這個事件本身一次性帶完整
+        # 清單(不再逐列各自 emit)，PositionManager 收到這裡的完整清單就
+        # 直接整批替換，不依賴 status 事件的時機。***
+        print(f"[OnOpenInterestJson] raw={bstr_data}")
+        try:
+            rows = json.loads(bstr_data)
+            if isinstance(rows, str):
+                rows = [rows]
+        except (json.JSONDecodeError, TypeError):
+            # 保底：如果哪天真的收到不是 JSON 陣列包裝的單一逗號字串(例
+            # 如舊版行為，或查無資料時的 "001,查無資料,帳號" 這類非陣列
+            # 內容)，當成單一筆資料處理，不要整個吞掉不解析。
+            rows = [bstr_data]
+
+        parsed_rows = []
+        for row_str in rows:
+            # 文件：全部資料回傳完畢會多回傳一筆 "##" 開頭的內容；查無資
+            # 料時回傳 "001,查無資料,帳號"——這兩種都不是真正的部位資料。
+            if row_str.startswith("##") or row_str.startswith("001,"):
+                continue
+            parts = row_str.split(',')
+            row: Dict[str, str] = {"raw": row_str}
+            for name, value in zip(OPEN_INTEREST_FIELDS, parts):
+                row[name] = value
+            parsed_rows.append(row)
+        self.open_interest_rows.emit(parsed_rows)
+
+    def _handle_open_interest_status(self, n_query_status: int, bstr_error_msg: str) -> None:
+        self.open_interest_query_status.emit(n_query_status, bstr_error_msg)
+
 
 class _ReplyEvents:
     def __init__(self, owner: CapitalOrderClient):
@@ -402,6 +499,12 @@ class _OrderAsyncEvents:
         print(f"[OnAsyncOrder] ThreadID={nThreadID} Code={nCode} Message={bstrMessage}")
         if nCode != 0:
             self._owner.order_failed.emit(f"{self._owner._center_msg(nCode)}：{bstrMessage}")
+
+    def OnOpenInterestJson(self, bstrData):
+        self._owner._handle_open_interest(bstrData)
+
+    def OnOpenInterestGWStatus(self, nQueryStatus, bstrErrorMsg):
+        self._owner._handle_open_interest_status(nQueryStatus, bstrErrorMsg)
 
     def OnFutureRights(self, bstrData):
         self._owner._handle_future_rights(bstrData)

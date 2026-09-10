@@ -30,6 +30,12 @@ errMsg.ini
 # 本機 dock 版面配置存檔 (視窗幾何座標，機器相依)
 .layout_pref.json
 
+# 本機下單匣/成交回報保存檔 (重開視窗仍要看到委託紀錄，機器相依)
+.order_book_pref.json
+
+# 本機未平倉部位手動分組/標籤存檔
+.position_groups_pref.json
+
 # API 金鑰設定，不進版控 (參考 .env.example 填自己的 key)
 .env
 

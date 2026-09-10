@@ -60,6 +60,10 @@ class OpeningTab(QWidget):
     def __init__(self, capital_client: CapitalClient):
         super().__init__()
         self._current_record = None
+        # dock 沒打開/沒被看到就不要打 K 線查詢、不要訂閱即時 tick——見
+        # activate()/deactivate()，由 main_window.py 接 QDockWidget 的
+        # visibilityChanged 呼叫。
+        self._active = False
 
         self.service = OpeningAnalysisService()
         self.service.progress.connect(self._on_progress)
@@ -106,11 +110,13 @@ class OpeningTab(QWidget):
         # 訂閱時會先回補當天的逐筆成交(OnNotifyHistoryTicksLONG)，之後才是
         # 即時tick(OnNotifyTicksLONG)，兩者都餵給MinuteBarAggregator，用tick
         # 自己的時間戳記分K棒，回補的歷史tick才不會被誤判成「現在」。
+        #
+        # *** 訂閱本身延後到 activate() 才做(dock 真的打開才訂閱)，不是這
+        # 裡就訂 ***——RequestTicks 訂閱當下會回補當天全部逐筆成交(不是
+        # 小動作)，dock 關著的話沒必要打這個查詢。
         self._tick_client = CapitalTickClient(capital_client)
         self._tick_client.tick_received.connect(self._on_tick_received)
         self._tick_client.subscribe_failed.connect(self._on_tick_subscribe_failed)
-        self._tick_client.subscribe(ChartDataService.PRIMARY_SYMBOL)
-        self._tick_client.subscribe(ChartDataService.OVERLAY_SYMBOL)
 
         self._primary_aggregator = MinuteBarAggregator()
         self._overlay_aggregator = MinuteBarAggregator()
@@ -128,11 +134,14 @@ class OpeningTab(QWidget):
         self._build_ui()
         self.chart.request_more_history.connect(self._on_request_more_history)
         self._load_history()
+        # 只設定週期狀態/UI，不觸發真的查詢(_apply_period 內部呼叫的
+        # _request_chart 在 self._active=False 時是no-op，見下面)。
         self._apply_period(DEFAULT_PERIOD_INDEX)
 
-        # 「今天這根日K有沒有出現」背景重試：開啟APP立刻查一次，之後每分鐘
-        # 檢查一次，下午3點後才會真的觸發重試 (開啟當下那一次不受這個時間
-        # 限制)。
+        # 「今天這根日K有沒有出現」背景重試：dock 打開才開始查(activate()
+        # 觸發)，之後每分鐘檢查一次，下午3點後才會真的觸發重試(dock剛打
+        # 開那一次不受這個時間限制)。計時器本身在這裡建立，但要等
+        # activate() 才 start()，不要 dock 關著也一直在背景打。
         self._daily_reconciled_date = None
         self._did_startup_reconcile = False
         self._kline_client.kline_ready.connect(self._on_reconcile_ready)
@@ -140,8 +149,37 @@ class OpeningTab(QWidget):
         self._reconcile_timer = QTimer(self)
         self._reconcile_timer.setInterval(RECONCILE_RETRY_MS)
         self._reconcile_timer.timeout.connect(self._check_daily_reconcile)
+
+    # --------------------------------------------------------- 開/關 dock
+    def activate(self) -> None:
+        """dock 變成看得到才呼叫(main_window.py 接 QDockWidget.
+        visibilityChanged)。K線查詢/tick訂閱都在這裡才第一次真的打出去，
+        不是建構子當下——dock 沒打開就完全不消耗這些查詢額度/連線資源。
+
+        *** tick 訂閱(RequestTicks)沒有辦法中途取消 ***：這個專案目前查
+        過的群益文件只有 RequestStocks 有對應的
+        SKQuoteLib_CancelRequestStocks，RequestTicks 沒有查到對應的取消
+        函式(不是沒查、是真的沒有)，所以 deactivate() 沒辦法真的停止已
+        經訂閱過的 tick 串流——只能保證「還沒開過 dock 之前絕對不會訂
+        閱」，訂閱過一次之後，就算之後關掉 dock，tick 還是會繼續在背景
+        收(不會拿去做任何事，因為 K 線查詢/重繪不會再被觸發)。"""
+        if self._active:
+            return
+        self._active = True
+        self._tick_client.subscribe(ChartDataService.PRIMARY_SYMBOL)
+        self._tick_client.subscribe(ChartDataService.OVERLAY_SYMBOL)
+        if not self._chart_loaded and not self._chart_busy:
+            self._request_chart()
         self._reconcile_timer.start()
         QTimer.singleShot(0, self._check_daily_reconcile)
+
+    def deactivate(self) -> None:
+        """dock 關掉/切到別的分頁看不到了才呼叫。K線背景重試計時器可以
+        真的停掉；tick 訂閱的限制見 activate() 的說明，這裡停不了。"""
+        if not self._active:
+            return
+        self._active = False
+        self._reconcile_timer.stop()
 
     def _build_ui(self):
         root = QVBoxLayout(self)
@@ -306,7 +344,14 @@ class OpeningTab(QWidget):
         自己收完。所以「查詢還沒收完時使用者又切了別的週期/盤別」這件事
         不能只是「盡量處理」，要在UI層面直接讓它不可能發生：查詢期間鎖住
         週期/盤別下拉選單跟捲軸補歷史，逼使用者等這次收完才能再選，不是
-        猜使用者手速會不會比伺服器快。"""
+        猜使用者手速會不會比伺服器快。
+
+        dock 還沒打開(self._active=False)時直接跳過，不要在背景默默打
+        API——呼叫端(_apply_period/_on_session_combo_changed/
+        _on_request_more_history)已經把「要查什麼」的狀態記好了
+        (self._chart_loaded 維持 False)，等 activate() 才會真的補查。"""
+        if not self._active:
+            return
         self._chart_busy = True
         self.period_combo.setEnabled(False)
         self.session_combo.setEnabled(False)
