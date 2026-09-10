@@ -15,11 +15,11 @@ None，這種部位不會出現在這張圖裡(不能瞎猜方向去畫，猜錯
 相反，比不顯示更危險)。下單匣的委託(OrderLeg.buy)是使用者下單當下自己
 決定的，不是從 broker 猜的，方向可靠，會正常畫進曲線B。
 
-*** 複式單(TM合併列)：2026-09-10 使用者確認過真實部位，兩腳是同一個方
-向(都是賣方)，不是「一買一賣」——GetOpenInterestGW 只回傳一個 buy_sell
-套用在整列，這裡兩腳都套用 position.buy 同一個方向。avg_cost 是整組合
-計的淨權利金，只記在第一腳(其餘腳記 0)，避免加總時被算兩次，做法跟下面
-_pending_legs() 處理複式單淨價的方式一致。
+*** 複式單(TM合併列)：兩腳的方向/淨權利金怎麼分配，交給
+app/models/positions.py 的 Position.payoff_legs() 統一決定(目前的結論
+是「一買一賣的價差組合」，不是兩腳同方向——這個結論被使用者現場糾正過一
+次，細節跟核對過程見那支檔案開頭的說明)，這裡不重複寫一份，只負責把
+payoff_legs() 給的 (Contract, buy, premium) 攤平成 PayoffLeg 加總。
 """
 import numpy as np
 import pyqtgraph as pg

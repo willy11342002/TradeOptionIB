@@ -9,7 +9,6 @@ from PyQt5.QtWidgets import (
 
 from app.models.positions import PositionManager, Position, UNGROUPED_ID
 from app.services import position_groups_store
-from app.services.payoff import PayoffLeg, leg_payoff_at
 
 # 跟 main_window.py:44-45 的紅漲綠跌是同一組顏色常數，這裡不 import
 # main_window(避免循環 import：main_window 要 import 這個檔案來建立
@@ -23,33 +22,28 @@ _CALL_PUT_LABELS = {"C": "買權", "P": "賣權"}
 _DEFAULT_GROUP_COLOR = "#4a90d9"
 
 
-def _position_payoff(position: Position, underlying_price: Optional[float]) -> Optional[float]:
-    """用加權指數現貨價當 S 算目前浮動損益(履約後的內含價值，不是到期損
-    益)——這裡只是給部位表格「損益」欄位一個粗略即時數字，跟
-    payoff_chart_widget.py 的到期損益圖是兩回事，不要混用。
+def _position_payoff(position: Position, current_price: Optional[float]) -> Optional[float]:
+    """目前浮動損益：直接拿「現價」(即時成交價/複式單淨價差，跟畫面上
+    現價欄位同一個值，見 _current_price) 對比「均價」——不是拿加權指數
+    現貨價套履約內含價值公式。
 
-    *** S 一定要是加權指數現貨價，不是選擇權自己的成交價 ***：之前這裡
-    錯把 latest_price(選擇權自己的合約代碼) 當 S 傳進來，選擇權成交價
-    (例如248點)跟履約價(例如45900)量級完全不同，算出來的內含價值是垃圾
-    數字——只是因為當時複式單被下面的邏輯擋掉沒顯示、單腳部位還沒出現才
-    沒被發現。現在呼叫端要傳 PositionManager.underlying_price。
+    *** 這裡本來是用內含價值公式，已知有問題(2026-09-10 使用者實際回報
+    過)：內含價值公式忽略時間價值，只看「如果現在到期會怎樣」，賣方部位
+    即使現價已經比均價貴很多(對賣方不利、代表要付更多權利金才能回補)，
+    只要還沒實質跌破/漲破履約價，內含價值算出來還是0，畫面照樣顯示獲利
+    封頂的數字——使用者的真實例子：Call價差均價16.5、現價24(現價>均價，
+    賣方應該是虧損)，但內含價值法算出來卻是+1650(獲利封頂)，兩個欄位互
+    相矛盾。改成直接比現價，賣方「現價<均價」賺、「現價>均價」賠，買方
+    相反，永遠跟現價欄位一致，不會再打架。
 
-    逐腳方向/淨權利金怎麼分配交給 Position.payoff_legs() 統一處理(跟
-    payoff_chart_widget.py `_position_legs` 共用同一個來源，不要在這裡
-    重複一份邏輯)，這裡只負責把每一腳丟進 leg_payoff_at 加總。"""
-    if underlying_price is None:
+    這犧牲的是「多算了時間價值，不是單純的到期內含價值」，但這才是券商
+    一般認知的「浮動損益」(比較現在市價 vs 進場成本)，履約內含價值那套
+    邏輯留給 payoff_chart_widget.py 的到期損益圖(那裡問的是不同的問題：
+    「如果現在到期會怎樣」，不是「現在的浮動損益是多少」)。"""
+    if position.buy is None or current_price is None:
         return None
-    payoff_legs = position.payoff_legs()
-    if payoff_legs is None:
-        return None
-    total = 0.0
-    for leg, buy, premium in payoff_legs:
-        pleg = PayoffLeg(
-            strike=leg.strike, call_put=leg.call_put, buy=buy,
-            qty=position.qty, premium=premium, multiplier=leg.multiplier,
-        )
-        total += leg_payoff_at(underlying_price, pleg)
-    return total
+    diff = (current_price - position.avg_cost) if position.buy else (position.avg_cost - current_price)
+    return diff * position.qty * position.legs[0].multiplier
 
 
 def _direction_text(position: Position) -> str:
@@ -67,6 +61,25 @@ def _symbol_text(position: Position) -> str:
     if position.is_combo:
         return " / ".join(f"{leg.symbol}(履約{int(leg.strike)})" for leg in position.legs)
     return position.legs[0].symbol
+
+
+def _current_price(manager: PositionManager, position: Position) -> Optional[float]:
+    """單腳部位直接顯示該合約現價。複式單(TM合併列)不能只顯示其中一腳的
+    成交價——之前這裡就是這樣做，數字(例如207點)完全沒辦法跟均價(24點,
+    整組淨權利金)放在一起比較，這就是使用者回報「現價計算異常」的原因。
+
+    改成顯示「淨價差現價」= legs[1]現價 - legs[0]現價，跟 avg_cost/均價
+    用同一套「legs[1] 扛淨權利金、legs[0] 反向抵消」慣例算出來的(見
+    Position.payoff_legs() 的說明)，這樣現價才能直接拿來跟均價比較(現價
+    低於均價=賣方部位還在賺，反之則已經虧)。任一腳報價還沒訂閱到就回
+    None，畫面顯示「—」，不要用單腳報價湊出一個誤導的數字。"""
+    if not position.is_combo:
+        return manager.latest_price(position.legs[0].symbol)
+    leg0_price = manager.latest_price(position.legs[0].symbol)
+    leg1_price = manager.latest_price(position.legs[1].symbol)
+    if leg0_price is None or leg1_price is None:
+        return None
+    return leg1_price - leg0_price
 
 
 class PositionTreeWidget(QWidget):
@@ -89,6 +102,10 @@ class PositionTreeWidget(QWidget):
         self.tree.setHeaderLabels(_COLUMNS)
         header = self.tree.header()
         header.setSectionResizeMode(QHeaderView.Interactive)
+        # 「商品/群組」欄位內容長度差很多(單腳代碼 vs 複式單兩腳合併字
+        # 串)，用 Interactive 的話每次重繪都要使用者自己手動拖寬，改成
+        # 自動依內容撐開；其餘欄位維持可手動調整。
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         header.setStretchLastSection(True)
         self.tree.setContextMenuPolicy(Qt.CustomContextMenu)
         self.tree.customContextMenuRequested.connect(self._on_context_menu)
@@ -137,20 +154,19 @@ class PositionTreeWidget(QWidget):
         self.status_label.setText(f"共 {sum(len(g.positions) for g in groups)} 筆部位")
 
     def _group_pnl(self, positions) -> Optional[float]:
-        underlying_price = self._manager.underlying_price
         values = []
         for position in positions:
-            pnl = _position_payoff(position, underlying_price)
+            price = _current_price(self._manager, position)
+            pnl = _position_payoff(position, price)
             if pnl is not None:
                 values.append(pnl)
         return sum(values) if values else None
 
     def _add_position_item(self, group_item: QTreeWidgetItem, position: Position) -> None:
-        # 「現價」欄位顯示選擇權自己這口合約目前的成交價(給使用者看行情
-        # 用)，跟算損益要用的加權指數現貨價是兩回事，不要共用同一個變數
-        # (先前的 bug 就是把這兩者混為一談)。
-        price = self._manager.latest_price(position.legs[0].symbol)
-        pnl = _position_payoff(position, self._manager.underlying_price)
+        # 損益現在直接用現價比均價算(見 _position_payoff 的說明)，現價/
+        # 損益兩個欄位共用同一個 price 值，才不會又各算各的兜不起來。
+        price = _current_price(self._manager, position)
+        pnl = _position_payoff(position, price)
         item = QTreeWidgetItem([
             _symbol_text(position),
             _call_put_text(position),
@@ -167,7 +183,7 @@ class PositionTreeWidget(QWidget):
             for col in range(len(_COLUMNS)):
                 item.setForeground(col, QBrush(QColor("#c0392b")))
         elif position.is_combo:
-            item.setToolTip(6, "複式單合併部位：損益假設兩腳一買一賣(價差)、均價為整組合計淨權利金，見 Position.payoff_legs()")
+            item.setToolTip(6, "複式單合併部位：損益是現價(淨價差)比均價(整組合計淨權利金)，見 _current_price/_position_payoff")
         group_item.addChild(item)
 
     def _set_pnl_cell(self, item: QTreeWidgetItem, col: int, pnl: Optional[float]) -> None:
