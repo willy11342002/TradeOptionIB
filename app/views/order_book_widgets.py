@@ -248,6 +248,7 @@ class OrderBookWidget(QWidget):
         price_spin = QDoubleSpinBox()
         price_spin.setRange(0.1, 99999)
         price_spin.setDecimals(1)
+        price_spin.setSingleStep(0.5)  # 選擇權權利金跳動最小是0.5，沒有0.1
         price_spin.setValue(record.price)
         form.addRow("新的權利金限價", price_spin)
 
@@ -268,7 +269,7 @@ class OrderBookWidget(QWidget):
         record = next((r for r in self._manager.records if r.id == record_id), None)
         if record is None:
             return
-        price, ok = QInputDialog.getDouble(self, "改價", "新委託價格", record.price, 0.1, 99999, 1)
+        price, ok = QInputDialog.getDouble(self, "改價", "新委託價格", record.price, 0.1, 99999, 1, step=0.5)
         if ok:
             self._manager.amend_price(record_id, price)
 
