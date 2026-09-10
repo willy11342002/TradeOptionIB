@@ -114,6 +114,66 @@ class PositionGroup:
     positions: List[Position] = field(default_factory=list)
 
 
+def current_price(manager: "PositionManager", position: Position) -> Optional[float]:
+    """單腳部位直接顯示該合約現價。複式單(TM合併列)不能只顯示其中一腳的
+    成交價——之前這樣做過，數字(例如207點)完全沒辦法跟均價(24點,整組淨權
+    利金)放在一起比較。
+
+    改成顯示「淨價差現價」= legs[1]現價 - legs[0]現價，跟 avg_cost/均價
+    用同一套「legs[1] 扛淨權利金、legs[0] 反向抵消」慣例算出來的(見
+    Position.payoff_legs() 的說明)，這樣現價才能直接拿來跟均價比較(現價
+    低於均價=賣方部位還在賺，反之則已經虧)。任一腳報價還沒訂閱到就回
+    None，不要用單腳報價湊出一個誤導的數字。
+
+    這支函式是「畫面上的損益欄位」跟「自動平倉判斷」共用的唯一現價來
+    源，故意放在 positions.py 而不是 position_widgets.py，避免兩邊各算
+    一份、數字對不起來(自動下單這種會動到真錢的功能尤其不能有兩套算
+    法)。"""
+    if not position.is_combo:
+        return manager.latest_price(position.legs[0].symbol)
+    leg0_price = manager.latest_price(position.legs[0].symbol)
+    leg1_price = manager.latest_price(position.legs[1].symbol)
+    if leg0_price is None or leg1_price is None:
+        return None
+    return leg1_price - leg0_price
+
+
+def pnl_points(position: Position, price: Optional[float]) -> Optional[float]:
+    """目前浮動損益，換算成「點數」(不乘口數、不乘乘數)——賣方「現價<均
+    價」賺，買方相反。跟 position_pnl() 共用同一套方向判斷，這裡只回傳點
+    數版本，給自動平倉的門檻比較用(使用者輸入的門檻本來就是點數)；乘上
+    口數/乘數才是畫面上顯示的新台幣損益，見 position_pnl()。
+
+    buy=None(買賣別欄位無法判讀)或沒有現價就回 None，呼叫端不能瞎猜方
+    向硬算。"""
+    if position.buy is None or price is None:
+        return None
+    return (price - position.avg_cost) if position.buy else (position.avg_cost - price)
+
+
+def position_pnl(position: Position, price: Optional[float]) -> Optional[float]:
+    """目前浮動損益(新台幣)：直接拿「現價」對比「均價」——不是拿加權指數
+    現貨價套履約內含價值公式。
+
+    *** 這裡本來是用內含價值公式，已知有問題(2026-09-10 使用者實際回報
+    過)：內含價值公式忽略時間價值，只看「如果現在到期會怎樣」，賣方部位
+    即使現價已經比均價貴很多(對賣方不利、代表要付更多權利金才能回補)，
+    只要還沒實質跌破/漲破履約價，內含價值算出來還是0，畫面照樣顯示獲利
+    封頂的數字——使用者的真實例子：Call價差均價16.5、現價24(現價>均價，
+    賣方應該是虧損)，但內含價值法算出來卻是+1650(獲利封頂)，兩個欄位互
+    相矛盾。改成直接比現價，賣方「現價<均價」賺、「現價>均價」賠，買方
+    相反，永遠跟現價欄位一致，不會再打架。
+
+    這犧牲的是「多算了時間價值，不是單純的到期內含價值」，但這才是券商
+    一般認知的「浮動損益」(比較現在市價 vs 進場成本)，履約內含價值那套
+    邏輯留給 payoff_chart_widget.py 的到期損益圖(那裡問的是不同的問題：
+    「如果現在到期會怎樣」，不是「現在的浮動損益是多少」)。"""
+    diff = pnl_points(position, price)
+    if diff is None:
+        return None
+    return diff * position.qty * position.legs[0].multiplier
+
+
 def _parse_buy_sell(raw_value: str) -> Optional[bool]:
     return _BUY_SELL_GUESSES.get(raw_value)
 

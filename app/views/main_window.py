@@ -15,6 +15,7 @@ from app.models import capital_symbols as sym
 from app.models.capital_client import CapitalClient
 from app.models.capital_order_client import CapitalOrderClient
 from app.models.capital_quote_client import CapitalQuoteClient
+from app.models.auto_close_manager import AutoCloseManager
 from app.models.order_book import OrderBookManager
 from app.models.positions import PositionManager
 from app.services import black_scholes, layout_store, query_pref, theme
@@ -129,6 +130,8 @@ class MainWindow(QMainWindow):
         self.order_book_manager.record_rejected.connect(self._on_order_rejected)
         self.position_manager = PositionManager(self.order_client, self.order_book_manager, self.quote_client)
         self.position_manager.query_failed.connect(self._on_position_query_failed)
+        self.auto_close_manager = AutoCloseManager(self.position_manager, self.order_book_manager)
+        self.auto_close_manager.auto_close_error.connect(self._on_auto_close_error)
 
         self.row_meta = {}          # row -> {"strike":, "call_symbol":, "put_symbol":}
         self.symbol_row_side = {}   # 商品代碼 -> (row, "call"/"put")
@@ -249,7 +252,7 @@ class MainWindow(QMainWindow):
         self.equity_widget = EquityWidget(self.order_client)
         self.equity_dock = self._make_dock("dock_equity", "權益查詢", self.equity_widget)
 
-        self.position_widget = PositionTreeWidget(self.position_manager)
+        self.position_widget = PositionTreeWidget(self.position_manager, self.auto_close_manager)
         self.position_dock = self._make_dock("dock_positions", "未平倉部位", self.position_widget)
 
         self.payoff_chart_widget = PayoffChartWidget(self.position_manager, self.order_book_manager)
@@ -369,6 +372,9 @@ class MainWindow(QMainWindow):
 
     def _on_order_rejected(self, label: str, error_msg: str):
         QMessageBox.critical(self, "委託失敗", f"{label}\n\n{error_msg}")
+
+    def _on_auto_close_error(self, message: str):
+        QMessageBox.critical(self, "自動平倉異常", message)
 
     def _on_opening_dock_visibility_changed(self, visible: bool):
         if visible:

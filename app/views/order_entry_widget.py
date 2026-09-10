@@ -13,7 +13,7 @@ from app.models.capital_order_client import (
     TIF_ROD, TIF_IOC, TIF_FOK, AUTO_POSITION,
 )
 from app.models.contracts import PRODUCT_MULTIPLIERS
-from app.models.order_book import OrderBookManager, CONDITION_LE, CONDITION_GE
+from app.models.order_book import OrderBookManager, CONDITION_LE, CONDITION_GE, default_condition_op
 from app.models.positions import PositionManager
 from app.services import margin
 
@@ -58,8 +58,10 @@ def _default_raw_op(buy: bool) -> str:
     """預設追一個有利的價格：買方≦(價格跌到才買)、賣方≧(價格漲到才賣)。
     新倉/平倉已經不在 UI 選了(一律自動，見模組開頭說明)，這裡不再需要
     看是不是平倉來決定預設方向——使用者要停損/反向操作，自己在下拉選單
-    改成另一個方向即可，這裡只負責給一個合理的初始值。"""
-    return CONDITION_LE if buy else CONDITION_GE
+    改成另一個方向即可，這裡只負責給一個合理的初始值。跟
+    auto_close_manager.py 共用同一份方向判斷，見 order_book.py 的
+    default_condition_op()。"""
+    return default_condition_op(buy)
 
 
 class OrderEntryWidget(QWidget):
@@ -218,7 +220,7 @@ class OrderEntryWidget(QWidget):
         self.out_price_spin = QDoubleSpinBox()
         self.out_price_spin.setRange(0.1, 99999)
         self.out_price_spin.setDecimals(1)
-        self.out_price_spin.setSingleStep(0.1)
+        self.out_price_spin.setSingleStep(0.5)  # 選擇權權利金跳動最小是0.5，沒有0.1
 
         self.out_qty_spin = QSpinBox()
         self.out_qty_spin.setRange(1, 999)
@@ -354,7 +356,7 @@ class OrderEntryWidget(QWidget):
         self.spread_price_spin = QDoubleSpinBox()
         self.spread_price_spin.setRange(0.1, 99999)
         self.spread_price_spin.setDecimals(1)
-        self.spread_price_spin.setSingleStep(0.1)
+        self.spread_price_spin.setSingleStep(0.5)  # 選擇權權利金跳動最小是0.5，沒有0.1
         self.spread_price_spin.setValue(1.0)
         self._update_duplex_condition_op_default()
 

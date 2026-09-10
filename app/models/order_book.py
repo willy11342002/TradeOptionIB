@@ -80,6 +80,19 @@ CONDITION_LE = "le"
 CONDITION_GE = "ge"
 
 
+def default_condition_op(net_buyer: bool) -> str:
+    """預設追一個有利的價格：買方(net_buyer=True)用 CONDITION_LE(成本比
+    預期更低才送)、賣方用 CONDITION_GE(收入比預期更高才送)——這裡的
+    net_buyer 已經是 OrderRecord.net_buyer 那個「cost-space」座標系，不
+    是使用者在下單面板上看到的≦/≧(那個還要再考慮真實成交價跟這裡的方
+    向是否一致，見 order_entry_widget.py 的 _to_internal_condition_op)。
+
+    自動平倉(app/models/auto_close_manager.py)跟下單面板
+    (order_entry_widget.py 的 _default_raw_op) 都要用同一個預設方向，抽
+    出來放這裡，不要兩份各自寫一次容易漏改其中一份。"""
+    return CONDITION_LE if net_buyer else CONDITION_GE
+
+
 @dataclass
 class OrderLeg:
     symbol: str
@@ -158,6 +171,12 @@ class OrderBookManager(QObject):
     @property
     def records(self) -> List[OrderRecord]:
         return list(self._records.values())
+
+    def get_record(self, record_id: str) -> Optional[OrderRecord]:
+        """給 auto_close_manager.py 追蹤「我排的平倉單成交了沒」用——它只
+        知道 stage_duplex/stage_outright 回傳的 record_id，需要一個方式
+        查目前狀態，不必自己另外維護一份 records 的拷貝。"""
+        return self._records.get(record_id)
 
     def get_quote(self, symbol: str) -> Optional[dict]:
         """回傳目前快取的最新報價 (bid/ask)。_on_quote_updated 是「不管

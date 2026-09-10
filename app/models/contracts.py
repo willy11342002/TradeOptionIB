@@ -33,7 +33,7 @@ parse_symbol() 是 capital_symbols.build_symbol()/taifex_symbols.build_symbol()
 """
 import datetime
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from app.models.capital_symbols import _CALL_MONTH_LETTERS, _PUT_MONTH_LETTERS
 from app.models.taifex_symbols import FRI_WEEK_CODES, MONTHLY_CODE, WED_WEEK_CODES
@@ -161,9 +161,8 @@ def parse_combo_symbol(symbol: str) -> List[Contract]:
         raise ValueError(f"沒有 {product_code!r} 的每點金額設定，不能猜")
 
     def _leg(strike_str: str) -> Contract:
-        leg_symbol = f"{product_code}{int(strike_str)}{_month_letter(call_put, month)}{year_digit}"
         return Contract(
-            symbol=leg_symbol,
+            symbol=build_leg_symbol(product_code, float(strike_str), call_put, month, year_digit),
             product_code=product_code,
             strike=float(strike_str),
             call_put=call_put,
@@ -178,3 +177,57 @@ def parse_combo_symbol(symbol: str) -> List[Contract]:
 def _month_letter(call_put: str, month: int) -> str:
     letters = _CALL_MONTH_LETTERS if call_put == "C" else _PUT_MONTH_LETTERS
     return letters[month - 1]
+
+
+def build_leg_symbol(product_code: str, strike: float, call_put: str, month: int, year_digit: str) -> str:
+    """組出單腳商品代碼字串(product_code+履約價+月份字母+年末碼)，是
+    parse_symbol() 的反方向操作，抽出來給自動平倉「換履約價、其餘不變」
+    重開倉共用——重開倉一定跟原部位同一個到期月份/年末碼，只換履約價，
+    不需要(也無法可靠取得)完整西元日期去走
+    capital_symbols.build_symbol() 那套路(Contract.expiry_year_digit 只
+    有個位數，年份本身有歧義，見本檔案開頭說明)，直接用既有 Contract 上
+    已確認過的欄位組字串最安全。"""
+    return f"{product_code}{int(strike)}{_month_letter(call_put, month)}{year_digit}"
+
+
+def build_vertical_spread_legs(
+    product_code: str, anchor_strike: float, call_put: str, month: int, year_digit: str,
+    width: float, buy_spread: bool,
+) -> Tuple[str, bool, float, str, bool, float]:
+    """算一組垂直價差兩腳的 symbol/買賣方向/履約價，依照期交所複式單編碼
+    規則(核對自官方文件《7.下單-國內期選.docx》Call/Put多頭/空頭價差範
+    例，完整核對記錄見 app/views/order_entry_widget.py 的
+    _compute_duplex_legs())：
+        買權(Call) leg1 = 較高履約價，leg2 = 較低履約價
+        賣權(Put)  leg1 = 較低履約價，leg2 = 較高履約價
+        較低履約價那腳該買進還是賣出，Call/Put 剛好相反：
+            買權：較低履約價買進 = 買方；較低履約價賣出 = 賣方
+            賣權：較低履約價買進 = 賣方；較低履約價賣出 = 買方
+
+    這是 _compute_duplex_legs() 拿掉 GUI 狀態依賴後的純函式版本，給
+    app/models/auto_close_manager.py 重開倉/開新倉共用，避免另外寫一份
+    容易漏改其中一份、兩邊行為不一致(那段註解列的真實報價數字核對記錄，
+    這裡不重複抄一次)。
+
+    anchor_strike 是其中一腳的履約價(通常是使用者手動指定的那一支)，另
+    一腳 = anchor_strike 加/減 width(買權加、賣權減，跟下單面板
+    _leg2_strike() 同一套規則)。回傳
+    (leg1_symbol, buy1, strike1, leg2_symbol, buy2, strike2)。"""
+    is_call = call_put == "C"
+    sign = 1 if is_call else -1
+    other_strike = anchor_strike + sign * width
+    origin_symbol = build_leg_symbol(product_code, anchor_strike, call_put, month, year_digit)
+    other_symbol = build_leg_symbol(product_code, other_strike, call_put, month, year_digit)
+
+    if anchor_strike <= other_strike:
+        low_symbol, low_strike = origin_symbol, anchor_strike
+        high_symbol, high_strike = other_symbol, other_strike
+    else:
+        low_symbol, low_strike = other_symbol, other_strike
+        high_symbol, high_strike = origin_symbol, anchor_strike
+    low_buy = buy_spread if is_call else not buy_spread
+    low_leg = (low_symbol, low_buy, low_strike)
+    high_leg = (high_symbol, not low_buy, high_strike)
+    leg1_symbol, buy1, strike1 = high_leg if is_call else low_leg
+    leg2_symbol, buy2, strike2 = low_leg if is_call else high_leg
+    return leg1_symbol, buy1, strike1, leg2_symbol, buy2, strike2
