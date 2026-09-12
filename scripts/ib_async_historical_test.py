@@ -1,12 +1,11 @@
 """
-用 ib_async 重寫 ib_test_historical.py：不透過即時/延遲報價，改用
-reqHistoricalData 查最近的K棒(收盤價/中價)，用來驗證「拿不到即時報價時，
-還能不能拿到最新價格」這件事。
+用 ib_async 驗證：不透過即時/延遲報價，改用 reqHistoricalData 查最近的
+K棒(收盤價/中價)，用來驗證「拿不到即時報價時，還能不能拿到最新價格」
+這件事。
 
-*** 跟 ibapi 版本比對用 ***：股票日線應該拿到跟之前一樣的收盤價(SPY
-2026-09-10 收盤 757.83)；選擇權要用小時線 + MIDPOINT 才查得到(日線在
-BEST 路由查無 EOD 資料，這是 ibapi 版本已經踩過的坑，這裡直接用對的參
-數，不重踩一次)。
+股票日線應該拿到跟之前一樣的收盤價(SPY 2026-09-10 收盤 757.83)；選擇
+權要用小時線 + MIDPOINT 才查得到(日線在 BEST 路由查無 EOD 資料，
+ib_quote_client.py 的 fallback 邏輯就是用這裡驗證過的參數)。
 
 跑法：
     uv run python scripts/ib_async_historical_test.py --symbol SPY
@@ -21,7 +20,7 @@ from ib_async import IB, Option, Stock
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=7497)
+    parser.add_argument("--port", type=int, default=4002, help="預設 4002 = IB Gateway 模擬帳戶(paper)")
     parser.add_argument("--client-id", type=int, default=32)
     parser.add_argument("--symbol", default="SPY")
     parser.add_argument("--sectype", default="STK", choices=["STK", "OPT"])

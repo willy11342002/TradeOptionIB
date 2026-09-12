@@ -75,7 +75,7 @@ def _position_legs(manager: PositionManager):
 
 def _pending_legs(order_book_manager: OrderBookManager):
     """*** record.price 是複式單的「淨價」(net price)，不是每一腳各自的
-    權利金 (見 capital_order_client.py:257 bstrPrice/CLAUDE.md 的說明)。
+    權利金 (見 order_book.py::stage_duplex() 的 net_price 參數說明)。
     之前這裡誤把 record.price 當成兩腳「各自」的權利金去算，兩腳的
     -price/+price 剛好互相抵消，等於完全沒把淨權利金/收付方向算進損益，
     畫出來的最大虧損/最大獲利都是錯的(缺淨權利金那一截)。***

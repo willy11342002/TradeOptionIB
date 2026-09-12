@@ -9,9 +9,11 @@ QuadrantJudgment（振幅/波動率高低判斷、壓力/支撐價位、Markdown
 Model 名稱刻意不寫死，讀 os.environ["OPENROUTER_MODEL"]，使用者換模型只要
 改 .env，不用動程式碼 (用 pydantic-ai 的 "openrouter:<model>" 字串型
 model 寫法；OPENROUTER_API_KEY 環境變數 pydantic-ai 自己會讀，不用手動
-組 headers)。象限對應到哪個策略是程式碼裡的固定規則 (見
-app/services/opening_analysis.py 的 STRATEGY_MAP)，LLM 只負責判斷高低/
-壓力支撐跟給理由，不負責選策略名稱，避免它亂編。
+組 headers)。象限對應到哪個策略原本是程式碼裡的固定規則，寫在已經隨
+群益台指選擇權功能一起刪除的 app/services/opening_analysis.py 裡
+(STRATEGY_MAP)——這支模組目前沒有任何地方呼叫，內容(prompt/策略對應)
+還是台指選擇權導向，日後如果要重新接上新功能，要先決定策略對應規則搬
+去哪裡、prompt 要不要改成美股選擇權導向。
 """
 import json
 import os

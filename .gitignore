@@ -9,17 +9,10 @@ wheels/
 # Virtual environments
 .venv
 
-# 群益官方範例/COM 元件安裝包，體積大且是廠商原始檔案，不用進版控。
-# vendor/capital_api/ 底下的 SKCOM.dll 等執行期需要的 DLL 是從這裡複製過去
-# 的，同樣不進版控 (二進位檔案不適合放 git 歷史)——這台機器已經有了，換一
-# 台機器要重新把這個資料夾底下的 元件/x64 內容複製一份到 vendor/capital_api/x64。
-CapitalAPI_2.13.59_PythonExample/
-vendor/capital_api/
-
 # kgisuperpy 舊版殘留在工作目錄的錯誤碼對照檔，已不再使用
 errMsg.ini
 
-# 所有「記憶狀態」的本機檔案 (帳密快取/版面配置/查詢條件/委託紀錄等)統一
+# 所有「記憶狀態」的本機檔案 (連線設定/版面配置/查詢條件/委託紀錄等)統一
 # 放這裡，見 app/paths.py 的 PREF_DIR 說明——一個資料夾規則就夠，不用每
 # 加一個新的偏好檔案就手動補一行。
 pref/
@@ -28,9 +21,7 @@ pref/
 # pref/ 的例外，見 app/paths.py 的說明。
 .env
 
-# 期交所選擇權波動率指數本地增量快取 (本機執行期產生/累積)
-data/taiwan_option_vix.csv
-
-# FinMind 加權指數/台指期價格本地增量快取 (本機執行期產生/累積)
-data/taiex_price_history.csv
-data/tx_futures_price_history.csv
+# gce/ 底下部署到 VM 用的 IBC config.ini 含帳密，只留 .example 範本進
+# 版控，實際檔案(config.live.ini/config.paper.ini)不要 commit。
+gce/ibc/config.live.ini
+gce/ibc/config.paper.ini

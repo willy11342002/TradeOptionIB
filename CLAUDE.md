@@ -2,106 +2,60 @@
 
 **一律用中文回覆，不要用英文。** 這是使用者明確要求的，不管任何情境都適用。
 
-# 群益 (Capital) SKCOM API — 一定要查文件，不准用猜的
+# 交易對象：Interactive Brokers（美股/ETF 選擇權），透過 ib_async
 
-官方文件在 repo 裡：
+這支 app 原本是接群益 (Capital) SKCOM API 交易台指選擇權，因為造市商點差
+太差已經整個換掉，改成透過 IB Gateway 交易任何美股/ETF 的選擇權。群益的
+程式碼、SKCOM 文件查詢流程都已經整個刪除，不要再假設專案裡還有這些東
+西——`vendor/capital_api/`、`CapitalAPI_2.13.59_PythonExample/` 這兩個目
+錄本來就是 gitignore 的廠商參考資料，這台機器上也已經不存在了。
 
-```
-CapitalAPI_2.13.59_PythonExample\策略王COM元件使用說明_V2.13.59.htm
-```
+## 事件迴圈：一定要用 qasync，不要用 `ib_async.util.useQt()`
 
-**任何跟群益 API 有關的問題（函式簽名、參數順序、參數意義、回傳格式、事件
-欄位定義等），一律先查這份文件，不准用網路搜尋、不准憑印象/訓練資料猜。**
-這份文件是使用者從官方 `策略王COM元件使用說明_V2.13.59.htm`（隨
-`CapitalAPI_2.13.59_PythonExample` 這個官方 SDK 資料夾附的）另存成 htm
-格式的，內容跟 docx 完全一致，只是格式方便查詢。
+`main.py` 用 `qasync.QEventLoop` 讓 Qt 跟 asyncio 共用同一個事件迴圈。
+**不要改回 `ib_async.util.useQt()`**——那是在 asyncio callback 裡巢狀塞
+一個 Qt `QEventLoop` 的 hack，實測發現只要開始跑（第一次 `connect()` 之
+後）就回不去「沒在跑」的狀態，導致之後任何一個同步 IB 呼叫都保證撞上
+`RuntimeError: This event loop is already running`。這是踩了好幾輪才確
+認的架構性不相容，不是猜測。
 
-同資料夾下還有其他細分文件，需要更完整脈絡時也可以查：
-- `策略王COM元件使用說明_V2.13.45以上登入代碼定義.docx`
-- `策略王COM元件使用說明_期貨新制商品報價元件.docx`
-- `策略王COM元件使用說明_ProxyServer下單元件.docx`
-- `PythonExampleV2\策略王COM元件使用說明_PythonExampleV2\*.docx`（依主題拆
-  成 1.環境設置/3.登入/7.下單-國內期選/12.回報/13.國內報價 等單篇文件）
-- `PythonExample*/` 底下的官方範例程式碼（`.py`），用來核對「文件寫的」跟
-  「範例實際怎麼呼叫」是否一致
+改用 qasync 之後的規則：
+- **所有 IB API 呼叫一律用 `xxxAsync()` 版本 + `await`**，不要用同步版
+  （`ib.qualifyContracts()`/`ib.reqSecDefOptParams()`/`ib.connect()`...
+  這些同步版內部都是 `loop.run_until_complete()`，在這個架構下一定會撞
+  上「事件迴圈已經在跑了」）。例外：`ib.positions()`/`ib.trades()`/
+  `ib.ticker()` 是純本地讀取(沒有 `_run()`)、`reqMktData()`/
+  `cancelMktData()`/`placeOrder()`/`cancelOrder()`/`reqMarketDataType()`
+  是 fire-and-forget(送出 socket 訊息就回傳，不等回應)，這些可以照舊同
+  步呼叫，改之前先去 `.venv/Lib/site-packages/ib_async/ib.py` 確認該方
+  法內部有沒有 `self._run(...)` 再判斷。
+- **Qt 訊號的 handler 要是 async 的話用 `qasync.asyncSlot()` 裝飾**，不
+  要自己手動 `asyncio.ensure_future()` 包一層再接訊號。
+- **顯示 modal 對話框（`QDialog.exec_()`）不能包在 asyncio Task 裡面呼
+  叫**，也不能在 `loop.run_forever()` 開始跑之前呼叫——前者會撞上
+  asyncio「同一執行緒不能同時有兩個 Task 在跑」的重入保護，後者會撞上
+  `no running event loop`。正確做法是用 `QTimer.singleShot(0, ...)` 排
+  程一個純 Qt callback 在 `run_forever()` 開始後才顯示對話框，細節看
+  `main.py::_show_connect_dialog()` 的說明註解。
 
-## 怎麼讀這份 htm（每次需要查就直接查，不要轉檔另存）
+## IB 特性跟 SKCOM 的差異（設計決策依據，不是文件查詢）
 
-這個 htm 是 Word 匯出的，**編碼是 Big5**，而且是單一大檔（16 萬行以上），
-直接用一般讀檔工具打開會亂碼或太大。正確做法：
-
-1. 先用 Grep 在 htm 裡找函式/事件名稱的錨點或標題行，定位行號：
-   ```
-   grep -n "FunctionName" 策略王COM元件使用說明_V2.13.59.htm
-   ```
-   優先找 `<h3>` 開頭那行（真正的標題，前面可能有多個過期/重複的
-   `<a name=...>` 書籤，書籤位置不一定準，要以 `<h3>` 那行看到的編號＋函
-   式名稱為準）。
-2. 用 `sed -n '起始行,結束行p'` 抓出那個範圍，接 `iconv -f big5 -t
-   utf-8//IGNORE` 轉碼，再用 `sed -e 's/<[^>]*>//g'` 去掉 HTML 標籤、
-   `grep -v '^\s*$'` 過濾空行，直接印出來看，**不要用 `-o` 存成檔案，不要
-   轉檔另存**——每次要看內容就重新查一次原檔，不要在專案裡留下轉檔副本。
-   ```bash
-   sed -n '38700,38900p' "策略王COM元件使用說明_V2.13.59.htm" \
-     | iconv -f big5 -t utf-8//IGNORE \
-     | sed -e 's/<[^>]*>//g' -e 's/&nbsp;/ /g' \
-     | grep -v '^\s*$'
-   ```
-3. 一個函式的「宣告」通常在標題後方 30~80 行內就有完整參數列表；「回傳
-   格式/欄位定義」這種大表格（例如 `OnNewData`）可能長達數千行，這時候用
-   `grep -n "^<h3>"` 找下一個標題的行號當作結束邊界，再視需要分段抓。
-4. `pandoc`／Word／LibreOffice 這台機器沒裝，讀 docx 只能靠這個 htm。
-
-## 已知的重要細節（2025-09 對照過，非猜測）
-
-- `GetFutureRights(bstrLogInID, bstrAccount, sCoinType)`：第三參數是
-  **幣別**（0:全幣別含基幣 1:基幣TWD 2:人民幣RMB），不是查詢格式碼。
-  `sCoinType=0` 時每個幣別各回傳一筆 `OnFutureRights`，最後多回傳一筆以
-  `##` 開頭的內容代表查詢結束。
-- `OnFutureRights(bstrData)` 掛在 **SKOrderLib**（不是 SKReplyLib），跟
-  `OnAsyncOrder`/`OnAccount` 同一個物件。欄位定義（0-40）已核對過，見
-  `app/models/capital_order_client.py`。
-- `SendDuplexOrder` 用同一個 `FUTUREORDER` 結構，兩腳分別用
-  `bstrStockNo`/`sBuySell`（第一腳）跟 `bstrStockNo2`/`sBuySell2`（第二
-  腳），`bstrPrice` 是淨價，不是各自的委託價。
-- `CorrectPriceBySeqNo`/`DecreaseOrderBySeqNo`/`CancelOrderBySeqNo` 都是
-  `(bstrLogInID, bAsyncOrder, bstrAccount, bstrSeqNo, ...)` 開頭，
-  `bstrSeqNo` 用的是 13 碼序號（`SeqNo`），不是原始委託序號（`KeyNo`）。
-- `GetOrderReport`/`GetFulfillReport` IDL 上宣告是 `void`，但最後一個參數
-  是 `[out, retval] BSTR*`，comtypes 會把它變成一般的函式回傳值（同步阻
-  塞式呼叫，文件要求查詢間隔至少 5 秒）。
-- `SKCenterLib_SetAuthority` 的參數是位元旗標（不是單純的環境列舉）：
-  bit0 是 SGX 專線開關，**bit1 才是環境設定**（0=正式環境，設該位元=測試
-  環境）。目前 `capital_client.py` 用的 `AUTHORITY_PROD=0`/`AUTHORITY_TEST
-  =2` 剛好對應 bit1，數值正確，但語意跟參數命名容易誤導，改動這段前務必
-  重新查文件。
-- `SKQuoteLib_RequestKLine`/`RequestKLineAM`/`RequestKLineAMByDate` 三個
-  都明確標「僅提供歷史資料」，不是即時推播——盤中查詢「今天還沒結束的那
-  個時段」(不管是日盤還是夜盤) 一律查不到，實測過(2026-09-09)`end_date`
-  設今天或明天結果完全一樣，都不會多出當時已經進行好幾小時的夜盤資料。
-- **`OnNotifyLiveKLineData` 這個事件，文件 4-4-u 有寫，但實際安裝的
-  `vendor/capital_api/x64/SKCOM.dll`(2.13.59.0，版本號跟文件完全對得上)
-  裡根本不存在**——直接用 `comtypes.client.GetModule` 對這支DLL重新產生
-  過COM介面，`_ISKQuoteLibEvents`裡沒有這個方法，不是猜的、不是版本不
-  合、也不是comtypes快取沒更新。文件跟實際出貨的DLL對不上，遇到「查得到
-  文件但呼叫/接不到事件」時要先懷疑這件事，不要預設文件一定跟DLL同步。
-- 「盤中才開程式，怎麼拿到開盤到現在這段」正確做法：`SKQuoteLib_
-  RequestTicks([in,out] SHORT* psPageNo, [in] BSTR bstrStockNo)` 訂閱
-  (`psPageNo`從0開始、一檔一個獨立頁碼，不能像`RequestStocks`那樣逗號分
-  隔多檔)，訂閱當下會先收到`OnNotifyHistoryTicksLONG`回補當天所有成交明
-  細，之後才是`OnNotifyTicksLONG`即時tick——這兩個事件都實測過真的存在、
-  真的能拿到回補(2026-09-09實測台指期夜盤15:00開盤後的完整逐筆成交，訂
-  閱當下一次收到9540筆回補)。`nTimehms`是時分秒打包成整數(例如90025代表
-  09:00:25，不補零)，`nSimulate!=0`是試算揭示不是真的成交要濾掉，價格未
-  還原小數位數要另外查`GetStockByNoLONG`拿`sDecimal`自己換算。詳見
-  `app/models/capital_tick_client.py`。
-
-## 工作流程規定
-
-1. 群益 API 相關問題：先查這份 htm，查到再回答/動手，查不到要老實說查不
-   到，不要用網路搜尋結果或訓練資料猜答案。
-2. 改動任何跟群益 API 呼叫有關的程式碼前，先對照文件核對函式簽名/參數順
-   序/回傳格式，核對結果要讓使用者看得到依據（引用文件內容），不是憑印
-   象改。
-3. 這份文件是「查閱用」，不要轉檔、不要在 repo 裡留副本、不要把整份轉成
-   Markdown 存檔——每次現查現讀。
+- IB 不需要 API 層級的帳密登入，TWS/Gateway 本身要先手動開好、登入
+  好，程式端只是 socket connect 到已經登入的 process
+  （`app/models/ib_client.py`）。用的是 **Gateway 不是 TWS**，模擬/正式
+  環境 port 分別是 **4002/4001**（不是 TWS 的 7497/7496）。
+- `conId` 是任何合約穩定、唯一的識別碼，取代群益整套 TAIFEX 符號字串編
+  碼（`app/models/option_utils.py`）。換一個新履約價/到期日一定要先
+  `qualifyContractsAsync()` 才能拿到 conId，而且對「這個到期日根本沒有
+  這個履約價」不會丟例外，只會讓 `conId` 停在 0——呼叫端要自己過濾，見
+  `app/views/main_window.py::_do_subscribe_core()`。
+- `ib.positions()`/`ib.positionEvent` 給的部位方向（多/空）永遠是明確
+  的正負號，不需要像群益那樣猜買賣別欄位（`app/models/positions.py`）。
+- IB 的委託（含 BAG 複式單）整個生命週期都有穩定的整數 `orderId`，改
+  價/刪單直接對應同 `orderId` 重新 `placeOrder()`/`cancelOrder()`
+  （`app/models/order_book.py`），沒有連續 IOC 自動重送引擎——BAG combo
+  可以直接掛 `LMT`+`DAY`/`GTC` 等成交。
+- 這個帳戶股票有即時報價、選擇權沒有，`reqMarketDataType(4)` 一定要在
+  `connect()` 成功後立刻呼叫，不然選擇權的 `reqMktData` 會直接被拒絕
+  （見 `app/models/ib_client.py`）。IB 用 `NaN` 或 `-1` 代表「這個欄位
+  沒有值」，兩種都要濾掉（`app/models/ib_quote_client.py::_clean()`）。

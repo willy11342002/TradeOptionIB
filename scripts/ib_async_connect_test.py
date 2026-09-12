@@ -1,10 +1,6 @@
 """
-用 ib_async 重寫 ib_test_connect.py 的測試內容：連線、查選擇權鏈(到期日
-/履約價)、查一檔指定的選擇權合約明細。
-
-*** 跟 ibapi 版本(ib_test_connect.py)比對用 ***：這支腳本應該印出跟那支
-一樣的結論(連線正常、AAPL 有 24 個到期日、能查到指定合約的 conId)，用來
-驗證 ib_async 重寫後行為一致。
+用 ib_async 驗證連線、查選擇權鏈(到期日/履約價)、查一檔指定的選擇權合約
+明細——這幾個是 app 裡 main_window.py 查詢流程最基本、最常用到的呼叫。
 
 跑法：
     uv run python scripts/ib_async_connect_test.py
@@ -19,7 +15,7 @@ from ib_async import IB, Option, Stock
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=7497, help="預設 7497 = TWS 模擬帳戶(paper)")
+    parser.add_argument("--port", type=int, default=4002, help="預設 4002 = IB Gateway 模擬帳戶(paper)")
     parser.add_argument("--client-id", type=int, default=31)
     parser.add_argument("--symbol", default="AAPL")
     parser.add_argument("--list-expiries", action="store_true")

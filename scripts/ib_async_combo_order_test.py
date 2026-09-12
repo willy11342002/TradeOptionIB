@@ -1,9 +1,10 @@
 """
-用 ib_async 重寫 ib_test_combo_order.py：組一個兩腳的選擇權垂直價差
-(BAG combo + ComboLeg)，驗證 ib_async 建構複式單這條路跟 ibapi 版本比對
-起來是不是一樣的結果。
+用 ib_async 組一個兩腳的選擇權垂直價差(BAG combo + ComboLeg)，驗證
+ib_async 建構複式單這條路的行為——跟 app/models/order_book.py 的
+stage_duplex()/_send_once() 組 BAG/ComboLeg 是同一套邏輯，這裡拿來單獨
+手動測試用，不用開整個 app。
 
-一樣保留兩道安全設計 (跟 ibapi 版本相同的理由)：
+保留兩道安全設計：
     1. 預設不呼叫 placeOrder，只把組好的 Contract/Order 印出來 (dry-run)。
        要真的送出去要加 --place。
     2. 就算 --place，Order.transmit 預設 False——單子會建立但停在 TWS 的
@@ -25,7 +26,7 @@ from ib_async import IB, Bag, ComboLeg, LimitOrder, Option
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=7497)
+    parser.add_argument("--port", type=int, default=4002, help="預設 4002 = IB Gateway 模擬帳戶(paper)")
     parser.add_argument("--client-id", type=int, default=34)
     parser.add_argument("--symbol", required=True)
     parser.add_argument("--expiry", required=True)
@@ -57,7 +58,7 @@ def main():
         ],
     )
     order = LimitOrder(args.net_action, args.qty, args.net_price)
-    order.tif = "DAY"  # LimitOrder() 建構子不會預設，跟 ibapi 版本統一都明確指定
+    order.tif = "DAY"  # LimitOrder() 建構子不會預設，這裡明確指定
     order.transmit = args.transmit
 
     print("\n===== 組出來的複式單 =====")
