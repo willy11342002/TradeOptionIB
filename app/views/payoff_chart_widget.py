@@ -9,11 +9,8 @@ widget。
 X 軸(標的價格)上時，忽略各腳實際到期日不同、忽略時間價值/隱含波動率。
 見 app/services/payoff.py 開頭的說明。
 
-*** 只納入方向已確認的部位 ***
-app/models/positions.py 的 Position.buy 在買賣別欄位無法判讀時會是
-None，這種部位不會出現在這張圖裡(不能瞎猜方向去畫，猜錯損益方向會完全
-相反，比不顯示更危險)。下單匣的委託(OrderLeg.buy)是使用者下單當下自己
-決定的，不是從 broker 猜的，方向可靠，會正常畫進曲線B。
+*** IB 的部位方向永遠明確 ***：不像舊版群益那樣「買賣別欄位無法判讀」
+要整筆跳過(見 app/models/positions.py 的說明)，這裡不用再防那個情況。
 
 *** 複式單(TM合併列)：兩腳的方向/淨權利金怎麼分配，交給
 app/models/positions.py 的 Position.payoff_legs() 統一決定(目前的結論
@@ -31,10 +28,8 @@ from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget, QLabel
 INFO_AREA_STRETCH = 30
 CHART_AREA_STRETCH = 70
 
-from app.models.contracts import parse_symbol
 from app.models.order_book import OrderBookManager, TERMINAL_STATUSES
 from app.models.positions import PositionManager
-from app.services import margin
 from app.services.payoff import (
     PayoffLeg, combined_payoff, find_breakevens, payoff_extremes, price_axis_range,
 )
@@ -45,24 +40,35 @@ ZERO_LINE_COLOR = "#888888"
 BREAKEVEN_COLOR = "#c0392b"
 UNDERLYING_PRICE_COLOR = "#9141ac"
 
-# 跟 main_window.py:44-45 同一組紅漲綠跌顏色常數(避免循環 import，數值保
-# 持同步即可，見 position_widgets.py 開頭同樣的做法)。
-COLOR_PROFIT = "#e05050"
-COLOR_LOSS = "#3ecf6e"
+# 跟 main_window.py 同一組顏色常數(避免循環 import，數值保持同步即可，見
+# position_widgets.py 開頭同樣的做法)。*** 美股慣例：獲利=綠、虧損=紅，
+# 跟台股相反，這是這次改動故意翻過來的地方。***
+COLOR_PROFIT = "#3ecf6e"
+COLOR_LOSS = "#e05050"
 
 SAMPLE_POINTS = 400
 
 
+def _leg_multiplier(leg) -> float:
+    try:
+        return float(getattr(leg, "multiplier", None) or 100)
+    except (TypeError, ValueError):
+        return 100.0
+
+
 def _position_legs(manager: PositionManager):
+    """帳戶裡除了選擇權，也可能有股票這類非選擇權部位(IB 的 ib.positions()
+    不會幫你濾掉，什麼都會回傳)——到期損益圖的數學只對選擇權有意義，股票
+    部位的 right 是空字串，不能硬塞進 PayoffLeg(會在 payoff.py 直接炸
+    掉)，這裡先濾掉，不是漏改。"""
     legs = []
     for position in manager.positions:
-        payoff_legs = position.payoff_legs()
-        if payoff_legs is None:
-            continue  # 買賣別欄位無法判讀，見 Position.payoff_legs() 的說明，不能瞎猜方向
-        for leg, buy, premium in payoff_legs:
+        for leg, buy, premium in position.payoff_legs():
+            if leg.right not in ("C", "P"):
+                continue
             legs.append(PayoffLeg(
-                strike=leg.strike, call_put=leg.call_put, buy=buy,
-                qty=position.qty, premium=premium, multiplier=leg.multiplier,
+                strike=leg.strike, call_put=leg.right, buy=buy,
+                qty=position.qty, premium=premium, multiplier=_leg_multiplier(leg),
             ))
     return legs
 
@@ -88,72 +94,18 @@ def _pending_legs(order_book_manager: OrderBookManager):
             continue
         price_assigned = False
         for leg in record.legs:
-            if leg.call_put is None or leg.strike is None:
+            if leg.right is None or leg.strike is None:
                 continue  # 沒有履約價/買賣權資訊的腳，理論上不會發生，防呆跳過
-            try:
-                multiplier = parse_symbol(leg.symbol).multiplier
-            except ValueError:
-                continue  # 商品代碼解析不出來，寧可少畫這一腳，不要用猜的乘數
             if not price_assigned and leg.buy == record.net_buyer:
                 premium = record.price
                 price_assigned = True
             else:
                 premium = 0.0
             legs.append(PayoffLeg(
-                strike=leg.strike, call_put=leg.call_put, buy=leg.buy,
-                qty=record.qty, premium=premium, multiplier=multiplier,
+                strike=leg.strike, call_put=leg.right, buy=leg.buy,
+                qty=record.qty, premium=premium, multiplier=_leg_multiplier(leg),
             ))
     return legs
-
-
-def _estimate_short_margin(effective_legs, underlying_price: float):
-    """效果同 app/services/margin.py 開頭公式，回傳目前顯示中部位的「原始
-    保證金」估計總額(NT$)。underlying_price=None(還沒收到現貨報價)或部位
-    含非 TXO 家族商品(乘數不是50，A/B/C數字不適用，不硬套)時回傳 None，
-    畫面要顯示成空白，不能顯示一個算錯的數字。
-
-    *** 刻意採用的簡化 ***：只有「剛好一腳空頭call+一腳空頭put、口數相
-    同」才套用混合部位(跨式/勒式)的C值折抵；其餘情形(單腳、或口數不對
-    等、或超過兩腳空頭)一律逐腳加總各自的單腳保證金，不套用任何跨腳折
-    抵。這是保守估計(可能比 TAIFEX 實際收取的更高，但不會低估)，不是精確
-    模擬全帳戶所有可能的組合部位折抵規則。"""
-    if underlying_price is None:
-        return None
-    short_legs = [
-        leg for leg in effective_legs
-        if not leg.buy and leg.call_put is not None and leg.strike is not None
-    ]
-    if not short_legs:
-        return 0.0
-    if any(leg.multiplier != margin.TXO_MULTIPLIER for leg in short_legs):
-        return None
-
-    calls = [leg for leg in short_legs if leg.call_put == "C"]
-    puts = [leg for leg in short_legs if leg.call_put == "P"]
-    if len(short_legs) == 2 and len(calls) == 1 and len(puts) == 1 and calls[0].qty == puts[0].qty:
-        call_leg, put_leg = calls[0], puts[0]
-        call_margin = margin.short_option_margin(
-            call_leg.premium, "C", call_leg.strike, underlying_price, call_leg.multiplier,
-            margin.TXO_ORIGINAL_A, margin.TXO_ORIGINAL_B,
-        )
-        put_margin = margin.short_option_margin(
-            put_leg.premium, "P", put_leg.strike, underlying_price, put_leg.multiplier,
-            margin.TXO_ORIGINAL_A, margin.TXO_ORIGINAL_B,
-        )
-        per_lot = margin.mixed_margin(
-            call_margin, call_leg.premium * call_leg.multiplier,
-            put_margin, put_leg.premium * put_leg.multiplier,
-            margin.TXO_ORIGINAL_C,
-        )
-        return per_lot * call_leg.qty
-
-    return sum(
-        margin.short_option_margin(
-            leg.premium, leg.call_put, leg.strike, underlying_price, leg.multiplier,
-            margin.TXO_ORIGINAL_A, margin.TXO_ORIGINAL_B,
-        ) * leg.qty
-        for leg in short_legs
-    )
 
 
 class PayoffChartWidget(QWidget):
@@ -178,13 +130,11 @@ class PayoffChartWidget(QWidget):
         info_layout.addLayout(info_line1)
         self.breakeven_label = QLabel("")
         info_layout.addWidget(self.breakeven_label)
-        self.margin_label = QLabel("")
-        info_layout.addWidget(self.margin_label)
         layout.addWidget(info_area, INFO_AREA_STRETCH)
 
         self.plot_widget = pg.PlotWidget()
         self.plot_widget.setLabel("bottom", "標的價格")
-        self.plot_widget.setLabel("left", "到期損益 (NT$)")
+        self.plot_widget.setLabel("left", "到期損益 (USD)")
         self.plot_widget.showGrid(x=True, y=True, alpha=0.2)
         # 這張圖是「隨部位/下單匣即時變化的儀表板」，不是給使用者手動探索
         # 的圖表——鎖死縮放/拖曳，X/Y 範圍永遠自動貼齊目前資料範圍(見文件
@@ -212,7 +162,6 @@ class PayoffChartWidget(QWidget):
         self._underlying_price = price
         self._underlying_line.setPos(price)
         self._underlying_line.setVisible(True)
-        self._update_margin_label()
 
     def _clear_breakeven_lines(self) -> None:
         for line in self._breakeven_lines:
@@ -243,16 +192,6 @@ class PayoffChartWidget(QWidget):
             points = "、".join(f"{p:,.0f}" for p in sorted(breakevens))
             self.breakeven_label.setText(f"損平點：{points}")
 
-    def _update_margin_label(self) -> None:
-        """獨立於 _update_info_labels 之外，因為現貨價每跳一次(main_
-        window.py 呼叫 set_underlying_price)就要重算，不是只有部位/下單
-        匣變化(positions_changed/records_changed)才重算。"""
-        estimate = _estimate_short_margin(self._effective_legs, self._underlying_price)
-        if estimate is None:
-            self.margin_label.setText("")
-        else:
-            self.margin_label.setText(f"預估保證金(原始，僅TXO家族空頭部位)：{estimate:,.0f}")
-
     def _redraw(self) -> None:
         position_legs = _position_legs(self._position_manager)
         pending_legs = _pending_legs(self._order_book_manager)
@@ -265,7 +204,6 @@ class PayoffChartWidget(QWidget):
             self._position_curve.setData([], [])
             self._pending_curve.setData([], [])
             self._update_info_labels([], [])
-            self._update_margin_label()
             return
 
         low, high = price_axis_range(all_legs)
@@ -283,7 +221,6 @@ class PayoffChartWidget(QWidget):
         breakevens = find_breakevens(effective_legs, price_floor=low, price_ceiling=high) if effective_legs else []
         self._update_info_labels(effective_legs, breakevens)
         self._effective_legs = effective_legs
-        self._update_margin_label()
 
         for price in breakevens:
             line = pg.InfiniteLine(

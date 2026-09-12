@@ -1,85 +1,79 @@
-"""期貨/選擇權帳戶權益查詢 (GetFutureRights/OnFutureRights)。
+"""帳戶權益查詢，改接 IB 的 ib.accountSummaryAsync()。
 
-期貨、選擇權在群益共用同一個期貨帳戶，這支查詢回傳的權益數已經合併選擇
-權部位 (未沖銷買方/賣方市值等)，不需要另外查一支「選擇權權益」。
+跟舊版(群益 GetFutureRights/OnFutureRights)最大的差異：IB 的欄位
+(tag)是英文、動態的一份清單(不是固定41欄的表)，而且第一次以後其實是
+讀本地快取(ib_async 連線時就自動訂閱、持續在背景更新)，不需要像
+GetFutureRights 那樣每次都非同步查詢、還要顧慮查詢間隔限制——這裡改成
+單純「重新整理」=重新讀一次目前的本地快取，不是真的重新發送查詢。
 
-欄位定義/幣別參數對照 app/models/capital_order_client.py 的
-FUTURE_RIGHTS_FIELDS/FUTURE_RIGHTS_LABELS 註解，核對自官方文件
-《策略王COM元件使用說明_V2.13.59.docx》4-2-38 GetFutureRights /
-4-2-i OnFutureRights，不是猜的。
+*** 一定要用 accountSummaryAsync()，不能用同步版 accountSummary() ***：
+這支 app 用 qasync 讓 Qt 事件迴圈本身就是 asyncio 迴圈(見 main.py)，同
+步版內部的 loop.run_until_complete() 在這個架構下一定會撞上「這個事件
+迴圈已經在跑了」，見 app/models/ib_client.py 開頭的說明。
 """
-from PyQt5.QtCore import Qt, QTimer
+import asyncio
+
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QHBoxLayout, QHeaderView, QLabel, QPushButton, QTableWidget,
     QTableWidgetItem, QVBoxLayout, QWidget,
 )
+from qasync import asyncSlot
 
-from app.models.capital_order_client import (
-    CapitalOrderClient, FUTURE_RIGHTS_LABELS, FUTURE_RIGHTS_FIELDS,
-)
+from app.models.ib_client import IBClient
 
-# 文件沒有給明確的查詢間隔秒數 (只寫「不要連續呼叫，太頻繁會回
-# SK_ERROR_QUERY_IN_PROCESSING」)，這裡用按鈕冷卻時間自保，避免使用者連
-# 點；秒數是保守估計，不是文件白紙黑字的規定。
-_QUERY_COOLDOWN_MS = 3000
+_COLUMNS = ["欄位", "數值", "幣別"]
 
 
 class EquityWidget(QWidget):
-    """權益查詢 dock 內容：一顆查詢按鈕 + 欄位/數值表格，唯讀。"""
+    """權益查詢 dock 內容：一顆重新整理按鈕 + 欄位/數值表格，唯讀。"""
 
-    def __init__(self, order_client: CapitalOrderClient, parent=None):
+    def __init__(self, ib_client: IBClient, parent=None):
         super().__init__(parent)
-        self._order_client = order_client
-        self._order_client.future_rights.connect(self._on_future_rights)
-        self._order_client.future_rights_failed.connect(self._on_failed)
+        self._ib = ib_client.ib
+        self._ib.accountSummaryEvent += self._on_account_summary_event
 
         layout = QVBoxLayout(self)
 
         top_row = QHBoxLayout()
-        self.query_btn = QPushButton("查詢/更新權益")
-        self.query_btn.clicked.connect(self._on_query_clicked)
+        self.query_btn = QPushButton("重新整理")
+        self.query_btn.clicked.connect(self._refresh)
         top_row.addWidget(self.query_btn)
         self.status_label = QLabel("尚未查詢")
         top_row.addWidget(self.status_label)
         top_row.addStretch(1)
         layout.addLayout(top_row)
 
-        self.table = QTableWidget(len(FUTURE_RIGHTS_LABELS), 2)
-        self.table.setHorizontalHeaderLabels(["欄位", "數值"])
+        self.table = QTableWidget(0, len(_COLUMNS))
+        self.table.setHorizontalHeaderLabels(_COLUMNS)
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.Stretch)
-        for row, label in enumerate(FUTURE_RIGHTS_LABELS):
-            label_item = QTableWidgetItem(label)
-            label_item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-            self.table.setItem(row, 0, label_item)
-            value_item = QTableWidgetItem("")
-            value_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            self.table.setItem(row, 1, value_item)
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
         layout.addWidget(self.table)
 
-        # 開窗當下先讓畫面畫出來，下一輪事件圈才送出查詢 (SendOptionOrder
-        # 那邊踩過在建構子裡直接打阻塞式/COM 呼叫卡住畫面的坑，這裡沿用
-        # 同樣的作法)。
-        QTimer.singleShot(0, self._on_query_clicked)
+        asyncio.ensure_future(self._refresh())
 
-    def _on_query_clicked(self):
-        self.query_btn.setEnabled(False)
-        QTimer.singleShot(_QUERY_COOLDOWN_MS, lambda: self.query_btn.setEnabled(True))
-        self.status_label.setText("查詢中...")
-        try:
-            self._order_client.query_future_rights()
-        except RuntimeError as exc:
-            # 還沒登入完成時 _require_login 會丟例外，開窗當下的自動查詢
-            # 常常還沒登入完成，安靜顯示狀態就好，不要跳錯誤訊息框。
-            self.status_label.setText(str(exc))
+    @asyncSlot()
+    async def _refresh(self):
+        rows = [av for av in await self._ib.accountSummaryAsync() if av.account != "All"]
+        self.table.setRowCount(len(rows))
+        for row, av in enumerate(rows):
+            self._set_cell(row, 0, av.tag)
+            self._set_cell(row, 1, av.value)
+            self._set_cell(row, 2, av.currency)
+        self.status_label.setText(f"已更新 ({len(rows)} 筆)" if rows else "查無資料，確認是否已連線")
 
-    def _on_failed(self, message: str):
-        self.status_label.setText(f"查詢失敗：{message}")
+    def _set_cell(self, row: int, col: int, text: str):
+        item = QTableWidgetItem(text)
+        item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter if col != 0 else Qt.AlignLeft | Qt.AlignVCenter)
+        self.table.setItem(row, col, item)
 
-    def _on_future_rights(self, rights: dict):
-        for row, key in enumerate(FUTURE_RIGHTS_FIELDS):
-            self.table.item(row, 1).setText(rights.get(key, ""))
-        self.status_label.setText("已更新")
+    def _on_account_summary_event(self, value) -> None:
+        # 帳戶權益有變動時 ib_async 會自動推播，這裡不用逐欄位更新，整批
+        # 重新畫一次表格最簡單、也不會有欄位對不上的問題。這是
+        # ib_async 自己的 Event callback(不是 Qt 訊號)，不能直接掛
+        # @asyncSlot() 版的 _refresh，要自己排程。
+        asyncio.ensure_future(self._refresh())

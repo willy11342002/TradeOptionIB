@@ -11,6 +11,18 @@ resolution-markers = [
 ]
 
 [[package]]
+name = "aeventkit"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5c/8c/c08db1a1910f8d04ec6a524de522edd0bac181bdf94dbb01183f7685cd77/aeventkit-2.1.0.tar.gz", hash = "sha256:4e7d81bb0a67227121da50a23e19e5bbf13eded541a9f4857eeb6b7b857b738a", size = 24703 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8d/8c/2a4b912b1afa201b25bdd0f5bccf96d5a8b5dccb6131316a8dd2d9cabcc1/aeventkit-2.1.0-py3-none-any.whl", hash = "sha256:962d43f79e731ac43527f2d0defeed118e6dbaa85f1487f5667540ebb8f00729", size = 26678 },
+]
+
+[[package]]
 name = "aiofile"
 version = "3.12.3"
 source = { registry = "https://pypi.org/simple" }
@@ -379,15 +391,6 @@ wheels = [
 ]
 
 [[package]]
-name = "comtypes"
-version = "1.4.16"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c6/2a/65274c13327f637ec13af8d39f2cf579d9ebe7a0e683696b5f05236d2805/comtypes-1.4.16.tar.gz", hash = "sha256:cd66d1add01265cface4df51ba1e31cd1657e04463c281c802e737e79e1ba93c", size = 260252 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5f/7c/0eb685107290b6221c03c46d39214a4e42a124189691cb83ae3228257f46/comtypes-1.4.16-py3-none-any.whl", hash = "sha256:e18d85179ff12955524c5a8c3bc09cb3c0d890f1da4d7123d14244c7b78f84c8", size = 296230 },
-]
-
-[[package]]
 name = "cryptography"
 version = "50.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -687,6 +690,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/cd/c4/0e5636363151a2a1795e0a77617168b9ca438e1748ec05fc9b5687f93d64/httpx2_jsfetch-1.0.tar.gz", hash = "sha256:70a0e3eabfef7cce5ad9c629f7d01ca05e418f586646f4ddf14782e4c1454c60", size = 6872 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9b/43/832f631d32e4f1211caa2ba368317739fe71f0b8530e4c9d15dc454bac2a/httpx2_jsfetch-1.0-py3-none-any.whl", hash = "sha256:cb916b707601e69a07721aabc8f3f6659be3a6893bc1ff5c6f9e02241df2da32", size = 6382 },
+]
+
+[[package]]
+name = "ib-async"
+version = "2.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aeventkit" },
+    { name = "nest-asyncio" },
+    { name = "tzdata" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/30/4d/dfc1da8224c3ffcdcd668da7283c4e5f14239a07f83ea66af99700296fc3/ib_async-2.1.0.tar.gz", hash = "sha256:6a03a87d6c06acacb0217a5bea60a8a168ecd5b5a7e86e1c73678d5b48cbc796", size = 87678 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/e7/8f33801788c66f15e9250957ff7f53a8000843f79af1a3ed7a96def0e96b/ib_async-2.1.0-py3-none-any.whl", hash = "sha256:f6d8b991bdbd6dd38e700c61b3dced06ebe0f14be4e5263e2ef10ba10b88d434", size = 88876 },
 ]
 
 [[package]]
@@ -1058,6 +1075,15 @@ wheels = [
 ]
 
 [[package]]
+name = "nest-asyncio"
+version = "1.6.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/83/f8/51569ac65d696c8ecbee95938f89d4abf00f47d58d48f6fbabfe8f0baefe/nest_asyncio-1.6.0.tar.gz", hash = "sha256:6f172d5449aca15afd6c646851f4e31e02c598d553a667e38cafa997cfec55fe", size = 7418 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/c4/c2971a3ba4c6103a3d10c4b0f24f461ddc027f0f09763220cf35ca1401b3/nest_asyncio-1.6.0-py3-none-any.whl", hash = "sha256:87af6efd6b5e897c81050477ef65c62e2b2f35d51703cae01aff2905b1852e1c", size = 5195 },
+]
+
+[[package]]
 name = "nest-asyncio2"
 version = "1.7.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1271,28 +1297,32 @@ name = "options-tboard"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "comtypes" },
+    { name = "ib-async" },
     { name = "ipykernel" },
+    { name = "pip" },
     { name = "pydantic-ai" },
     { name = "pyqt5" },
     { name = "pyqt5-qt5" },
     { name = "pyqtgraph" },
     { name = "python-dotenv" },
-    { name = "pywin32" },
+    { name = "qasync" },
     { name = "requests" },
+    { name = "setuptools" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "comtypes", specifier = ">=1.4.16" },
+    { name = "ib-async", specifier = ">=2.1.0" },
     { name = "ipykernel", specifier = ">=7.3.0" },
+    { name = "pip", specifier = ">=26.2.1" },
     { name = "pydantic-ai", specifier = ">=2.40.0" },
     { name = "pyqt5", specifier = "<5.15.11" },
     { name = "pyqt5-qt5", specifier = "<5.15.11" },
     { name = "pyqtgraph", specifier = ">=0.14.0" },
     { name = "python-dotenv", specifier = ">=1.2.3" },
-    { name = "pywin32", specifier = ">=312" },
+    { name = "qasync", specifier = ">=0.28.0" },
     { name = "requests", specifier = ">=2.34.2" },
+    { name = "setuptools", specifier = ">=84.0.0" },
 ]
 
 [[package]]
@@ -1323,6 +1353,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9e/c3/059298687310d527a58bb01f3b1965787ee3b40dce76752eda8b44e9a2c5/pexpect-4.9.0-py2.py3-none-any.whl", hash = "sha256:7236d1e080e4936be2dc3e326cec0af72acf9212a7e1d060210e70a47e253523", size = 63772 },
+]
+
+[[package]]
+name = "pip"
+version = "26.2.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ae/15/4500e320e6b101ec3b719ae85b697d9940b6cda672bc555bd6016fc60c6f/pip-26.2.1.tar.gz", hash = "sha256:f6ad667e89a1fe78046c8f13232b247200f5258d7828f3f7883d660878e0813f", size = 1848877 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f3/6e/1736e5b4ae2b778ef2f81c47d797de9f891d4d8acb047a24ca37a60294dd/pip-26.2.1-py3-none-any.whl", hash = "sha256:71138adf1f4ca900cdb7d289c21b7494329f2332b6d85f0e1c42108c0384ed3e", size = 1816632 },
 ]
 
 [[package]]
@@ -1876,6 +1915,15 @@ wheels = [
 ]
 
 [[package]]
+name = "qasync"
+version = "0.28.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/b2/5be08597dbbf331edb69478eae2f8dd511834cebf56a183b442e7437f8e0/qasync-0.28.0.tar.gz", hash = "sha256:6f7f1f18971f59cb259b107218269ba56e3ad475ec456e54714b426a6e30b71d", size = 14010 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e5/84/0ce4cd946f6e958428c87d5accac35df70f81607e45ba4919947d0762d63/qasync-0.28.0-py3-none-any.whl", hash = "sha256:21faba8d047c717008378f5ac29ea58c32a8128528629e4afd57c59b768dba0f", size = 16188 },
+]
+
+[[package]]
 name = "referencing"
 version = "0.37.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2099,6 +2147,15 @@ wheels = [
 ]
 
 [[package]]
+name = "setuptools"
+version = "84.0.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/6d/44/f5da03a8ef95d369145c5bb53050e7877c9f3d312e128605fd9504829143/setuptools-84.0.0.tar.gz", hash = "sha256:f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73", size = 1168449 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl", hash = "sha256:51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670", size = 818216 },
+]
+
+[[package]]
 name = "six"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2265,6 +2322,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a3/26/b09b8010994eccc3c09092e6b34058f36a460eea2d4c3e8b910c695975a0/typing_inspection-0.4.4.tar.gz", hash = "sha256:547274fa6b0a561ccf549cc9524b999a578e737d015d8709d021f9d0d13bea47", size = 76928 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/67/81/4add07e5172b7ac40d8ed5ff580409a7801a4fe26d529bdd915401dabfbe/typing_inspection-0.4.4-py3-none-any.whl", hash = "sha256:65b8397ba37ccbce054456aaccddfc91e6e3083c92824df348d96ca832f3f147", size = 14750 },
+]
+
+[[package]]
+name = "tzdata"
+version = "2025.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/5e/a7/c202b344c5ca7daf398f3b8a477eeb205cf3b6f32e7ec3a6bac0629ca975/tzdata-2025.3.tar.gz", hash = "sha256:de39c2ca5dc7b0344f2eba86f49d614019d29f060fc4ebc8a417896a620b56a7", size = 196772 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c7/b0/003792df09decd6849a5e39c28b513c06e84436a54440380862b5aeff25d/tzdata-2025.3-py2.py3-none-any.whl", hash = "sha256:06a47e5700f3081aab02b2e513160914ff0694bce9947d6b76ebd6bf57cfc5d1", size = 348521 },
 ]
 
 [[package]]

@@ -17,14 +17,15 @@ from app.models.positions import PositionManager, Position, PositionGroup, UNGRO
 from app.services import position_groups_store
 from app.views.auto_close_dialog import GroupTakeProfitDialog, StopLossDialog, TakeProfitDialog
 
-# 跟 main_window.py:44-45 的紅漲綠跌是同一組顏色常數，這裡不 import
-# main_window(避免循環 import：main_window 要 import 這個檔案來建立
-# dock)，數值保持同步即可。
-COLOR_UP_TEXT = QColor("#e05050")
-COLOR_DOWN_TEXT = QColor("#3ecf6e")
+# 跟 main_window.py 的 COLOR_UP_TEXT/COLOR_DOWN_TEXT 是同一組顏色常數，
+# 這裡不 import main_window(避免循環 import：main_window 要 import 這個
+# 檔案來建立 dock)，數值保持同步即可。*** 美股慣例：漲=綠、跌=紅，跟台
+# 股相反，這是這次改動故意翻過來的地方。***
+COLOR_UP_TEXT = QColor("#3ecf6e")
+COLOR_DOWN_TEXT = QColor("#e05050")
 
 _COLUMNS = ["商品/群組", "買權/賣權", "方向", "口數", "均價", "現價", "損益", "動作"]
-_CALL_PUT_LABELS = {"C": "買權", "P": "賣權"}
+_RIGHT_LABELS = {"C": "買權", "P": "賣權"}
 
 _DEFAULT_GROUP_COLOR = "#4a90d9"
 
@@ -43,20 +44,19 @@ def _rich_tooltip(text: str) -> str:
 
 
 def _direction_text(position: Position) -> str:
-    if position.buy is None:
-        return "不明(買賣別待確認)"
     return "買進" if position.buy else "賣出"
 
 
-def _call_put_text(position: Position) -> str:
-    labels = {_CALL_PUT_LABELS.get(leg.call_put, leg.call_put) for leg in position.legs}
+def _right_text(position: Position) -> str:
+    labels = {_RIGHT_LABELS.get(leg.right, leg.right) for leg in position.legs}
     return "/".join(sorted(labels))
 
 
 def _symbol_text(position: Position) -> str:
     if position.is_combo:
-        return " / ".join(f"{leg.symbol}(履約{int(leg.strike)})" for leg in position.legs)
-    return position.legs[0].symbol
+        return " / ".join(f"{leg.localSymbol or leg.symbol}" for leg in position.legs)
+    leg = position.legs[0]
+    return leg.localSymbol or leg.symbol
 
 
 class PositionTreeWidget(QWidget):
@@ -111,9 +111,8 @@ class PositionTreeWidget(QWidget):
         return toolbar
 
     def _on_refresh_clicked(self) -> None:
-        if not self._manager.can_refresh():
-            self.status_label.setText("查詢太頻繁，請稍後再試(官方文件對這支查詢沒有明講最低間隔，這裡保守套用5秒節流)")
-            return
+        # IB 的 ib.positions() 是本地同步讀取，沒有群益那種查詢間隔限
+        # 制，不需要節流。
         self.status_label.setText("查詢中...")
         self._manager.refresh()
 
@@ -155,7 +154,7 @@ class PositionTreeWidget(QWidget):
         pnl = position_pnl(position, price)
         item = QTreeWidgetItem([
             _symbol_text(position),
-            _call_put_text(position),
+            _right_text(position),
             _direction_text(position),
             str(position.qty),
             f"{position.avg_cost:g}",
@@ -165,10 +164,7 @@ class PositionTreeWidget(QWidget):
         ])
         item.setData(0, Qt.UserRole, ("position", position.symbol_key))
         self._set_pnl_cell(item, 6, pnl)
-        if position.buy is None:
-            for col in range(len(_COLUMNS)):
-                item.setForeground(col, QBrush(QColor("#c0392b")))
-        elif position.is_combo:
+        if position.is_combo:
             item.setToolTip(6, "複式單合併部位：損益是現價(淨價差)比均價(整組合計淨權利金)，見 app/models/positions.py 的 current_price/position_pnl")
         group_item.addChild(item)
         self._add_rule_child(item, position, "take_profit")
@@ -242,20 +238,10 @@ class PositionTreeWidget(QWidget):
             if dialog.exec_() == QDialog.Accepted:
                 self._auto_close.set_take_profit(position.symbol_key, dialog.result_rule())
         else:
-            sibling = self._find_sibling(position)
+            sibling = self._auto_close.find_sibling(position)
             dialog = StopLossDialog(position, sibling, rules.stop_loss, self)
             if dialog.exec_() == QDialog.Accepted:
                 self._auto_close.set_stop_loss(position.symbol_key, dialog.result_rule())
-
-    def _find_sibling(self, position: Position) -> Optional[Position]:
-        for group in self._manager.groups:
-            members = group.positions
-            if not any(p.symbol_key == position.symbol_key for p in members):
-                continue
-            for other in members:
-                if other.symbol_key != position.symbol_key and other.is_combo:
-                    return other
-        return None
 
     # ------------------------------------------------------------------ 群組停利(規則1)
     def _build_group_actions_widget(self, group: PositionGroup) -> QWidget:

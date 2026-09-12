@@ -3,6 +3,11 @@
 position_groups_store.py 同一套作法：本機小 json 檔，讀寫失敗靜默吞掉
 (存不了規則設定不該讓部位視窗整個壞掉，頂多下次開回未設定狀態)。
 
+*** 存在 pref/paper/ 或 pref/live/ 底下(看目前連線的環境)，不是共用的
+pref/ 根目錄 ***：規則綁定的 symbol_key 是 conId，paper/live 帳戶的
+conId 不會有實際對應關係，混在一起存只會造成誤判，見
+app/paths.py::trading_pref_dir() 的說明。
+
 這裡只負責「讀寫一份 dict」，dataclass <-> dict 的轉換是
 app/models/auto_close_manager.py 的責任，這支檔案不知道
 TakeProfitRule/StopLossRule 長什麼樣子，跟其他 store 模組一致(純 IO，不
@@ -18,18 +23,20 @@ TakeProfitRule/StopLossRule 長什麼樣子，跟其他 store 模組一致(純 I
 """
 import json
 
-from app.paths import PREF_DIR
-
-AUTO_CLOSE_FILE = PREF_DIR / "auto_close_pref.json"
+from app.paths import trading_pref_dir
 
 _DEFAULT = {"position_rules": {}, "group_rules": {}, "pending_fill_actions": {}}
 
 
+def _file():
+    return trading_pref_dir() / "auto_close_pref.json"
+
+
 def load() -> dict:
     try:
-        data = json.loads(AUTO_CLOSE_FILE.read_text(encoding="utf-8"))
+        data = json.loads(_file().read_text(encoding="utf-8"))
         for key, default_value in _DEFAULT.items():
-            data.setdefault(key, default_value)
+            data.setdefault(key, dict(default_value))  # dict() 複本，不能讓 data[key] 指到 _DEFAULT 本尊
         return data
     except Exception:
         return {k: dict(v) for k, v in _DEFAULT.items()}
@@ -37,6 +44,6 @@ def load() -> dict:
 
 def save(data: dict) -> None:
     try:
-        AUTO_CLOSE_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        _file().write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception:
         pass

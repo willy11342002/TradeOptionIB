@@ -15,10 +15,13 @@ import numpy as np
 
 @dataclass(frozen=True)
 class PayoffLeg:
-    """一腳的損益輸入。strike=None 代表裸期貨(用 premium 當進場價，沒有
-    履約與否的問題，損益是純線性的)。"""
-    strike: Optional[float]
-    call_put: Optional[str]   # "C"/"P"，strike 為 None 時忽略
+    """一腳的損益輸入。這個專案目前沒有裸期貨的 symbol builder(見
+    app/models/contracts.py 開頭說明)，全專案唯二建構 PayoffLeg 的地方
+    (app/views/payoff_chart_widget.py)一定是從有履約價/買賣權的
+    Contract/OrderLeg 來，所以這裡不支援 strike=None 的裸期貨——真的要支
+    援時再補上，不要先寫一套沒有呼叫路徑、也沒有真實資料驗證過的分支。"""
+    strike: float
+    call_put: str              # "C"/"P"
     buy: bool
     qty: int
     premium: float            # 均價/委託價，每點金額換算前的「點數」
@@ -27,16 +30,13 @@ class PayoffLeg:
 
 def leg_payoff_at(S: float, leg: PayoffLeg) -> float:
     """單腳在標的價格 S 時的到期損益(已扣除/計入權利金，NT$)。"""
-    if leg.strike is None:
-        intrinsic = (S - leg.premium) if leg.buy else (leg.premium - S)
-    elif leg.call_put == "C":
+    if leg.call_put == "C":
         exercise_value = max(S - leg.strike, 0.0)
-        intrinsic = (exercise_value - leg.premium) if leg.buy else (leg.premium - exercise_value)
     elif leg.call_put == "P":
         exercise_value = max(leg.strike - S, 0.0)
-        intrinsic = (exercise_value - leg.premium) if leg.buy else (leg.premium - exercise_value)
     else:
-        raise ValueError(f"leg.call_put 必須是 'C'/'P' (strike 不是 None 時)，收到 {leg.call_put!r}")
+        raise ValueError(f"leg.call_put 必須是 'C'/'P'，收到 {leg.call_put!r}")
+    intrinsic = (exercise_value - leg.premium) if leg.buy else (leg.premium - exercise_value)
     return intrinsic * leg.qty * leg.multiplier
 
 
@@ -44,10 +44,6 @@ def combined_payoff(legs: List[PayoffLeg], price_range: np.ndarray) -> np.ndarra
     """加總所有腳，回傳跟 price_range 等長的損益陣列(NT$)。"""
     total = np.zeros_like(price_range, dtype=float)
     for leg in legs:
-        if leg.strike is None:
-            per_point = 1.0 if leg.buy else -1.0
-            total += (price_range - leg.premium) * per_point * leg.qty * leg.multiplier
-            continue
         if leg.call_put == "C":
             exercise_value = np.maximum(price_range - leg.strike, 0.0)
         elif leg.call_put == "P":
@@ -60,10 +56,9 @@ def combined_payoff(legs: List[PayoffLeg], price_range: np.ndarray) -> np.ndarra
 
 
 def kink_points(legs: List[PayoffLeg]) -> List[float]:
-    """加總後的損益函式是分段線性，轉折點只會出現在各腳自己的履約價上
-    (裸期貨沒有履約價、不貢獻轉折點)。回傳排序去重後的履約價清單。"""
-    strikes = sorted({leg.strike for leg in legs if leg.strike is not None})
-    return strikes
+    """加總後的損益函式是分段線性，轉折點只會出現在各腳自己的履約價上。
+    回傳排序去重後的履約價清單。"""
+    return sorted({leg.strike for leg in legs})
 
 
 def find_breakevens(legs: List[PayoffLeg], price_floor: float = 0.0, price_ceiling: float = 1e7) -> List[float]:
@@ -138,16 +133,11 @@ def payoff_extremes(legs: List[PayoffLeg]) -> PayoffExtremes:
 
 def price_axis_range(legs: List[PayoffLeg], padding_ratio: float = 0.2, min_span: float = 500.0) -> Tuple[float, float]:
     """X 軸(標的價格)範圍：以所有履約價的 min~max 為基準，外加留白比
-    例，並設最小跨度下限(避免單一履約價時跨度變 0)。沒有任何履約價(全
-    部是裸期貨)時，以所有 premium 的 min~max 為基準。"""
+    例，並設最小跨度下限(避免單一履約價時跨度變 0)。"""
     strikes = kink_points(legs)
-    if strikes:
-        low, high = min(strikes), max(strikes)
-    else:
-        premiums = [leg.premium for leg in legs]
-        if not premiums:
-            return (0.0, min_span)
-        low, high = min(premiums), max(premiums)
+    if not strikes:
+        return (0.0, min_span)
+    low, high = min(strikes), max(strikes)
     span = high - low
     if span < min_span:
         pad = (min_span - span) / 2

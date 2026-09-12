@@ -1,46 +1,59 @@
 """
 未平倉部位自動平倉／停利停損管理器。規則本身(閾值/動作/口數/新履約價)
-是使用者在對話中逐項拍板定案的，詳細規則表見
-C:\\Users\\tingw\\.claude\\plans\\lazy-riding-hearth.md，這裡只記整體機
-制設計：
+是使用者在對話中逐項拍板定案的，這裡只記整體機制設計：
 
-- **判斷「要不要觸發」自己做，不外包給 order_book.py 的連續IOC條件引
-  擎**：因為規則1(整組)橫跨兩個不同的複式單、規則5(加開對側裸賣腳)判斷
-  用的是「原本那組價差」的價格、但真正送出的是另一個商品，沒辦法套進
-  「一張委託自己的成交價條件」這個框架裡，所以統一用一個 watcher(接
+- **判斷「要不要觸發」自己做，不外包給 order_book.py**：因為規則1(整組)
+  橫跨兩個不同的複式單、規則5(加開對側裸賣腳)判斷用的是「原本那組價
+  差」的價格、但真正送出的是另一個商品，沒辦法套進「一張委託自己的成交
+  價條件」這個框架裡，所以統一用一個 watcher(接
   PositionManager.positions_changed，跟畫面的損益欄位算的是同一組函式
   `app.models.positions.current_price`/`pnl_points`，不會兩邊算出不同數
   字)自己判斷門檻有沒有到。
-- **「怎麼把單送出去、盯著等成交」則整個借用 order_book.py 現成的連續
-  IOC 引擎**：判斷觸發之後，呼叫 `OrderBookManager.stage_duplex`/
-  `stage_outright` 立刻 `confirm_send`(不用使用者再按一次)，價格用門檻
-  換算出的絕對限價、`auto_retry=True`，沒成交會自己一直重送，這段完全
-  不重寫。
+- **平倉/重開直接掛限價單，不做連續IOC重送**：IB 的 BAG combo 可以直接
+  掛 LMT+DAY 跡在單子上等成交，跟群益 SKCOM 组合單只能用IOC、必須靠連
+  續重送不一樣(這條引擎已經整套從 order_book.py 移除，這裡跟著簡化，不
+  再傳 auto_retry/condition_op/TIF_IOC/AUTO_POSITION 這些群益專屬概念)。
 - **平倉單成交後才重開**：不是自己維護一套計時器，而是記一筆
   `pending_fill_actions[record_id] = 重開參數`，接
   `OrderBookManager.records_changed`，看到那筆 record 變成
-  STATUS_FILLED 才真的送出重開單；被交易所真的拒絕(不是連續IOC還沒成
-  交)才整條規則設 FAILED、跳通知，不會亂猜著重開。
-- **App 重啟一律凍結成暫停**：跟 order_book.py 的 STATUS_RETRYING→
-  STATUS_PAUSED 是同一個安全考量，見 `_load()`。
+  STATUS_FILLED 才真的送出重開單；被交易所真的拒絕(不是還沒成交)才整條
+  規則設 FAILED、跳通知，不會亂猜著重開。
+- **App 重啟一律凍結成暫停**：跟 order_book.py 的重啟安全設計同一個考
+  量，見 `_load()`。
+- **重開/加開新履約價需要現場跟 IB 要 conId**：IB 不像群益是純字串編
+  碼、可以無 IO 直接組出商品代碼，換一個新履約價一定要
+  `ib.qualifyContractsAsync()` 才拿得到可以下單的合約——`pending_fill_
+  actions` 裡只存 symbol/expiry/strike/right 這些 JSON 安全的原始欄位
+  (不存 Contract 物件本身，那個沒辦法直接 json.dumps)，真正要送單時
+  (`_execute_reopen`/`_open_add_leg`)才重新 qualify 一次。
+- **凡是會 qualify 合約的路徑都要是 async**：這支 app 用 qasync 讓 Qt
+  事件迴圈本身就是 asyncio 迴圈(見 main.py)，同步版
+  `ib.qualifyContracts()` 內部的 `loop.run_until_complete()` 在這個架
+  構下一定會撞上「這個事件迴圈已經在跑了」——所以整條從
+  `positions_changed`/`records_changed` 訊號進來、到真正送出重開/加開
+  單的呼叫鏈(`_on_positions_changed`→`_evaluate_positions`→
+  `_fire_take_profit`/`_fire_stop_loss`→`_build_reopen_action`/
+  `_build_new_group_action`/`_open_add_leg`→`_assign_group_for_action`；
+  `_check_chained_fills`→`_execute_reopen`)都是 async def，Qt 訊號的
+  handler 用 `@asyncSlot()` 直接接。規則觸發後的 `rule.status =
+  STATUS_TRIGGERED` 都刻意寫在第一個 `await`(qualify)之前，這樣同一
+  個規則不會因為兩次訊號重疊觸發而被送兩次重複的單。
 """
 import time
 from dataclasses import asdict
 from typing import Dict, List, Optional, Union
 
 from PyQt5.QtCore import QObject, pyqtSignal
+from qasync import asyncSlot
 
 from app.models.auto_close import (
     PositionRules, ReopenSpec, StopLossRule, TakeProfitRule,
     SL_MODE_ADD_LEG, SL_MODE_NEW_GROUP, SL_MODE_REOPEN_DOUBLE,
     STATUS_ARMED, STATUS_FAILED, STATUS_PAUSED, STATUS_TRIGGERED, STATUS_UNSET,
 )
-from app.models.capital_order_client import AUTO_POSITION
-from app.models.contracts import build_leg_symbol, build_vertical_spread_legs
-from app.models.order_book import (
-    OrderBookManager, STATUS_FILLED, STATUS_REJECTED, STATUS_CANCELLED, TIF_IOC,
-    default_condition_op,
-)
+from app.models.ib_client import IBClient
+from app.models.option_utils import build_option, vertical_spread_legs
+from app.models.order_book import OrderBookManager, STATUS_FILLED, STATUS_REJECTED, STATUS_CANCELLED
 from app.models.positions import Position, PositionGroup, PositionManager, UNGROUPED_ID, current_price, pnl_points
 from app.services import auto_close_store
 
@@ -120,8 +133,9 @@ class AutoCloseManager(QObject):
     rules_changed = pyqtSignal()     # 規則設定/狀態有變動，UI 重繪
     auto_close_error = pyqtSignal(str)  # 鏈結中的平倉單被交易所真的拒絕，需要人工排查
 
-    def __init__(self, position_manager: PositionManager, order_book_manager: OrderBookManager):
+    def __init__(self, ib_client: IBClient, position_manager: PositionManager, order_book_manager: OrderBookManager):
         super().__init__()
+        self._ib = ib_client.ib
         self._position_manager = position_manager
         self._order_book_manager = order_book_manager
 
@@ -140,9 +154,8 @@ class AutoCloseManager(QObject):
         for symbol_key, rules in data.get("position_rules", {}).items():
             tp = _tp_from_dict(rules.get("take_profit"))
             sl = _sl_from_dict(rules.get("stop_loss"))
-            # *** 重啟一律凍結成暫停，比照 order_book.py 的
-            # STATUS_RETRYING -> STATUS_PAUSED，不管存檔當下是不是武裝
-            # 中，都要使用者自己按「啟用」才會重新開始監控送單 ***
+            # *** 重啟一律凍結成暫停，不管存檔當下是不是武裝中，都要使用
+            # 者自己按「啟用」才會重新開始監控送單 ***
             if tp is not None and tp.status not in (STATUS_UNSET, STATUS_TRIGGERED, STATUS_FAILED):
                 tp.status = STATUS_PAUSED
             if sl is not None and sl.status not in (STATUS_UNSET, STATUS_TRIGGERED, STATUS_FAILED):
@@ -226,15 +239,13 @@ class AutoCloseManager(QObject):
         self.rules_changed.emit()
 
     # ------------------------------------------------------------ 觸發判斷
-    def _on_positions_changed(self) -> None:
+    @asyncSlot()
+    async def _on_positions_changed(self) -> None:
         self._reconcile_orphans()
-        self._evaluate_positions()
+        await self._evaluate_positions()
         self._evaluate_groups()
 
     def _reconcile_orphans(self) -> None:
-        """部位/群組已經從查詢結果消失(完全平倉/群組被刪除)，規則跟著清
-        掉，不留孤兒設定——邏輯比照 positions.py 的
-        _reconcile_manual_overrides()。"""
         changed = False
         current_keys = {p.symbol_key for p in self._position_manager.positions}
         for symbol_key in list(self._position_rules.keys()):
@@ -249,7 +260,7 @@ class AutoCloseManager(QObject):
         if changed:
             self._save()
 
-    def _evaluate_positions(self) -> None:
+    async def _evaluate_positions(self) -> None:
         for position in self._position_manager.positions:
             rules = self._position_rules.get(position.symbol_key)
             if rules is None:
@@ -260,11 +271,11 @@ class AutoCloseManager(QObject):
                 continue
             if rules.take_profit is not None and rules.take_profit.status == STATUS_ARMED:
                 if points >= rules.take_profit.threshold_points:
-                    self._fire_take_profit(position, rules.take_profit)
+                    await self._fire_take_profit(position, rules.take_profit)
                     continue  # 停利/停損互斥觸發，這輪不用再檢查停損
             if rules.stop_loss is not None and rules.stop_loss.status == STATUS_ARMED:
                 if points <= -rules.stop_loss.threshold_points:
-                    self._fire_stop_loss(position, rules.stop_loss)
+                    await self._fire_stop_loss(position, rules.stop_loss)
 
     def _evaluate_groups(self) -> None:
         for group in self._position_manager.groups:
@@ -300,22 +311,20 @@ class AutoCloseManager(QObject):
                 return
 
     def _assign_group(self, position: Position, new_symbol_key: str) -> None:
-        """新開的重開/加開部位，併回觸發部位當下所屬的群組(使用者定案：
-        規則4「新開一整組，併入同樣群組」，其餘規則也比照辦理，一致比較
-        不會讓使用者困惑)。"""
+        """新開的重開/加開部位，併回觸發部位當下所屬的群組。"""
         for group in self._position_manager.groups:
             if any(p.symbol_key == position.symbol_key for p in group.positions):
                 target = None if group.group_id == UNGROUPED_ID else group.group_id
                 self._position_manager.move_to_group(new_symbol_key, target)
                 return
 
-    def _fire_take_profit(self, position: Position, rule: TakeProfitRule) -> None:
+    async def _fire_take_profit(self, position: Position, rule: TakeProfitRule) -> None:
         price = _trigger_price(position, rule.threshold_points, is_take_profit=True)
         record_id = self._close_position(position, price)
         rule.status = STATUS_TRIGGERED
         rule.triggered_at = time.time()
         if rule.reopen is not None and record_id is not None:
-            action = self._build_reopen_action(position, rule.reopen, position.qty)
+            action = await self._build_reopen_action(position, rule.reopen, position.qty)
             self._pending_fill_actions[record_id] = {
                 "actions": action, "symbol_key": position.symbol_key, "kind": "take_profit",
             }
@@ -324,28 +333,28 @@ class AutoCloseManager(QObject):
         self._save()
         self.rules_changed.emit()
 
-    def _fire_stop_loss(self, position: Position, rule: StopLossRule) -> None:
+    async def _fire_stop_loss(self, position: Position, rule: StopLossRule) -> None:
         rule.status = STATUS_TRIGGERED
         rule.triggered_at = time.time()
         if rule.mode == SL_MODE_ADD_LEG:
-            # 規則5：虧損邊不平倉，直接加開對側裸賣一支腳，沒有「平倉成
-            # 交後才重開」這個鏈結，武裝條件一到就直接送。
+            # 規則5：虧損邊不平倉，直接加開對側裸賣一支腳，武裝條件一到
+            # 就直接送，沒有「平倉成交後才重開」這個鏈結。
             if rule.add_leg is not None:
-                self._open_add_leg(position, rule.add_leg)
+                await self._open_add_leg(position, rule.add_leg)
         else:
             price = _trigger_price(position, rule.threshold_points, is_take_profit=False)
             record_id = self._close_position(position, price)
             if record_id is not None:
                 queued = None
                 if rule.mode == SL_MODE_REOPEN_DOUBLE and rule.reopen is not None:
-                    queued = self._build_reopen_action(position, rule.reopen, position.qty * 2)
+                    queued = await self._build_reopen_action(position, rule.reopen, position.qty * 2)
                 elif rule.mode == SL_MODE_NEW_GROUP:
-                    sibling = self._find_sibling(position)
+                    sibling = self.find_sibling(position)
                     actions = []
                     if rule.new_put is not None:
-                        actions.append(self._build_new_group_action(position, sibling, rule.new_put, "P", position.qty))
+                        actions.append(await self._build_new_group_action(position, sibling, rule.new_put, "P", position.qty))
                     if rule.new_call is not None:
-                        actions.append(self._build_new_group_action(position, sibling, rule.new_call, "C", position.qty))
+                        actions.append(await self._build_new_group_action(position, sibling, rule.new_call, "C", position.qty))
                     if actions:
                         queued = actions
                 if queued is not None:
@@ -369,133 +378,134 @@ class AutoCloseManager(QObject):
         self._save()
         self.rules_changed.emit()
 
-    def _find_sibling(self, position: Position) -> Optional[Position]:
-        """同群組裡跟 position 不同 call_put 類型的另一個複式部位，規則4
-        「新put沿用原put寬度、新call沿用原call寬度」要用；找不到(理論上
-        鐵禿鷹一定兩邊都在，這裡防呆)就回 None，呼叫端會退回用觸發部位
-        自己頂著用。"""
+    def find_sibling(self, position: Position) -> Optional[Position]:
+        """同群組裡跟 position 不同買賣權類型的另一個複式部位，規則4
+        「新put沿用原put寬度、新call沿用原call寬度」要用。"""
+        if not position.is_combo:
+            return None
+        target_right = "P" if position.legs[0].right == "C" else "C"
         for group in self._position_manager.groups:
             members = group.positions
             if not any(p.symbol_key == position.symbol_key for p in members):
                 continue
             for other in members:
-                if other.symbol_key != position.symbol_key and other.is_combo:
+                if (other.symbol_key != position.symbol_key and other.is_combo
+                        and other.legs[0].right == target_right):
                     return other
         return None
 
     # ------------------------------------------------------------ 實際送單
     def _close_position(self, position: Position, price: float) -> Optional[str]:
         """送出平倉單(方向跟原部位相反)，回傳 OrderRecord id 給呼叫端串
-        「成交後才重開」的鏈結用。position.buy 是 None 的部位不會被武裝
-        到規則(pnl_points 一定回 None，_evaluate_* 永遠不會走到這裡)，這
-        裡不用再防一次。"""
+        「成交後才重開」的鏈結用。position.legs 已經是 IB 已配對過的合約
+        物件，直接拿去下單，不用再重建/重新qualify。"""
         payoff_legs = position.payoff_legs()
-        if payoff_legs is None:
-            return None
         net_buyer = not position.buy
-        condition_op = default_condition_op(net_buyer)
         if position.is_combo:
             (leg1, buy1, _), (leg2, buy2, _) = payoff_legs
             record_id = self._order_book_manager.stage_duplex(
-                leg1.symbol, not buy1, leg2.symbol, not buy2,
-                price, position.qty, tif=TIF_IOC, new_close=AUTO_POSITION, auto_retry=True,
-                call_put1=leg1.call_put, strike1=leg1.strike,
-                call_put2=leg2.call_put, strike2=leg2.strike,
-                net_buyer=net_buyer, condition_op=condition_op,
+                leg1, not buy1, leg2, not buy2, price, position.qty, tif="DAY", net_buyer=net_buyer,
             )
         else:
             leg, buy, _ = payoff_legs[0]
-            record_id = self._order_book_manager.stage_outright(
-                leg.symbol, not buy, price, position.qty, tif=TIF_IOC, new_close=AUTO_POSITION,
-                auto_retry=True, call_put=leg.call_put, strike=leg.strike, condition_op=condition_op,
-            )
+            record_id = self._order_book_manager.stage_outright(leg, not buy, price, position.qty, tif="DAY")
         self._order_book_manager.confirm_send(record_id)
         return record_id
 
-    def _build_reopen_action(self, position: Position, spec: ReopenSpec, qty: int) -> dict:
+    async def _build_reopen_action(self, position: Position, spec: ReopenSpec, qty: float) -> dict:
         """規則2/3：原地重開同類型價差，寬度沿用原部位自己的寬度、方向
         沿用原部位自己的方向(同一種價差，只是換履約價)。"""
         leg0 = position.legs[0]
         width = abs(position.legs[0].strike - position.legs[1].strike) if position.is_combo else 0.0
-        leg1_symbol, buy1, strike1, leg2_symbol, buy2, strike2 = build_vertical_spread_legs(
-            leg0.product_code, spec.strike, leg0.call_put, leg0.expiry_month, leg0.expiry_year_digit,
-            width, position.buy,
+        right = leg0.right
+        (low_strike, low_action), (high_strike, high_action) = vertical_spread_legs(
+            spec.strike, width, right, position.buy,
         )
-        symbol_key = "+".join(sorted([leg1_symbol, leg2_symbol]))
-        self._assign_group(position, symbol_key)
-        return {
-            "leg1_symbol": leg1_symbol, "buy1": buy1, "call_put1": leg0.call_put, "strike1": strike1,
-            "leg2_symbol": leg2_symbol, "buy2": buy2, "call_put2": leg0.call_put, "strike2": strike2,
+        action = {
+            "symbol": leg0.symbol, "expiry": leg0.lastTradeDateOrContractMonth, "right": right,
+            "leg1_strike": low_strike, "leg1_action": low_action,
+            "leg2_strike": high_strike, "leg2_action": high_action,
             "price": spec.price, "qty": qty, "net_buyer": position.buy,
         }
+        await self._assign_group_for_action(position, action)
+        return action
 
-    def _build_new_group_action(
-        self, position: Position, sibling: Optional[Position], spec: ReopenSpec, call_put: str, qty: int,
+    async def _build_new_group_action(
+        self, position: Position, sibling: Optional[Position], spec: ReopenSpec, right: str, qty: float,
     ) -> dict:
-        """規則4其中一組新價差。寬度/方向的範本：跟 call_put 類型相同的
-        既有部位(觸發部位自己，或同群組另一邊)，都找不到才退回用觸發部
-        位自己頂著(見 _find_sibling 的說明)。"""
-        template = position if position.legs[0].call_put == call_put else sibling
+        """規則4其中一組新價差。寬度/方向的範本：跟買賣權類型相同的既有
+        部位(觸發部位自己，或同群組另一邊)，都找不到才退回用觸發部位自
+        己頂著(見 find_sibling 的說明)。"""
+        template = position if position.legs[0].right == right else sibling
         if template is None or not template.is_combo:
             template = position
         width = abs(template.legs[0].strike - template.legs[1].strike)
         buy_spread = template.buy
         leg0 = position.legs[0]
-        leg1_symbol, buy1, strike1, leg2_symbol, buy2, strike2 = build_vertical_spread_legs(
-            leg0.product_code, spec.strike, call_put, leg0.expiry_month, leg0.expiry_year_digit,
-            width, buy_spread,
+        (low_strike, low_action), (high_strike, high_action) = vertical_spread_legs(
+            spec.strike, width, right, buy_spread,
         )
-        symbol_key = "+".join(sorted([leg1_symbol, leg2_symbol]))
-        self._assign_group(position, symbol_key)
-        return {
-            "leg1_symbol": leg1_symbol, "buy1": buy1, "call_put1": call_put, "strike1": strike1,
-            "leg2_symbol": leg2_symbol, "buy2": buy2, "call_put2": call_put, "strike2": strike2,
+        action = {
+            "symbol": leg0.symbol, "expiry": leg0.lastTradeDateOrContractMonth, "right": right,
+            "leg1_strike": low_strike, "leg1_action": low_action,
+            "leg2_strike": high_strike, "leg2_action": high_action,
             "price": spec.price, "qty": qty, "net_buyer": buy_spread,
         }
+        await self._assign_group_for_action(position, action)
+        return action
 
-    def _open_add_leg(self, position: Position, spec: ReopenSpec) -> None:
+    async def _assign_group_for_action(self, position: Position, action: dict) -> None:
+        """重開/加開的新部位還沒送單，不知道真正的 conId(symbol_key)——
+        這裡先跟 IB qualify 一次履約價換成 conId，算出真正下單成交後
+        Position.symbol_key 會用到的 key，才能正確預先歸群組；不能用履
+        約價字串本身當 key，跟 positions.py 的 symbol_key(str(conId)) 對
+        不起來。"""
+        leg1 = build_option(action["symbol"], action["expiry"], action["leg1_strike"], action["right"])
+        leg2 = build_option(action["symbol"], action["expiry"], action["leg2_strike"], action["right"])
+        await self._ib.qualifyContractsAsync(leg1, leg2)
+        symbol_key = "+".join(sorted([str(leg1.conId), str(leg2.conId)]))
+        self._assign_group(position, symbol_key)
+
+    async def _open_add_leg(self, position: Position, spec: ReopenSpec) -> None:
         """規則5：虧損邊不平倉，裸賣加開對側買賣權一支腳，履約價/委託價
-        使用者手動填、不套寬度公式，方向固定賣出(收權利金換空間，見規則
-        定案說明)。"""
+        使用者手動填、不套寬度公式，方向固定賣出(收權利金換空間)。"""
         leg0 = position.legs[0]
-        opposite_call_put = "P" if leg0.call_put == "C" else "C"
-        symbol = build_leg_symbol(leg0.product_code, spec.strike, opposite_call_put, leg0.expiry_month, leg0.expiry_year_digit)
-        record_id = self._order_book_manager.stage_outright(
-            symbol, False, spec.price, position.qty, tif=TIF_IOC, new_close=AUTO_POSITION,
-            auto_retry=True, call_put=opposite_call_put, strike=spec.strike,
-            condition_op=default_condition_op(net_buyer=False),
-        )
+        opposite_right = "P" if leg0.right == "C" else "C"
+        contract = build_option(leg0.symbol, leg0.lastTradeDateOrContractMonth, spec.strike, opposite_right)
+        await self._ib.qualifyContractsAsync(contract)
+        record_id = self._order_book_manager.stage_outright(contract, False, spec.price, position.qty, tif="DAY")
         self._order_book_manager.confirm_send(record_id)
-        self._assign_group(position, symbol)
+        self._assign_group(position, str(contract.conId))
 
     # ------------------------------------------------------------ 平倉成交後才重開
-    def _check_chained_fills(self) -> None:
+    @asyncSlot()
+    async def _check_chained_fills(self) -> None:
+        # *** 每筆一定要在 await _execute_reopen() 之前就先從
+        # _pending_fill_actions 移除、存檔 ***：_execute_reopen() 自己
+        # 會送出重開單，那張新單透過 order_book_manager 也會再觸發一次
+        # records_changed → 這個方法被重新排程執行一次；如果還沒清掉,
+        # 舊的那個還在 await 中的呼叫恢復執行時，跟新排進來的這次呼叫
+        # 會看到同一筆還沒清掉的 pending action，變成同一組重開動作被
+        # 送兩次單。先 pop 再 await，兩邊看到的都是已經清空的狀態。
         if not self._pending_fill_actions:
             return
-        done = []
         for record_id, entry in list(self._pending_fill_actions.items()):
             record = self._order_book_manager.get_record(record_id)
             if record is None:
-                done.append(record_id)  # 理論上不會發生(委託被刪掉)，別讓鏈結卡住不放
+                self._pending_fill_actions.pop(record_id, None)  # 理論上不會發生(委託被刪掉)，別讓鏈結卡住不放
+                self._save()
                 continue
             if record.status == STATUS_FILLED:
-                self._execute_reopen(entry["actions"])
-                done.append(record_id)
-            elif record.status in (STATUS_REJECTED, STATUS_CANCELLED):
-                # *** 連續IOC沒成交不會走到這裡(order_book.py 對
-                # auto_retry=True 的委託，IOC沒成交會留在 RETRYING 繼續
-                # 試，不會變成 CANCELLED)——看到這兩個狀態代表平倉單真的
-                # 被交易所拒絕或被使用者手動刪掉，使用者原話："除非下錯
-                # 口數(bug)，不然平倉單不會失敗，如果真的失敗那就跳通
-                # 知，要修bug"，這裡不猜測後續怎麼補救，只中止鏈結+通知、
-                # 把觸發那條規則標成 FAILED 讓畫面看得出來。
-                self._mark_failed(entry.get("symbol_key"), entry.get("kind"))
-                self.auto_close_error.emit(f"自動平倉委託未能完成({record.status})，重開/加開動作已取消，請手動確認：{record.label()}")
-                done.append(record_id)
-        if done:
-            for record_id in done:
                 self._pending_fill_actions.pop(record_id, None)
-            self._save()
+                self._save()
+                await self._execute_reopen(entry["actions"])
+            elif record.status in (STATUS_REJECTED, STATUS_CANCELLED):
+                self._pending_fill_actions.pop(record_id, None)
+                self._mark_failed(entry.get("symbol_key"), entry.get("kind"))
+                self._save()
+                self.auto_close_error.emit(
+                    f"自動平倉委託未能完成({record.status})，重開/加開動作已取消，請手動確認：{record.label()}",
+                )
 
     def _mark_failed(self, symbol_key: Optional[str], kind: Optional[str]) -> None:
         rules = self._position_rules.get(symbol_key) if symbol_key else None
@@ -505,14 +515,14 @@ class AutoCloseManager(QObject):
         if rule is not None:
             rule.status = STATUS_FAILED
 
-    def _execute_reopen(self, action: Union[dict, List[dict]]) -> None:
+    async def _execute_reopen(self, action: Union[dict, List[dict]]) -> None:
         actions = action if isinstance(action, list) else [action]
         for spec in actions:
+            leg1 = build_option(spec["symbol"], spec["expiry"], spec["leg1_strike"], spec["right"])
+            leg2 = build_option(spec["symbol"], spec["expiry"], spec["leg2_strike"], spec["right"])
+            await self._ib.qualifyContractsAsync(leg1, leg2)
             record_id = self._order_book_manager.stage_duplex(
-                spec["leg1_symbol"], spec["buy1"], spec["leg2_symbol"], spec["buy2"],
-                spec["price"], spec["qty"], tif=TIF_IOC, new_close=AUTO_POSITION, auto_retry=True,
-                call_put1=spec["call_put1"], strike1=spec["strike1"],
-                call_put2=spec["call_put2"], strike2=spec["strike2"],
-                net_buyer=spec["net_buyer"], condition_op=default_condition_op(spec["net_buyer"]),
+                leg1, spec["leg1_action"] == "BUY", leg2, spec["leg2_action"] == "BUY",
+                spec["price"], spec["qty"], tif="DAY", net_buyer=spec["net_buyer"],
             )
             self._order_book_manager.confirm_send(record_id)

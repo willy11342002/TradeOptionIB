@@ -13,7 +13,7 @@ import json
 
 from app.paths import PREF_DIR
 
-PREF_FILE = PREF_DIR / "theme_pref.json"
+THEME_FILE = PREF_DIR / "theme_pref.json"
 
 DARK_QSS = """
 QWidget { background-color: #2b2b2b; color: #e0e0e0; }
@@ -43,7 +43,7 @@ LIGHT_QSS = ""  # 空字串 = 交給系統預設樣式
 
 def load_theme() -> str:
     try:
-        data = json.loads(PREF_FILE.read_text(encoding="utf-8"))
+        data = json.loads(THEME_FILE.read_text(encoding="utf-8"))
         theme = data.get("theme")
         return theme if theme in ("dark", "light") else "light"
     except Exception:
@@ -52,7 +52,7 @@ def load_theme() -> str:
 
 def save_theme(theme: str) -> None:
     try:
-        PREF_FILE.write_text(json.dumps({"theme": theme}), encoding="utf-8")
+        THEME_FILE.write_text(json.dumps({"theme": theme}, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception:
         pass  # 記憶偏好是加分項，存檔失敗不影響切換本身
 

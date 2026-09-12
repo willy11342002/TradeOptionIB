@@ -3,22 +3,28 @@
 小 json 檔，讀寫失敗靜默吞掉(存不了分組不該讓部位視窗整個壞掉，頂多下次
 開回未分組狀態)。
 
-用 symbol(群益商品代碼字串) 當 key，不是部位物件本身——這是唯一在「broker
-查回來的部位」跟「本地委託紀錄」兩邊都存在、穩定不變的識別碼，才能讓手動
-分組在重新查詢未平倉之後還留得住(見 app/models/positions.py 的 reconcile
-邏輯)。
+用 symbol_key(IB conId 字串) 當 key，不是部位物件本身——這是唯一在
+「broker 查回來的部位」跟「本地委託紀錄」兩邊都存在、穩定不變的識別碼，
+才能讓手動分組在重新查詢未平倉之後還留得住(見 app/models/positions.py
+的 reconcile 邏輯)。
+
+*** 存在 pref/paper/ 或 pref/live/ 底下(看目前連線的環境)，不是共用的
+pref/ 根目錄 ***：conId 是帳戶/環境相關的，paper/live 混在一起存分組設
+定沒有意義，見 app/paths.py::trading_pref_dir() 的說明。
 """
 import json
 import uuid
 
-from app.paths import PREF_DIR
+from app.paths import trading_pref_dir
 
-POSITION_GROUPS_FILE = PREF_DIR / "position_groups_pref.json"
+
+def _file():
+    return trading_pref_dir() / "position_groups_pref.json"
 
 
 def _load_all() -> dict:
     try:
-        data = json.loads(POSITION_GROUPS_FILE.read_text(encoding="utf-8"))
+        data = json.loads(_file().read_text(encoding="utf-8"))
         data.setdefault("groups", {})
         data.setdefault("manual_overrides", {})
         return data
@@ -28,7 +34,7 @@ def _load_all() -> dict:
 
 def _save_all(data: dict) -> None:
     try:
-        POSITION_GROUPS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        _file().write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception:
         pass  # 存分組設定失敗不影響部位查詢本身，純粹記不住這次的手動分組
 

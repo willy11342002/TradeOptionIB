@@ -1,61 +1,51 @@
-from PyQt5.QtCore import Qt, QTimer
+import datetime
+
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QFormLayout, QTableWidget,
     QTableWidgetItem, QWidget, QPushButton, QLabel, QHeaderView,
-    QComboBox, QSpinBox, QDoubleSpinBox, QInputDialog, QGroupBox, QDialog,
-    QDialogButtonBox,
+    QSpinBox, QDoubleSpinBox, QInputDialog, QDialog, QDialogButtonBox,
 )
 
-from app.models.order_book import (
-    OrderBookManager, STATUS_STAGED, STATUS_LIVE, STATUS_RETRYING,
-    STATUS_PAUSED, STATUS_FILLED, STATUS_REJECTED, STATUS_CANCELLED,
-)
-from app.models.capital_order_client import TIF_ROD, TIF_IOC, TIF_FOK
+from app.models.order_book import OrderBookManager, STATUS_STAGED, STATUS_LIVE, STATUS_FILLED, STATUS_REJECTED
 
-_TIF_LABELS = {TIF_ROD: "ROD", TIF_IOC: "IOC", TIF_FOK: "FOK"}
+# *** 跟舊版(群益)的重要差異 ***
+# 1. 沒有「連續送單中/已暫停」狀態：那套引擎已經整套移除(IB combo 可以
+#    直接掛 DAY/GTC 跡在單子上等成交，不需要監看報價重送)，狀態收斂成
+#    staged/live/filled/rejected/cancelled，動作也跟著簡化(改條件/暫停/
+#    繼續都拿掉)。
+# 2. 沒有「委託頻率保護(SetMaxQty/SetMaxCount)」：那是群益 SKCOM 特有的
+#    client端限速設定，IB 沒有對應的 API，直接拿掉整個區塊。
+# 3. 沒有「既有委託查詢(GetOrderReport)」按鈕：IB 的委託狀態本來就是即
+#    時事件推送(orderStatusEvent)，不需要像群益那樣手動查、還要顧慮5秒
+#    的查詢間隔限制。
 
-# IOC/FOK 送出後幾乎瞬間就成交或死亡，不可能「掛單中」(那個狀態只有 ROD
-# 掛單才有意義)。IOC/FOK 送出後狀態一直卡在這裡，代表委託回報沒被
-# _match_record 配對到——這是真的 bug，不是正常情況，用不同的字樣跟真
-# 正的 ROD 掛單分開，不要謊稱「掛單中」。
 _STATUS_LABELS = {
     STATUS_STAGED: "待送出",
     STATUS_LIVE: "掛單中",
-    STATUS_RETRYING: "連續送單中",
-    STATUS_PAUSED: "已暫停",
     STATUS_FILLED: "已成交",
     STATUS_REJECTED: "失敗",
-    STATUS_CANCELLED: "已取消",
-}
-_STATUS_LIVE_NON_ROD_LABEL = "已送出(等待回報，若一直停在這裡代表回報配對失敗，是bug)"
-
-_MARKET_TYPE_LABELS = {
-    "TS(證券)": 0, "TF(期貨)": 1, "TO(選擇權)": 2,
-    "OS(複委託)": 3, "OF(海期)": 4, "OO(海選)": 5,
+    "cancelled": "已取消",
 }
 
-_BOX_COLUMNS = ["商品", "買權/賣權", "方向", "價格", "口數", "委託條件", "狀態", "已送次數", "動作"]
+_BOX_COLUMNS = ["商品", "買權/賣權", "方向", "價格", "口數", "委託條件", "狀態", "動作"]
 _FILL_COLUMNS = ["商品", "買權/賣權", "方向", "成交價", "成交量", "時間"]
 
-_CALL_PUT_LABELS = {"C": "買權", "P": "賣權"}
+_RIGHT_LABELS = {"C": "買權", "P": "賣權"}
 
 
 def _direction_text(record) -> str:
-    # 複式單的 legs[0] 是依期交所編碼規則(履約價高低)排的，不是「買方
-    # /賣方」那個語意，一定要看 net_buyer，不能看 legs[0].buy——這正
-    # 是先前「下賣方價差顯示成買方」那個 bug 的成因，legs 重新排序後
-    # 用 legs[0].buy 判斷方向的寫法都要避免。
+    # 複式單一定要看 net_buyer，不能看 legs[0].buy——兩者不是同一件事
+    # (見 order_book.py::OrderRecord.net_buyer 的說明)。
     if record.kind == "duplex":
         return "買方" if record.net_buyer else "賣方"
     return "買進" if record.legs[0].buy else "賣出"
 
 
-def _call_put_text(record) -> str:
-    # 商品代碼本身看不出買權/賣權(要解代碼才知道)，另外開一欄用中文顯示；
-    # 價差單兩腳固定是同一種(買權價差或賣權價差)，只取用得到的第一個。
+def _right_text(record) -> str:
     for leg in record.legs:
-        if leg.call_put:
-            return _CALL_PUT_LABELS.get(leg.call_put, leg.call_put)
+        if leg.right:
+            return _RIGHT_LABELS.get(leg.right, leg.right)
     return ""
 
 
@@ -69,21 +59,18 @@ def _build_table(columns) -> QTableWidget:
     table = QTableWidget(0, len(columns))
     table.setHorizontalHeaderLabels(columns)
     header = table.horizontalHeader()
-    header.setSectionResizeMode(QHeaderView.Interactive)  # 讓使用者自己拖曳調整每欄寬度
-    # 「商品」欄(index 0)內容長度差很多(裸買賣一個代碼 vs 價差單兩個代碼
-    # 用"/"連起來)，固定寬度不是被截斷就是浪費空間，改成自動依內容寬度調
-    # 整；其餘欄位維持可手動拖曳。
+    header.setSectionResizeMode(QHeaderView.Interactive)
     header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-    header.setStretchLastSection(True)  # 拖曳完剩下的空間仍交給最後一欄(動作)吃掉，不留空白
+    header.setStretchLastSection(True)
     table.verticalHeader().setVisible(False)
     table.setEditTriggers(QTableWidget.NoEditTriggers)
     return table
 
 
 class OrderBookWidget(QWidget):
-    """下單匣：委託頻率保護設定 + 尚未成交的委託表格 (待送出/掛單中/
-    連續送單中/已暫停/失敗/已取消)。跟 FillReportWidget 共用同一個
-    OrderBookManager，各自是獨立的 dock widget 內容，可以分開擺放。"""
+    """下單匣：尚未成交的委託表格(待送出/掛單中/失敗/已取消)。跟
+    FillReportWidget 共用同一個 OrderBookManager，各自是獨立的 dock
+    widget 內容，可以分開擺放。"""
 
     def __init__(self, manager: OrderBookManager, parent=None):
         super().__init__(parent)
@@ -92,120 +79,36 @@ class OrderBookWidget(QWidget):
         self._manager.order_book_error.connect(self._on_error)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(self._build_safety_box())
 
         self.table = _build_table(_BOX_COLUMNS)
         layout.addWidget(self.table)
 
-        # 查詢既有委託的原始字串可能很長，單行 QLabel 不換行的話會硬把
-        # 整個視窗撐寬；開自動換行，長度也砍短，不讓內容決定視窗尺寸。
         self.status_label = QLabel("")
         self.status_label.setWordWrap(True)
         layout.addWidget(self.status_label)
 
         self._refresh()
-        # 開窗當下先讓畫面畫出來，下一輪事件圈再做阻塞式查詢，不要卡在
-        # 建構子裡讓整個畫面連畫都畫不出來。
-        QTimer.singleShot(0, self._fetch_existing_orders)
-
-    def _build_safety_box(self) -> QGroupBox:
-        box = QGroupBox("委託頻率保護 (SetMaxQty/SetMaxCount，自己設的異常斷路器)")
-        layout = QHBoxLayout(box)
-
-        self.market_combo = QComboBox()
-        self.market_combo.addItems(list(_MARKET_TYPE_LABELS.keys()))
-        self.market_combo.setCurrentText("TO(選擇權)")
-
-        self.max_qty_spin = QSpinBox()
-        self.max_qty_spin.setRange(1, 999999)
-        self.max_qty_spin.setValue(100)
-        max_qty_btn = QPushButton("設定每秒委託量上限")
-        max_qty_btn.clicked.connect(self._on_set_max_qty)
-
-        self.max_count_spin = QSpinBox()
-        self.max_count_spin.setRange(1, 999999)
-        self.max_count_spin.setValue(20)
-        max_count_btn = QPushButton("設定每秒委託筆數上限")
-        max_count_btn.clicked.connect(self._on_set_max_count)
-
-        unlock_btn = QPushButton("解鎖 (超過上限被鎖住時用)")
-        unlock_btn.clicked.connect(self._on_unlock)
-
-        refresh_btn = QPushButton("重新整理 (查既有委託，至少間隔5秒)")
-        refresh_btn.clicked.connect(self._fetch_existing_orders)
-
-        layout.addWidget(QLabel("市場別"))
-        layout.addWidget(self.market_combo)
-        layout.addWidget(self.max_qty_spin)
-        layout.addWidget(max_qty_btn)
-        layout.addWidget(self.max_count_spin)
-        layout.addWidget(max_count_btn)
-        layout.addWidget(unlock_btn)
-        layout.addWidget(refresh_btn)
-        return box
-
-    # ------------------------------------------------------------- 頻率保護
-    def _selected_market_type(self) -> int:
-        return _MARKET_TYPE_LABELS[self.market_combo.currentText()]
-
-    def _on_set_max_qty(self):
-        err = self._manager.set_max_qty(self._selected_market_type(), self.max_qty_spin.value())
-        self.status_label.setText("已設定每秒委託量上限" if err is None else f"設定失敗：{err}")
-
-    def _on_set_max_count(self):
-        err = self._manager.set_max_count(self._selected_market_type(), self.max_count_spin.value())
-        self.status_label.setText("已設定每秒委託筆數上限" if err is None else f"設定失敗：{err}")
-
-    def _on_unlock(self):
-        err = self._manager.unlock_order(self._selected_market_type())
-        self.status_label.setText("已解鎖" if err is None else f"解鎖失敗：{err}")
-
-    # ------------------------------------------------------------- 既有委託
-    def _fetch_existing_orders(self):
-        if not self._manager.can_fetch_existing_orders():
-            self.status_label.setText("查詢間隔要至少 5 秒，請稍後再試")
-            return
-        self.status_label.setText("查詢既有委託中...")
-        try:
-            result = self._manager.fetch_existing_orders()
-        except Exception as exc:  # noqa: BLE001
-            self.status_label.setText(f"查詢既有委託失敗：{exc}")
-            return
-        # GetOrderReport 逐欄位格式官方文件沒查到對照表，先整包顯示，
-        # 不試著解析成 OrderRecord (避免用猜的欄位位置寫錯資料)。字串可
-        # 能很長，這裡只截一小段給個提示，長度砍短+有換行，不讓它撐開
-        # 視窗；完整內容印在主控台方便對照。
-        print(f"[GetOrderReport] {result}")
-        preview = result[:200] + ("..." if len(result) > 200 else "")
-        self.status_label.setText(f"既有委託查詢結果 (原始字串前 200 字，完整內容已印到主控台)：{preview}")
 
     def _on_error(self, message: str):
         self.status_label.setText(f"操作失敗：{message}")
 
     # ------------------------------------------------------------- 表格重繪
     def _refresh(self):
-        box_records = [r for r in self._manager.records if r.status not in (STATUS_FILLED,)]
+        box_records = [r for r in self._manager.records if r.status != STATUS_FILLED]
 
         self.table.setRowCount(len(box_records))
         for row, record in enumerate(box_records):
             _set_cell(self.table, row, 0, record.label())
-            _set_cell(self.table, row, 1, _call_put_text(record))
+            _set_cell(self.table, row, 1, _right_text(record))
             _set_cell(self.table, row, 2, _direction_text(record))
             _set_cell(self.table, row, 3, f"{record.price:g}")
             _set_cell(self.table, row, 4, str(record.qty))
-            _set_cell(self.table, row, 5, _TIF_LABELS.get(record.tif, str(record.tif)))
-            if record.status == STATUS_LIVE and record.tif != TIF_ROD:
-                # IOC/FOK 送出後瞬間成交或死亡，不可能「掛單中」(那是 ROD
-                # 掛單才有的狀態)；卡在這裡代表回報沒配對到，用不同字樣
-                # 誠實顯示，不要謊稱掛單中。
-                status_text = _STATUS_LIVE_NON_ROD_LABEL
-            else:
-                status_text = _STATUS_LABELS.get(record.status, record.status)
+            _set_cell(self.table, row, 5, record.tif)
+            status_text = _STATUS_LABELS.get(record.status, record.status)
             if record.status == STATUS_REJECTED and record.error_msg:
                 status_text += f" ({record.error_msg})"
             _set_cell(self.table, row, 6, status_text)
-            _set_cell(self.table, row, 7, str(record.retry_count) if record.auto_retry else "")
-            self.table.setCellWidget(row, 8, self._build_actions_widget(record))
+            self.table.setCellWidget(row, 7, self._build_actions_widget(record))
 
     def _build_actions_widget(self, record) -> QWidget:
         widget = QWidget()
@@ -219,57 +122,20 @@ class OrderBookWidget(QWidget):
 
         if record.status == STATUS_STAGED:
             add_btn("送出", lambda: self._manager.confirm_send(record.id))
-            add_btn("改條件", lambda: self._prompt_change_condition(record.id))
             add_btn("刪除", lambda: self._manager.discard_staged(record.id))
-        elif record.status == STATUS_RETRYING:
-            add_btn("暫停", lambda: self._manager.pause_retry(record.id))
-            add_btn("改條件", lambda: self._prompt_change_condition(record.id))
-            add_btn("刪除", lambda: self._manager.delete(record.id))
-        elif record.status == STATUS_PAUSED:
-            add_btn("繼續", lambda: self._manager.resume_retry(record.id))
-            add_btn("改條件", lambda: self._prompt_change_condition(record.id))
-            add_btn("刪除", lambda: self._manager.delete(record.id))
-        elif record.status == STATUS_LIVE and record.tif == TIF_ROD:
+        elif record.status == STATUS_LIVE:
             add_btn("改價", lambda: self._prompt_amend_price(record.id))
-            add_btn("減量", lambda: self._prompt_amend_qty(record.id))
+            add_btn("改量", lambda: self._prompt_amend_qty(record.id))
             add_btn("刪單", lambda: self._manager.cancel(record.id))
-        # rejected/cancelled/其他 live(單發IOC等回報中)：不給操作，純顯示
+        # rejected/cancelled：不給操作，純顯示
 
         return widget
-
-    def _prompt_change_condition(self, record_id: str):
-        record = next((r for r in self._manager.records if r.id == record_id), None)
-        if record is None:
-            return
-        dialog = QDialog(self)
-        dialog.setWindowTitle("改條件")
-        form = QFormLayout(dialog)
-
-        price_spin = QDoubleSpinBox()
-        price_spin.setRange(0.1, 99999)
-        price_spin.setDecimals(1)
-        price_spin.setSingleStep(0.5)  # 選擇權權利金跳動最小是0.5，沒有0.1
-        price_spin.setValue(record.price)
-        form.addRow("新的權利金限價", price_spin)
-
-        qty_spin = QSpinBox()
-        qty_spin.setRange(1, 999)
-        qty_spin.setValue(record.qty)
-        form.addRow("新口數", qty_spin)
-
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(dialog.accept)
-        buttons.rejected.connect(dialog.reject)
-        form.addRow(buttons)
-
-        if dialog.exec_() == QDialog.Accepted:
-            self._manager.change_condition(record_id, price=price_spin.value(), qty=qty_spin.value())
 
     def _prompt_amend_price(self, record_id: str):
         record = next((r for r in self._manager.records if r.id == record_id), None)
         if record is None:
             return
-        price, ok = QInputDialog.getDouble(self, "改價", "新委託價格", record.price, 0.1, 99999, 1, step=0.5)
+        price, ok = QInputDialog.getDouble(self, "改價", "新委託價格", record.price, 0.01, 99999, 2, step=0.05)
         if ok:
             self._manager.amend_price(record_id, price)
 
@@ -277,8 +143,7 @@ class OrderBookWidget(QWidget):
         record = next((r for r in self._manager.records if r.id == record_id), None)
         if record is None:
             return
-        max_decrease = max(record.qty - 1, 1)
-        qty, ok = QInputDialog.getInt(self, "減量", "要減少的口數 (只能減不能加)", 1, 1, max_decrease)
+        qty, ok = QInputDialog.getInt(self, "改量", "新口數", int(record.qty), 1, 999)
         if ok:
             self._manager.amend_qty(record_id, qty)
 
@@ -304,9 +169,11 @@ class FillReportWidget(QWidget):
         self.table.setRowCount(len(fill_records))
         for row, record in enumerate(fill_records):
             _set_cell(self.table, row, 0, record.label())
-            _set_cell(self.table, row, 1, _call_put_text(record))
+            _set_cell(self.table, row, 1, _right_text(record))
             _set_cell(self.table, row, 2, _direction_text(record))
             _set_cell(self.table, row, 3, str(record.fill_price or ""))
             _set_cell(self.table, row, 4, str(record.fill_qty or ""))
-            report = record.last_report or {}
-            _set_cell(self.table, row, 5, f"{report.get('date', '')} {report.get('time', '')}")
+            filled_at = ""
+            if record.filled_at:
+                filled_at = datetime.datetime.fromtimestamp(record.filled_at).strftime("%Y-%m-%d %H:%M:%S")
+            _set_cell(self.table, row, 5, filled_at)

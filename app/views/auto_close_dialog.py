@@ -203,11 +203,11 @@ class StopLossDialog(QDialog):
 
     def _width_hint(self, call_put: str) -> str:
         """規則4新開的每一組價差，寬度自動沿用「同群組裡跟這個買賣權類
-        型相同的既有部位」，這裡只是把 auto_close_manager._find_sibling
-        同一套判斷邏輯拿來給對話框顯示提示用，不影響實際送單時的計算
+        型相同的既有部位」，self._sibling 是呼叫端用
+        auto_close_manager.find_sibling() 算出來傳進來的，不影響實際送單時的計算
         (實際計算在 auto_close_manager.py，這裡純顯示，找不到就顯示問
         號，不擋使用者繼續設定)。"""
-        template = self._position if self._position.legs[0].call_put == call_put else self._sibling
+        template = self._position if self._position.legs[0].right == call_put else self._sibling
         if template is None or not template.is_combo:
             return "?"
         return f"{abs(template.legs[0].strike - template.legs[1].strike):g}"
@@ -231,7 +231,7 @@ class StopLossDialog(QDialog):
 
     def _build_mode5_page(self, position: Position, existing: Optional[StopLossRule]) -> QWidget:
         add_leg = existing.add_leg if existing and existing.mode == SL_MODE_ADD_LEG else None
-        opposite = "賣權(Put)" if position.legs[0].call_put == "C" else "買權(Call)"
+        opposite = "賣權(Put)" if position.legs[0].right == "C" else "買權(Call)"
         page = QWidget()
         form = QFormLayout(page)
         form.addRow("動作", QLabel(f"這邊不平倉，裸賣加開一口{opposite}"))
