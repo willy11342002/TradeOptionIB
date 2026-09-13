@@ -26,12 +26,11 @@ import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-from PyQt5.QtCore import QObject, pyqtSignal
-
 from app.models.ib_client import IBClient
 from app.models.ib_quote_client import IBQuoteClient
 from app.models.order_book import OrderBookManager, STATUS_FILLED, TERMINAL_STATUSES
 from app.services import position_groups_store
+from app.services.signal import Signal
 
 UNGROUPED_ID = "__ungrouped__"  # 固定的「未分組」虛擬群組 id，不會被使用者刪除
 
@@ -128,12 +127,10 @@ def _ib_position_to_position(ib_pos) -> Optional[Position]:
     )
 
 
-class PositionManager(QObject):
-    positions_changed = pyqtSignal()   # 整批重建，不做逐列 diff
-    query_failed = pyqtSignal(str)     # 目前 ib.positions()/positionEvent 是本地同步讀取，不會失敗；保留訊號給未來需要時用
-
+class PositionManager:
     def __init__(self, ib_client: IBClient, order_book_manager: OrderBookManager, quote_client: IBQuoteClient):
-        super().__init__()
+        self.positions_changed = Signal()  # 整批重建，不做逐列 diff
+        self.query_failed = Signal()       # 目前 ib.positions()/positionEvent 是本地同步讀取，不會失敗；保留訊號給未來需要時用
         self._ib = ib_client.ib
         self._ib.positionEvent += self._on_position_event
 

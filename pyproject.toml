@@ -6,6 +6,7 @@ requires-python = ">=3.13"
 dependencies = [
     "ib-async>=2.1.0",
     "ipykernel>=7.3.0",
+    "nicegui>=2.0.0",
     "pip>=26.2.1",
     "pydantic-ai>=2.40.0",
     "pyqt5<5.15.11",

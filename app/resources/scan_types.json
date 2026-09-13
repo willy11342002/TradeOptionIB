@@ -1,0 +1,4523 @@
+[
+ {
+  "code": "BEARISH_EMA_DIFF_VS_LAST",
+  "name_en": "Bearish Ema Diff Vs Last",
+  "name_en_is_guess": true,
+  "name_zh": "空頭EMA乖離最大",
+  "tooltip_zh": "股價相對EMA乖離幅度呈現空頭訊號最強的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "BEARISH_LAST_VS_EMA100",
+  "name_en": "Bearish Last Vs Ema100",
+  "name_en_is_guess": true,
+  "name_zh": "空頭：跌破100日EMA",
+  "tooltip_zh": "股價跌破100日指數移動平均線，呈現空頭訊號的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "BEARISH_LAST_VS_EMA20",
+  "name_en": "Bearish Last Vs Ema20",
+  "name_en_is_guess": true,
+  "name_zh": "空頭：跌破20日EMA",
+  "tooltip_zh": "股價跌破20日指數移動平均線，呈現空頭訊號的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "BEARISH_LAST_VS_EMA200",
+  "name_en": "Bearish Last Vs Ema200",
+  "name_en_is_guess": true,
+  "name_zh": "空頭：跌破200日EMA",
+  "tooltip_zh": "股價跌破200日指數移動平均線，呈現空頭訊號的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "BEARISH_LAST_VS_EMA50",
+  "name_en": "Bearish Last Vs Ema50",
+  "name_en_is_guess": true,
+  "name_zh": "空頭：跌破50日EMA",
+  "tooltip_zh": "股價跌破50日指數移動平均線，呈現空頭訊號的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "BEARISH_MACD_DIST_VS_LAST",
+  "name_en": "Bearish Macd Dist Vs Last",
+  "name_en_is_guess": true,
+  "name_zh": "MACD空頭訊號最強",
+  "tooltip_zh": "MACD指標相對股價呈現空頭乖離最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "BEARISH_PPO_DIST",
+  "name_en": "Bearish Ppo Dist",
+  "name_en_is_guess": true,
+  "name_zh": "PPO空頭訊號最強",
+  "tooltip_zh": "百分比價格震盪指標(PPO)呈現空頭訊號最強的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "BULLISH_EMA_DIFF_VS_LAST",
+  "name_en": "Bullish Ema Diff Vs Last",
+  "name_en_is_guess": true,
+  "name_zh": "多頭EMA乖離最大",
+  "tooltip_zh": "股價相對EMA乖離幅度呈現多頭訊號最強的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "BULLISH_LAST_VS_EMA100",
+  "name_en": "Bullish Last Vs Ema100",
+  "name_en_is_guess": true,
+  "name_zh": "多頭：站上100日EMA",
+  "tooltip_zh": "股價站上100日指數移動平均線，呈現多頭訊號的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "BULLISH_LAST_VS_EMA20",
+  "name_en": "Bullish Last Vs Ema20",
+  "name_en_is_guess": true,
+  "name_zh": "多頭：站上20日EMA",
+  "tooltip_zh": "股價站上20日指數移動平均線，呈現多頭訊號的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "BULLISH_LAST_VS_EMA200",
+  "name_en": "Bullish Last Vs Ema200",
+  "name_en_is_guess": true,
+  "name_zh": "多頭：站上200日EMA",
+  "tooltip_zh": "股價站上200日指數移動平均線，呈現多頭訊號的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "BULLISH_LAST_VS_EMA50",
+  "name_en": "Bullish Last Vs Ema50",
+  "name_en_is_guess": true,
+  "name_zh": "多頭：站上50日EMA",
+  "tooltip_zh": "股價站上50日指數移動平均線，呈現多頭訊號的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "BULLISH_MACD_DIST_VS_LAST",
+  "name_en": "Bullish Macd Dist Vs Last",
+  "name_en_is_guess": true,
+  "name_zh": "MACD多頭訊號最強",
+  "tooltip_zh": "MACD指標相對股價呈現多頭乖離最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "BULLISH_PPO_DIST",
+  "name_en": "Bullish Ppo Dist",
+  "name_en_is_guess": true,
+  "name_zh": "PPO多頭訊號最強",
+  "tooltip_zh": "百分比價格震盪指標(PPO)呈現多頭訊號最強的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "FIRST_TRADE_DATE_ASC",
+  "name_en": "First Trade Date Asc",
+  "name_en_is_guess": true,
+  "name_zh": "最早上市股票",
+  "tooltip_zh": "依首次交易日期排序，最早掛牌的股票排在最前面。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "FIRST_TRADE_DATE_DESC",
+  "name_en": "First Trade Date Desc",
+  "name_en_is_guess": true,
+  "name_zh": "最新上市股票",
+  "tooltip_zh": "依首次交易日期排序，最近才開始交易的新股排在最前面。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "HALTED",
+  "name_en": "Halted",
+  "name_en_is_guess": true,
+  "name_zh": "停牌股票",
+  "tooltip_zh": "目前遭到暫停交易的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "HIGH_DIVIDEND_YIELD_IB",
+  "name_en": "High Dividend Yield IB",
+  "name_en_is_guess": true,
+  "name_zh": "股息殖利率最高",
+  "tooltip_zh": "以IB資料計算之股息殖利率最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "HIGH_GROWTH_RATE",
+  "name_en": "High Growth Rate",
+  "name_en_is_guess": true,
+  "name_zh": "成長率最高",
+  "tooltip_zh": "營收或盈餘成長率最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "HIGH_LAST_VS_EMA100",
+  "name_en": "High Last Vs Ema100",
+  "name_en_is_guess": true,
+  "name_zh": "股價高於100日EMA最多",
+  "tooltip_zh": "股價相對100日指數移動平均線正乖離最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HIGH_LAST_VS_EMA20",
+  "name_en": "High Last Vs Ema20",
+  "name_en_is_guess": true,
+  "name_zh": "股價高於20日EMA最多",
+  "tooltip_zh": "股價相對20日指數移動平均線正乖離最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HIGH_LAST_VS_EMA200",
+  "name_en": "High Last Vs Ema200",
+  "name_en_is_guess": true,
+  "name_zh": "股價高於200日EMA最多",
+  "tooltip_zh": "股價相對200日指數移動平均線正乖離最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HIGH_LAST_VS_EMA50",
+  "name_en": "High Last Vs Ema50",
+  "name_en_is_guess": true,
+  "name_zh": "股價高於50日EMA最多",
+  "tooltip_zh": "股價相對50日指數移動平均線正乖離最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HIGH_OPEN_GAP",
+  "name_en": "High Open Gap",
+  "name_en_is_guess": true,
+  "name_zh": "開盤向上跳空最大",
+  "tooltip_zh": "開盤價相對前一收盤價向上跳空幅度最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HIGH_OPT_IMP_VOLAT",
+  "name_en": "High Option Implied Volatility",
+  "name_en_is_guess": true,
+  "name_zh": "高隱含波動率",
+  "tooltip_zh": "選擇權隱含波動率最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HIGH_OPT_IMP_VOLAT_OVER_HIST",
+  "name_en": "High Option Implied Volatility Over Hist",
+  "name_en_is_guess": true,
+  "name_zh": "隱波/歷史波動率比值最高",
+  "tooltip_zh": "選擇權隱含波動率相對歷史波動率比值最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HIGH_OPT_OPEN_INTEREST_PUT_CALL_RATIO",
+  "name_en": "High Option Open Interest Put Call Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "選擇權未平倉Put/Call比最高",
+  "tooltip_zh": "選擇權未平倉量之賣權對買權比值最高，反映看跌情緒偏強的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HIGH_OPT_VOLUME_PUT_CALL_RATIO",
+  "name_en": "High Option Volume Put Call Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "選擇權成交Put/Call比最高",
+  "tooltip_zh": "選擇權成交量之賣權對買權比值最高，反映當日看跌情緒偏強的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HIGH_PE_RATIO",
+  "name_en": "High Pe Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "本益比最高",
+  "tooltip_zh": "本益比(P/E)最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "HIGH_PRICE_2_BOOK_RATIO",
+  "name_en": "High Price 2 Book Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "股價淨值比最高",
+  "tooltip_zh": "股價對帳面淨值比(P/B)最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "HIGH_PRICE_2_TAN_BOOK_RATIO",
+  "name_en": "High Price 2 Tan Book Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "股價有形淨值比最高",
+  "tooltip_zh": "股價對有形帳面淨值比最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "HIGH_QUICK_RATIO",
+  "name_en": "High Quick Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "速動比率最高",
+  "tooltip_zh": "速動比率最高，短期償債能力最強的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "HIGH_RETURN_ON_EQUITY",
+  "name_en": "High Return On Equity",
+  "name_en_is_guess": true,
+  "name_zh": "股東權益報酬率最高",
+  "tooltip_zh": "股東權益報酬率(ROE)最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "HIGH_STVOLUME_10MIN",
+  "name_en": "High Stvolume 10min",
+  "name_en_is_guess": true,
+  "name_zh": "近10分鐘成交量最活躍",
+  "tooltip_zh": "近10分鐘內成交量異常放大的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HIGH_STVOLUME_3MIN",
+  "name_en": "High Stvolume 3min",
+  "name_en_is_guess": true,
+  "name_zh": "近3分鐘成交量最活躍",
+  "tooltip_zh": "近3分鐘內成交量異常放大的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HIGH_STVOLUME_5MIN",
+  "name_en": "High Stvolume 5min",
+  "name_en_is_guess": true,
+  "name_zh": "近5分鐘成交量最活躍",
+  "tooltip_zh": "近5分鐘內成交量異常放大的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HIGH_VS_13W_HL",
+  "name_en": "High Vs 13w Hl",
+  "name_en_is_guess": true,
+  "name_zh": "接近13週新高",
+  "tooltip_zh": "股價逼近過去13週(約一季)高點的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HIGH_VS_26W_HL",
+  "name_en": "High Vs 26w Hl",
+  "name_en_is_guess": true,
+  "name_zh": "接近26週新高",
+  "tooltip_zh": "股價逼近過去26週(約半年)高點的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HIGH_VS_52W_HL",
+  "name_en": "High Vs 52w Hl",
+  "name_en_is_guess": true,
+  "name_zh": "接近52週新高",
+  "tooltip_zh": "股價逼近過去52週(一年)高點的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HOT_BY_OPT_VOLUME",
+  "name_en": "Hot By Option Volume",
+  "name_en_is_guess": true,
+  "name_zh": "選擇權成交量最活躍",
+  "tooltip_zh": "選擇權成交量相對常態急遽放大、交易最熱絡的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HOT_BY_PRICE",
+  "name_en": "Hot By Price",
+  "name_en_is_guess": true,
+  "name_zh": "股價變動最劇烈",
+  "tooltip_zh": "近期股價波動幅度最大、最熱門的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HOT_BY_PRICE_RANGE",
+  "name_en": "Hot By Price Range",
+  "name_en_is_guess": true,
+  "name_zh": "股價區間波動最劇烈",
+  "tooltip_zh": "當日股價高低區間波動幅度最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "HOT_BY_VOLUME",
+  "name_en": "Hot By Volume",
+  "name_en_is_guess": true,
+  "name_zh": "成交量急升最熱門",
+  "tooltip_zh": "近期成交量相對常態急遽放大的熱門股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "LIMIT_UP_DOWN",
+  "name_en": "% Remaining Up/Down Range (Low-High)",
+  "name_en_is_guess": false,
+  "name_zh": "漲跌停剩餘空間",
+  "tooltip_zh": "股價距離漲跌停限制(LULD)剩餘空間比例的排序，越接近代表越接近觸及熔斷。",
+  "access": null,
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "LOW_GROWTH_RATE",
+  "name_en": "Low Growth Rate",
+  "name_en_is_guess": true,
+  "name_zh": "成長率最低",
+  "tooltip_zh": "營收或盈餘成長率最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "LOW_LAST_VS_EMA100",
+  "name_en": "Low Last Vs Ema100",
+  "name_en_is_guess": true,
+  "name_zh": "股價低於100日EMA最多",
+  "tooltip_zh": "股價相對100日指數移動平均線負乖離最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "LOW_LAST_VS_EMA20",
+  "name_en": "Low Last Vs Ema20",
+  "name_en_is_guess": true,
+  "name_zh": "股價低於20日EMA最多",
+  "tooltip_zh": "股價相對20日指數移動平均線負乖離最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "LOW_LAST_VS_EMA200",
+  "name_en": "Low Last Vs Ema200",
+  "name_en_is_guess": true,
+  "name_zh": "股價低於200日EMA最多",
+  "tooltip_zh": "股價相對200日指數移動平均線負乖離最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "LOW_LAST_VS_EMA50",
+  "name_en": "Low Last Vs Ema50",
+  "name_en_is_guess": true,
+  "name_zh": "股價低於50日EMA最多",
+  "tooltip_zh": "股價相對50日指數移動平均線負乖離最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "LOW_OPEN_GAP",
+  "name_en": "Low Open Gap",
+  "name_en_is_guess": true,
+  "name_zh": "開盤向下跳空最大",
+  "tooltip_zh": "開盤價相對前一收盤價向下跳空幅度最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "LOW_OPT_IMP_VOLAT",
+  "name_en": "Low Option Implied Volatility",
+  "name_en_is_guess": true,
+  "name_zh": "低隱含波動率",
+  "tooltip_zh": "選擇權隱含波動率最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "LOW_OPT_IMP_VOLAT_OVER_HIST",
+  "name_en": "Low Option Implied Volatility Over Hist",
+  "name_en_is_guess": true,
+  "name_zh": "隱波/歷史波動率比值最低",
+  "tooltip_zh": "選擇權隱含波動率相對歷史波動率比值最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "LOW_OPT_OPEN_INTEREST_PUT_CALL_RATIO",
+  "name_en": "Low Option Open Interest Put Call Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "選擇權未平倉Put/Call比最低",
+  "tooltip_zh": "選擇權未平倉量之賣權對買權比值最低，反映看漲情緒偏強的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "LOW_OPT_VOLUME_PUT_CALL_RATIO",
+  "name_en": "Low Option Volume Put Call Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "選擇權成交Put/Call比最低",
+  "tooltip_zh": "選擇權成交量之賣權對買權比值最低，反映當日看漲情緒偏強的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "LOW_PE_RATIO",
+  "name_en": "Low Pe Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "本益比最低",
+  "tooltip_zh": "本益比(P/E)最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "LOW_PRICE_2_BOOK_RATIO",
+  "name_en": "Low Price 2 Book Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "股價淨值比最低",
+  "tooltip_zh": "股價對帳面淨值比(P/B)最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "LOW_PRICE_2_TAN_BOOK_RATIO",
+  "name_en": "Low Price 2 Tan Book Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "股價有形淨值比最低",
+  "tooltip_zh": "股價對有形帳面淨值比最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "LOW_QUICK_RATIO",
+  "name_en": "Low Quick Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "速動比率最低",
+  "tooltip_zh": "速動比率最低，短期償債能力較弱的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "LOW_RETURN_ON_EQUITY",
+  "name_en": "Low Return On Equity",
+  "name_en_is_guess": true,
+  "name_zh": "股東權益報酬率最低",
+  "tooltip_zh": "股東權益報酬率(ROE)最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "LOW_VS_13W_HL",
+  "name_en": "Low Vs 13w Hl",
+  "name_en_is_guess": true,
+  "name_zh": "接近13週新低",
+  "tooltip_zh": "股價逼近過去13週低點的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "LOW_VS_26W_HL",
+  "name_en": "Low Vs 26w Hl",
+  "name_en_is_guess": true,
+  "name_zh": "接近26週新低",
+  "tooltip_zh": "股價逼近過去26週低點的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "LOW_VS_52W_HL",
+  "name_en": "Low Vs 52w Hl",
+  "name_en_is_guess": true,
+  "name_zh": "接近52週新低",
+  "tooltip_zh": "股價逼近過去52週(一年)低點的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "MOST_ACTIVE",
+  "name_en": "Volume (High-Low)",
+  "name_en_is_guess": false,
+  "name_zh": "成交量最活躍",
+  "tooltip_zh": "當日股票成交量(股數)最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "MOST_ACTIVE_AVG_USD",
+  "name_en": "Avg Volume ($) (High-Low)",
+  "name_en_is_guess": false,
+  "name_zh": "平均成交金額最活躍",
+  "tooltip_zh": "以美元計算之平均成交金額最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "MOST_ACTIVE_USD",
+  "name_en": "Volume ($) (High-Low)",
+  "name_en_is_guess": false,
+  "name_zh": "成交金額最活躍",
+  "tooltip_zh": "以美元計算之當日成交金額最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "NOT_YET_TRADED_TODAY",
+  "name_en": "Not Yet Traded Today",
+  "name_en_is_guess": true,
+  "name_zh": "今日尚未開始交易",
+  "tooltip_zh": "當日開盤後尚未有任何成交紀錄的股票。",
+  "access": null,
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "OPT_OPEN_INTEREST_MOST_ACTIVE",
+  "name_en": "Option Open Interest Most Active",
+  "name_en_is_guess": true,
+  "name_zh": "選擇權未平倉量最活躍",
+  "tooltip_zh": "選擇權未平倉量(Open Interest)最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "OPT_VOLUME_MOST_ACTIVE",
+  "name_en": "Option Volume Most Active",
+  "name_en_is_guess": true,
+  "name_zh": "選擇權成交量最大",
+  "tooltip_zh": "當日選擇權成交量最大的標的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_avgAnalystTarget2PriceRatio_ASC",
+  "name_en": "Scan avgAnalystTarget2PriceRatio Asc",
+  "name_en_is_guess": true,
+  "name_zh": "目標價/股價比最低",
+  "tooltip_zh": "分析師平均目標價相對目前股價的比值最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_avgAnalystTarget2PriceRatio_DESC",
+  "name_en": "Scan avgAnalystTarget2PriceRatio Desc",
+  "name_en_is_guess": true,
+  "name_zh": "目標價/股價比最高",
+  "tooltip_zh": "分析師平均目標價相對目前股價比值最高，隱含上漲空間最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_avgPriceTarget_ASC",
+  "name_en": "Scan avgPriceTarget Asc",
+  "name_en_is_guess": true,
+  "name_zh": "分析師目標價最低",
+  "tooltip_zh": "分析師平均目標價最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_avgPriceTarget_DESC",
+  "name_en": "Scan avgPriceTarget Desc",
+  "name_en_is_guess": true,
+  "name_zh": "分析師目標價最高",
+  "tooltip_zh": "分析師平均目標價最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_avgRating_ASC",
+  "name_en": "Scan avgRating Asc",
+  "name_en_is_guess": true,
+  "name_zh": "分析師評等最偏空",
+  "tooltip_zh": "分析師平均評等分數最低、偏向看空的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_avgRating_DESC",
+  "name_en": "Scan avgRating Desc",
+  "name_en_is_guess": true,
+  "name_zh": "分析師評等最偏多",
+  "tooltip_zh": "分析師平均評等分數最高、偏向看多的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_epsChangeTTM_ASC",
+  "name_en": "Scan epsChangeTTM Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近12月EPS成長最低",
+  "tooltip_zh": "近12個月每股盈餘(EPS)成長率最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_epsChangeTTM_DESC",
+  "name_en": "Scan epsChangeTTM Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近12月EPS成長最高",
+  "tooltip_zh": "近12個月每股盈餘(EPS)成長率最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_esgCombinedScore_ASC",
+  "name_en": "Scan esgCombinedScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG綜合評分最低",
+  "tooltip_zh": "公司ESG綜合評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgCombinedScore_DESC",
+  "name_en": "Scan esgCombinedScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG綜合評分最高",
+  "tooltip_zh": "公司ESG綜合評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgCommunityScore_ASC",
+  "name_en": "Scan esgCommunityScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG社區評分最低",
+  "tooltip_zh": "公司ESG社區面向評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgCommunityScore_DESC",
+  "name_en": "Scan esgCommunityScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG社區評分最高",
+  "tooltip_zh": "公司ESG社區面向評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgControversiesScore_ASC",
+  "name_en": "Scan esgControversiesScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG爭議事件評分最低",
+  "tooltip_zh": "公司ESG爭議事件評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgControversiesScore_DESC",
+  "name_en": "Scan esgControversiesScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG爭議事件評分最高",
+  "tooltip_zh": "公司ESG爭議事件評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgCorpGovPillarScore_ASC",
+  "name_en": "Scan esgCorpGovPillarScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG公司治理評分最低",
+  "tooltip_zh": "公司ESG公司治理構面評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgCorpGovPillarScore_DESC",
+  "name_en": "Scan esgCorpGovPillarScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG公司治理評分最高",
+  "tooltip_zh": "公司ESG公司治理構面評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgEmissionsScore_ASC",
+  "name_en": "Scan esgEmissionsScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG排放評分最低",
+  "tooltip_zh": "公司ESG排放評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgEmissionsScore_DESC",
+  "name_en": "Scan esgEmissionsScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG排放評分最高",
+  "tooltip_zh": "公司ESG排放評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgEnvInvScore_ASC",
+  "name_en": "Scan esgEnvInvScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG環境創新評分最低",
+  "tooltip_zh": "公司ESG環境創新評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgEnvInvScore_DESC",
+  "name_en": "Scan esgEnvInvScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG環境創新評分最高",
+  "tooltip_zh": "公司ESG環境創新評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgEnvPillarScore_ASC",
+  "name_en": "Scan esgEnvPillarScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG環境構面評分最低",
+  "tooltip_zh": "公司ESG環境構面評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgEnvPillarScore_DESC",
+  "name_en": "Scan esgEnvPillarScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG環境構面評分最高",
+  "tooltip_zh": "公司ESG環境構面評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgHrScore_ASC",
+  "name_en": "Scan esgHrScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG人權評分最低",
+  "tooltip_zh": "公司ESG人權評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgHrScore_DESC",
+  "name_en": "Scan esgHrScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG人權評分最高",
+  "tooltip_zh": "公司ESG人權評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgManagementScore_ASC",
+  "name_en": "Scan esgManagementScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG管理評分最低",
+  "tooltip_zh": "公司ESG管理面向評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgManagementScore_DESC",
+  "name_en": "Scan esgManagementScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG管理評分最高",
+  "tooltip_zh": "公司ESG管理面向評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgProdRespScore_ASC",
+  "name_en": "Scan esgProdRespScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG產品責任評分最低",
+  "tooltip_zh": "公司ESG產品責任評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgProdRespScore_DESC",
+  "name_en": "Scan esgProdRespScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG產品責任評分最高",
+  "tooltip_zh": "公司ESG產品責任評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgResourceUseScore_ASC",
+  "name_en": "Scan esgResourceUseScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG資源使用評分最低",
+  "tooltip_zh": "公司ESG資源使用評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgResourceUseScore_DESC",
+  "name_en": "Scan esgResourceUseScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG資源使用評分最高",
+  "tooltip_zh": "公司ESG資源使用評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgScore_ASC",
+  "name_en": "Scan esgScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG總評分最低",
+  "tooltip_zh": "公司整體ESG評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgScore_DESC",
+  "name_en": "Scan esgScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG總評分最高",
+  "tooltip_zh": "公司整體ESG評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgShareholdersScore_ASC",
+  "name_en": "Scan esgShareholdersScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG股東權益評分最低",
+  "tooltip_zh": "公司ESG股東權益評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgShareholdersScore_DESC",
+  "name_en": "Scan esgShareholdersScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG股東權益評分最高",
+  "tooltip_zh": "公司ESG股東權益評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgSocialPillarScore_ASC",
+  "name_en": "Scan esgSocialPillarScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG社會構面評分最低",
+  "tooltip_zh": "公司ESG社會構面評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgSocialPillarScore_DESC",
+  "name_en": "Scan esgSocialPillarScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG社會構面評分最高",
+  "tooltip_zh": "公司ESG社會構面評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgStrategyScore_ASC",
+  "name_en": "Scan esgStrategyScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG策略評分最低",
+  "tooltip_zh": "公司ESG策略評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgStrategyScore_DESC",
+  "name_en": "Scan esgStrategyScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG策略評分最高",
+  "tooltip_zh": "公司ESG策略評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgWorkforceScore_ASC",
+  "name_en": "Scan esgWorkforceScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG勞動力評分最低",
+  "tooltip_zh": "公司ESG勞動力評分最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_esgWorkforceScore_DESC",
+  "name_en": "Scan esgWorkforceScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "ESG勞動力評分最高",
+  "tooltip_zh": "公司ESG勞動力評分最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_feeRate_ASC",
+  "name_en": "Scan feeRate Asc",
+  "name_en_is_guess": true,
+  "name_zh": "借券費率最低",
+  "tooltip_zh": "股票借券(放空)費率最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_feeRate_DESC",
+  "name_en": "Scan feeRate Desc",
+  "name_en_is_guess": true,
+  "name_zh": "借券費率最高",
+  "tooltip_zh": "股票借券(放空)費率最高，通常代表放空需求強烈的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_floatShares_ASC",
+  "name_en": "Scan floatShares Asc",
+  "name_en_is_guess": true,
+  "name_zh": "流通股數最少",
+  "tooltip_zh": "扣除限制性股份後，市場實際流通股數最少的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_floatShares_DESC",
+  "name_en": "Scan floatShares Desc",
+  "name_en_is_guess": true,
+  "name_zh": "流通股數最多",
+  "tooltip_zh": "扣除限制性股份後，市場實際流通股數最多的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatio1m_ASC",
+  "name_en": "Scan histPerfRatio1m Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近1月報酬率最低",
+  "tooltip_zh": "近1個月股價報酬率最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatio1m_DESC",
+  "name_en": "Scan histPerfRatio1m Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近1月報酬率最高",
+  "tooltip_zh": "近1個月股價報酬率最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatio1w_ASC",
+  "name_en": "Scan histPerfRatio1w Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近1週報酬率最低",
+  "tooltip_zh": "近1週股價報酬率最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatio1w_DESC",
+  "name_en": "Scan histPerfRatio1w Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近1週報酬率最高",
+  "tooltip_zh": "近1週股價報酬率最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatio1y_ASC",
+  "name_en": "Scan histPerfRatio1y Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近1年報酬率最低",
+  "tooltip_zh": "近1年股價報酬率最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatio1y_DESC",
+  "name_en": "Scan histPerfRatio1y Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近1年報酬率最高",
+  "tooltip_zh": "近1年股價報酬率最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatio3m_ASC",
+  "name_en": "Scan histPerfRatio3m Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近3月報酬率最低",
+  "tooltip_zh": "近3個月股價報酬率最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatio3m_DESC",
+  "name_en": "Scan histPerfRatio3m Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近3月報酬率最高",
+  "tooltip_zh": "近3個月股價報酬率最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatio3y_ASC",
+  "name_en": "Scan histPerfRatio3y Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近3年報酬率最低",
+  "tooltip_zh": "近3年股價報酬率最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatio3y_DESC",
+  "name_en": "Scan histPerfRatio3y Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近3年報酬率最高",
+  "tooltip_zh": "近3年股價報酬率最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatio5y_ASC",
+  "name_en": "Scan histPerfRatio5y Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近5年報酬率最低",
+  "tooltip_zh": "近5年股價報酬率最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatio5y_DESC",
+  "name_en": "Scan histPerfRatio5y Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近5年報酬率最高",
+  "tooltip_zh": "近5年股價報酬率最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatio6m_ASC",
+  "name_en": "Scan histPerfRatio6m Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近6月報酬率最低",
+  "tooltip_zh": "近6個月股價報酬率最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatio6m_DESC",
+  "name_en": "Scan histPerfRatio6m Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近6月報酬率最高",
+  "tooltip_zh": "近6個月股價報酬率最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatioMTD_ASC",
+  "name_en": "Scan histPerfRatioMTD Asc",
+  "name_en_is_guess": true,
+  "name_zh": "本月至今報酬率最低",
+  "tooltip_zh": "本月至今(MTD)股價報酬率最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatioMTD_DESC",
+  "name_en": "Scan histPerfRatioMTD Desc",
+  "name_en_is_guess": true,
+  "name_zh": "本月至今報酬率最高",
+  "tooltip_zh": "本月至今(MTD)股價報酬率最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatioYTD_ASC",
+  "name_en": "Scan histPerfRatioYTD Asc",
+  "name_en_is_guess": true,
+  "name_zh": "本年至今報酬率最低",
+  "tooltip_zh": "本年至今(YTD)股價報酬率最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_histPerfRatioYTD_DESC",
+  "name_en": "Scan histPerfRatioYTD Desc",
+  "name_en_is_guess": true,
+  "name_zh": "本年至今報酬率最高",
+  "tooltip_zh": "本年至今(YTD)股價報酬率最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_hvPercntl13w_ASC",
+  "name_en": "Scan hvPercntl13w Asc",
+  "name_en_is_guess": true,
+  "name_zh": "13週歷史波動率百分位最低",
+  "tooltip_zh": "歷史波動率相對過去13週區間所處百分位最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_hvPercntl13w_DESC",
+  "name_en": "Scan hvPercntl13w Desc",
+  "name_en_is_guess": true,
+  "name_zh": "13週歷史波動率百分位最高",
+  "tooltip_zh": "歷史波動率相對過去13週區間所處百分位最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_hvPercntl26w_ASC",
+  "name_en": "Scan hvPercntl26w Asc",
+  "name_en_is_guess": true,
+  "name_zh": "26週歷史波動率百分位最低",
+  "tooltip_zh": "歷史波動率相對過去26週區間所處百分位最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_hvPercntl26w_DESC",
+  "name_en": "Scan hvPercntl26w Desc",
+  "name_en_is_guess": true,
+  "name_zh": "26週歷史波動率百分位最高",
+  "tooltip_zh": "歷史波動率相對過去26週區間所處百分位最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_hvPercntl52w_ASC",
+  "name_en": "Scan hvPercntl52w Asc",
+  "name_en_is_guess": true,
+  "name_zh": "52週歷史波動率百分位最低",
+  "tooltip_zh": "歷史波動率相對過去52週區間所處百分位最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_hvPercntl52w_DESC",
+  "name_en": "Scan hvPercntl52w Desc",
+  "name_en_is_guess": true,
+  "name_zh": "52週歷史波動率百分位最高",
+  "tooltip_zh": "歷史波動率相對過去52週區間所處百分位最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_hvRank13w_ASC",
+  "name_en": "Scan hvRank13w Asc",
+  "name_en_is_guess": true,
+  "name_zh": "13週歷史波動率排名最低",
+  "tooltip_zh": "歷史波動率相對過去13週區間的Rank值最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_hvRank13w_DESC",
+  "name_en": "Scan hvRank13w Desc",
+  "name_en_is_guess": true,
+  "name_zh": "13週歷史波動率排名最高",
+  "tooltip_zh": "歷史波動率相對過去13週區間的Rank值最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_hvRank26w_ASC",
+  "name_en": "Scan hvRank26w Asc",
+  "name_en_is_guess": true,
+  "name_zh": "26週歷史波動率排名最低",
+  "tooltip_zh": "歷史波動率相對過去26週區間的Rank值最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_hvRank26w_DESC",
+  "name_en": "Scan hvRank26w Desc",
+  "name_en_is_guess": true,
+  "name_zh": "26週歷史波動率排名最高",
+  "tooltip_zh": "歷史波動率相對過去26週區間的Rank值最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_hvRank52w_ASC",
+  "name_en": "Scan hvRank52w Asc",
+  "name_en_is_guess": true,
+  "name_zh": "52週歷史波動率排名最低",
+  "tooltip_zh": "歷史波動率相對過去52週區間的Rank值最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_hvRank52w_DESC",
+  "name_en": "Scan hvRank52w Desc",
+  "name_en_is_guess": true,
+  "name_zh": "52週歷史波動率排名最高",
+  "tooltip_zh": "歷史波動率相對過去52週區間的Rank值最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_ivPercntl13w_ASC",
+  "name_en": "Scan ivPercntl13w Asc",
+  "name_en_is_guess": true,
+  "name_zh": "13週隱含波動率百分位最低",
+  "tooltip_zh": "選擇權隱含波動率相對過去13週區間所處百分位最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_ivPercntl13w_DESC",
+  "name_en": "Scan ivPercntl13w Desc",
+  "name_en_is_guess": true,
+  "name_zh": "13週隱含波動率百分位最高",
+  "tooltip_zh": "選擇權隱含波動率相對過去13週區間所處百分位最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_ivPercntl26w_ASC",
+  "name_en": "Scan ivPercntl26w Asc",
+  "name_en_is_guess": true,
+  "name_zh": "26週隱含波動率百分位最低",
+  "tooltip_zh": "選擇權隱含波動率相對過去26週區間所處百分位最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_ivPercntl26w_DESC",
+  "name_en": "Scan ivPercntl26w Desc",
+  "name_en_is_guess": true,
+  "name_zh": "26週隱含波動率百分位最高",
+  "tooltip_zh": "選擇權隱含波動率相對過去26週區間所處百分位最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_ivPercntl52w_ASC",
+  "name_en": "Scan ivPercntl52w Asc",
+  "name_en_is_guess": true,
+  "name_zh": "52週隱含波動率百分位最低",
+  "tooltip_zh": "選擇權隱含波動率相對過去52週區間所處百分位最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_ivPercntl52w_DESC",
+  "name_en": "Scan ivPercntl52w Desc",
+  "name_en_is_guess": true,
+  "name_zh": "52週隱含波動率百分位最高",
+  "tooltip_zh": "選擇權隱含波動率相對過去52週區間所處百分位最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_ivRank13w_ASC",
+  "name_en": "Scan ivRank13w Asc",
+  "name_en_is_guess": true,
+  "name_zh": "13週隱含波動率排名最低",
+  "tooltip_zh": "選擇權隱含波動率相對過去13週區間的Rank值最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_ivRank13w_DESC",
+  "name_en": "Scan ivRank13w Desc",
+  "name_en_is_guess": true,
+  "name_zh": "13週隱含波動率排名最高",
+  "tooltip_zh": "選擇權隱含波動率相對過去13週區間的Rank值最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_ivRank26w_ASC",
+  "name_en": "Scan ivRank26w Asc",
+  "name_en_is_guess": true,
+  "name_zh": "26週隱含波動率排名最低",
+  "tooltip_zh": "選擇權隱含波動率相對過去26週區間的Rank值最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_ivRank26w_DESC",
+  "name_en": "Scan ivRank26w Desc",
+  "name_en_is_guess": true,
+  "name_zh": "26週隱含波動率排名最高",
+  "tooltip_zh": "選擇權隱含波動率相對過去26週區間的Rank值最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_ivRank52w_ASC",
+  "name_en": "Scan ivRank52w Asc",
+  "name_en_is_guess": true,
+  "name_zh": "52週隱含波動率排名最低",
+  "tooltip_zh": "選擇權隱含波動率相對過去52週區間的Rank值最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_ivRank52w_DESC",
+  "name_en": "Scan ivRank52w Desc",
+  "name_en_is_guess": true,
+  "name_zh": "52週隱含波動率排名最高",
+  "tooltip_zh": "選擇權隱含波動率相對過去52週區間的Rank值最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAdjustedRSquared1yr_ASC",
+  "name_en": "Scan lipperAdjustedRSquared1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAdjustedRSquared1yr_DESC",
+  "name_en": "Scan lipperAdjustedRSquared1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAlpha1yr_ASC",
+  "name_en": "Scan lipperAlpha1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAlpha1yr_DESC",
+  "name_en": "Scan lipperAlpha1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAnnualizedPerformance10yrValue_ASC",
+  "name_en": "Scan lipperAnnualizedPerformance10yrValue Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAnnualizedPerformance10yrValue_DESC",
+  "name_en": "Scan lipperAnnualizedPerformance10yrValue Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAnnualizedPerformance3yrValue_ASC",
+  "name_en": "Scan lipperAnnualizedPerformance3yrValue Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAnnualizedPerformance3yrValue_DESC",
+  "name_en": "Scan lipperAnnualizedPerformance3yrValue Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAnnualizedPerformance5yrValue_ASC",
+  "name_en": "Scan lipperAnnualizedPerformance5yrValue Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAnnualizedPerformance5yrValue_DESC",
+  "name_en": "Scan lipperAnnualizedPerformance5yrValue Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAverageCoupon_ASC",
+  "name_en": "Scan lipperAverageCoupon Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAverageCoupon_DESC",
+  "name_en": "Scan lipperAverageCoupon Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAverageFinalCompositeZScore_ASC",
+  "name_en": "Scan lipperAverageFinalCompositeZScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAverageFinalCompositeZScore_DESC",
+  "name_en": "Scan lipperAverageFinalCompositeZScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAverageLoss1yr_ASC",
+  "name_en": "Scan lipperAverageLoss1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAverageLoss1yr_DESC",
+  "name_en": "Scan lipperAverageLoss1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAverageReturn1yr_ASC",
+  "name_en": "Scan lipperAverageReturn1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperAverageReturn1yr_DESC",
+  "name_en": "Scan lipperAverageReturn1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperBearBeta1yr_ASC",
+  "name_en": "Scan lipperBearBeta1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperBearBeta1yr_DESC",
+  "name_en": "Scan lipperBearBeta1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperBeta1yr_ASC",
+  "name_en": "Scan lipperBeta1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperBeta1yr_DESC",
+  "name_en": "Scan lipperBeta1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperBullBeta1yr_ASC",
+  "name_en": "Scan lipperBullBeta1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperBullBeta1yr_DESC",
+  "name_en": "Scan lipperBullBeta1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperCalculatedAverageQuality_ASC",
+  "name_en": "Scan lipperCalculatedAverageQuality Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperCalculatedAverageQuality_DESC",
+  "name_en": "Scan lipperCalculatedAverageQuality Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperCorrelation1yr_ASC",
+  "name_en": "Scan lipperCorrelation1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperCorrelation1yr_DESC",
+  "name_en": "Scan lipperCorrelation1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperCovariance1yr_ASC",
+  "name_en": "Scan lipperCovariance1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperCovariance1yr_DESC",
+  "name_en": "Scan lipperCovariance1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDistributionYield1yrValue_ASC",
+  "name_en": "Scan lipperDistributionYield1yrValue Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDistributionYield1yrValue_DESC",
+  "name_en": "Scan lipperDistributionYield1yrValue Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDividendPayoutRatio5yr_ASC",
+  "name_en": "Scan lipperDividendPayoutRatio5yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDividendPayoutRatio5yr_DESC",
+  "name_en": "Scan lipperDividendPayoutRatio5yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDividendPayoutRatio_ASC",
+  "name_en": "Scan lipperDividendPayoutRatio Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDividendPayoutRatio_DESC",
+  "name_en": "Scan lipperDividendPayoutRatio Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDividendPerShare1yr_ASC",
+  "name_en": "Scan lipperDividendPerShare1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDividendPerShare1yr_DESC",
+  "name_en": "Scan lipperDividendPerShare1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDividendPerShare3yr_ASC",
+  "name_en": "Scan lipperDividendPerShare3yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDividendPerShare3yr_DESC",
+  "name_en": "Scan lipperDividendPerShare3yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDividendYieldWAvg_ASC",
+  "name_en": "Scan lipperDividendYieldWAvg Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDividendYieldWAvg_DESC",
+  "name_en": "Scan lipperDividendYieldWAvg Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDividendYieldZScore_ASC",
+  "name_en": "Scan lipperDividendYieldZScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDividendYieldZScore_DESC",
+  "name_en": "Scan lipperDividendYieldZScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDownsideDeviationPopulation1yr_ASC",
+  "name_en": "Scan lipperDownsideDeviationPopulation1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperDownsideDeviationPopulation1yr_DESC",
+  "name_en": "Scan lipperDownsideDeviationPopulation1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperEBIT2Interest_ASC",
+  "name_en": "Scan lipperEBIT2Interest Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperEBIT2Interest_DESC",
+  "name_en": "Scan lipperEBIT2Interest Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperEPSGrowth1yr_ASC",
+  "name_en": "Scan lipperEPSGrowth1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperEPSGrowth1yr_DESC",
+  "name_en": "Scan lipperEPSGrowth1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperEPSGrowth3yr_ASC",
+  "name_en": "Scan lipperEPSGrowth3yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperEPSGrowth3yr_DESC",
+  "name_en": "Scan lipperEPSGrowth3yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperEPSGrowth5yr_ASC",
+  "name_en": "Scan lipperEPSGrowth5yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperEPSGrowth5yr_DESC",
+  "name_en": "Scan lipperEPSGrowth5yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperEffectiveMaturity_ASC",
+  "name_en": "Scan lipperEffectiveMaturity Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperEffectiveMaturity_DESC",
+  "name_en": "Scan lipperEffectiveMaturity Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperFundLeverageRatio_ASC",
+  "name_en": "Scan lipperFundLeverageRatio Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperFundLeverageRatio_DESC",
+  "name_en": "Scan lipperFundLeverageRatio Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperInformationRatio1yr_ASC",
+  "name_en": "Scan lipperInformationRatio1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperInformationRatio1yr_DESC",
+  "name_en": "Scan lipperInformationRatio1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLTDebt2ShareholdersEquity_ASC",
+  "name_en": "Scan lipperLTDebt2ShareholdersEquity Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLTDebt2ShareholdersEquity_DESC",
+  "name_en": "Scan lipperLTDebt2ShareholdersEquity Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestCompositeZScore_ASC",
+  "name_en": "Scan lipperLatestCompositeZScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestCompositeZScore_DESC",
+  "name_en": "Scan lipperLatestCompositeZScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestPrice2BookRatio_ASC",
+  "name_en": "Scan lipperLatestPrice2BookRatio Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestPrice2BookRatio_DESC",
+  "name_en": "Scan lipperLatestPrice2BookRatio Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestPrice2BookZScore_ASC",
+  "name_en": "Scan lipperLatestPrice2BookZScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestPrice2BookZScore_DESC",
+  "name_en": "Scan lipperLatestPrice2BookZScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestPrice2EarningsRatio_ASC",
+  "name_en": "Scan lipperLatestPrice2EarningsRatio Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestPrice2EarningsRatio_DESC",
+  "name_en": "Scan lipperLatestPrice2EarningsRatio Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestPrice2EarningsZScore_ASC",
+  "name_en": "Scan lipperLatestPrice2EarningsZScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestPrice2EarningsZScore_DESC",
+  "name_en": "Scan lipperLatestPrice2EarningsZScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestPrice2SalesRatio_ASC",
+  "name_en": "Scan lipperLatestPrice2SalesRatio Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestPrice2SalesRatio_DESC",
+  "name_en": "Scan lipperLatestPrice2SalesRatio Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestPrice2SalesZScore_ASC",
+  "name_en": "Scan lipperLatestPrice2SalesZScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestPrice2SalesZScore_DESC",
+  "name_en": "Scan lipperLatestPrice2SalesZScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestReturnOnEquityWAvg_ASC",
+  "name_en": "Scan lipperLatestReturnOnEquityWAvg Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestReturnOnEquityWAvg_DESC",
+  "name_en": "Scan lipperLatestReturnOnEquityWAvg Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestSPSGrowthZScore_ASC",
+  "name_en": "Scan lipperLatestSPSGrowthZScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestSPSGrowthZScore_DESC",
+  "name_en": "Scan lipperLatestSPSGrowthZScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestSalesPerShareGrowth3yr_ASC",
+  "name_en": "Scan lipperLatestSalesPerShareGrowth3yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperLatestSalesPerShareGrowth3yr_DESC",
+  "name_en": "Scan lipperLatestSalesPerShareGrowth3yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperMaxGain1yr_ASC",
+  "name_en": "Scan lipperMaxGain1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperMaxGain1yr_DESC",
+  "name_en": "Scan lipperMaxGain1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperMaxLoss1yr_ASC",
+  "name_en": "Scan lipperMaxLoss1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperMaxLoss1yr_DESC",
+  "name_en": "Scan lipperMaxLoss1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperMaximumDrawdown1yr_ASC",
+  "name_en": "Scan lipperMaximumDrawdown1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperMaximumDrawdown1yr_DESC",
+  "name_en": "Scan lipperMaximumDrawdown1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperMktCapAvgLatest_ASC",
+  "name_en": "Scan lipperMktCapAvgLatest Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperMktCapAvgLatest_DESC",
+  "name_en": "Scan lipperMktCapAvgLatest Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperNominalMaturity_ASC",
+  "name_en": "Scan lipperNominalMaturity Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperNominalMaturity_DESC",
+  "name_en": "Scan lipperNominalMaturity Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperNumberOfSecurities_ASC",
+  "name_en": "Scan lipperNumberOfSecurities Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperNumberOfSecurities_DESC",
+  "name_en": "Scan lipperNumberOfSecurities Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperOperCashFlowGrowthRate3yr_ASC",
+  "name_en": "Scan lipperOperCashFlowGrowthRate3yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperOperCashFlowGrowthRate3yr_DESC",
+  "name_en": "Scan lipperOperCashFlowGrowthRate3yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPctChange_ASC",
+  "name_en": "Scan lipperPctChange Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPctChange_DESC",
+  "name_en": "Scan lipperPctChange Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPercentageGrowthCumulativeValue_ASC",
+  "name_en": "Scan lipperPercentageGrowthCumulativeValue Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPercentageGrowthCumulativeValue_DESC",
+  "name_en": "Scan lipperPercentageGrowthCumulativeValue Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPositivePeriods1yr_ASC",
+  "name_en": "Scan lipperPositivePeriods1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPositivePeriods1yr_DESC",
+  "name_en": "Scan lipperPositivePeriods1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPrice2BookRatio_ASC",
+  "name_en": "Scan lipperPrice2BookRatio Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPrice2BookRatio_DESC",
+  "name_en": "Scan lipperPrice2BookRatio Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPrice2Cash_ASC",
+  "name_en": "Scan lipperPrice2Cash Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPrice2Cash_DESC",
+  "name_en": "Scan lipperPrice2Cash Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPrice2Dividend_ASC",
+  "name_en": "Scan lipperPrice2Dividend Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPrice2Dividend_DESC",
+  "name_en": "Scan lipperPrice2Dividend Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPrice2EarningsRatio_ASC",
+  "name_en": "Scan lipperPrice2EarningsRatio Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPrice2EarningsRatio_DESC",
+  "name_en": "Scan lipperPrice2EarningsRatio Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPrice2SalesRatio_ASC",
+  "name_en": "Scan lipperPrice2SalesRatio Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperPrice2SalesRatio_DESC",
+  "name_en": "Scan lipperPrice2SalesRatio Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperProjectedYieldValue_ASC",
+  "name_en": "Scan lipperProjectedYieldValue Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperProjectedYieldValue_DESC",
+  "name_en": "Scan lipperProjectedYieldValue Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperRSquared1yr_ASC",
+  "name_en": "Scan lipperRSquared1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperRSquared1yr_DESC",
+  "name_en": "Scan lipperRSquared1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperRelativeStrength_ASC",
+  "name_en": "Scan lipperRelativeStrength Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperRelativeStrength_DESC",
+  "name_en": "Scan lipperRelativeStrength Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnAssets1yr_ASC",
+  "name_en": "Scan lipperReturnOnAssets1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnAssets1yr_DESC",
+  "name_en": "Scan lipperReturnOnAssets1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnAssets3yr_ASC",
+  "name_en": "Scan lipperReturnOnAssets3yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnAssets3yr_DESC",
+  "name_en": "Scan lipperReturnOnAssets3yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnCapital3yr_ASC",
+  "name_en": "Scan lipperReturnOnCapital3yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnCapital3yr_DESC",
+  "name_en": "Scan lipperReturnOnCapital3yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnCapital_ASC",
+  "name_en": "Scan lipperReturnOnCapital Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnCapital_DESC",
+  "name_en": "Scan lipperReturnOnCapital Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnEquity1yr_ASC",
+  "name_en": "Scan lipperReturnOnEquity1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnEquity1yr_DESC",
+  "name_en": "Scan lipperReturnOnEquity1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnEquity3yr_ASC",
+  "name_en": "Scan lipperReturnOnEquity3yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnEquity3yr_DESC",
+  "name_en": "Scan lipperReturnOnEquity3yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnEquityZScore_ASC",
+  "name_en": "Scan lipperReturnOnEquityZScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnEquityZScore_DESC",
+  "name_en": "Scan lipperReturnOnEquityZScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnInvestment1yr_ASC",
+  "name_en": "Scan lipperReturnOnInvestment1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnInvestment1yr_DESC",
+  "name_en": "Scan lipperReturnOnInvestment1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnInvestment3yr_ASC",
+  "name_en": "Scan lipperReturnOnInvestment3yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnOnInvestment3yr_DESC",
+  "name_en": "Scan lipperReturnOnInvestment3yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnRiskRatio1yr_ASC",
+  "name_en": "Scan lipperReturnRiskRatio1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperReturnRiskRatio1yr_DESC",
+  "name_en": "Scan lipperReturnRiskRatio1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSRRI1yr_ASC",
+  "name_en": "Scan lipperSRRI1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSRRI1yr_DESC",
+  "name_en": "Scan lipperSRRI1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSales2TotalAssets_ASC",
+  "name_en": "Scan lipperSales2TotalAssets Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSales2TotalAssets_DESC",
+  "name_en": "Scan lipperSales2TotalAssets Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSalesGrowth1yr_ASC",
+  "name_en": "Scan lipperSalesGrowth1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSalesGrowth1yr_DESC",
+  "name_en": "Scan lipperSalesGrowth1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSalesGrowth3yr_ASC",
+  "name_en": "Scan lipperSalesGrowth3yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSalesGrowth3yr_DESC",
+  "name_en": "Scan lipperSalesGrowth3yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSalesGrowth5yr_ASC",
+  "name_en": "Scan lipperSalesGrowth5yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSalesGrowth5yr_DESC",
+  "name_en": "Scan lipperSalesGrowth5yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSalesPerShareGrowth1yr_ASC",
+  "name_en": "Scan lipperSalesPerShareGrowth1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSalesPerShareGrowth1yr_DESC",
+  "name_en": "Scan lipperSalesPerShareGrowth1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSalesPerShareGrowth3yr_ASC",
+  "name_en": "Scan lipperSalesPerShareGrowth3yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSalesPerShareGrowth3yr_DESC",
+  "name_en": "Scan lipperSalesPerShareGrowth3yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSemiDeviation1yr_ASC",
+  "name_en": "Scan lipperSemiDeviation1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSemiDeviation1yr_DESC",
+  "name_en": "Scan lipperSemiDeviation1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSemiVariance1yr_ASC",
+  "name_en": "Scan lipperSemiVariance1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSemiVariance1yr_DESC",
+  "name_en": "Scan lipperSemiVariance1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSharpeRatio1yr_ASC",
+  "name_en": "Scan lipperSharpeRatio1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSharpeRatio1yr_DESC",
+  "name_en": "Scan lipperSharpeRatio1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSortino1yr_ASC",
+  "name_en": "Scan lipperSortino1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperSortino1yr_DESC",
+  "name_en": "Scan lipperSortino1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperStandardDeviation1yr_ASC",
+  "name_en": "Scan lipperStandardDeviation1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperStandardDeviation1yr_DESC",
+  "name_en": "Scan lipperStandardDeviation1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperTotalAssets2TotalEquity_ASC",
+  "name_en": "Scan lipperTotalAssets2TotalEquity Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperTotalAssets2TotalEquity_DESC",
+  "name_en": "Scan lipperTotalAssets2TotalEquity Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperTotalDebt2TotalCapital_ASC",
+  "name_en": "Scan lipperTotalDebt2TotalCapital Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperTotalDebt2TotalCapital_DESC",
+  "name_en": "Scan lipperTotalDebt2TotalCapital Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperTotalDebt2TotalEquity_ASC",
+  "name_en": "Scan lipperTotalDebt2TotalEquity Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperTotalDebt2TotalEquity_DESC",
+  "name_en": "Scan lipperTotalDebt2TotalEquity Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperTotalExpenseRatio_ASC",
+  "name_en": "Scan lipperTotalExpenseRatio Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperTotalExpenseRatio_DESC",
+  "name_en": "Scan lipperTotalExpenseRatio Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperTotalNetAssets_ASC",
+  "name_en": "Scan lipperTotalNetAssets Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperTotalNetAssets_DESC",
+  "name_en": "Scan lipperTotalNetAssets Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperTrackingError1yr_ASC",
+  "name_en": "Scan lipperTrackingError1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperTrackingError1yr_DESC",
+  "name_en": "Scan lipperTrackingError1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperTreynorRatio1yr_ASC",
+  "name_en": "Scan lipperTreynorRatio1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperTreynorRatio1yr_DESC",
+  "name_en": "Scan lipperTreynorRatio1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperValueAtRiskNormal1yr_ASC",
+  "name_en": "Scan lipperValueAtRiskNormal1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperValueAtRiskNormal1yr_DESC",
+  "name_en": "Scan lipperValueAtRiskNormal1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperValueAtRiskNormalETL1yr_ASC",
+  "name_en": "Scan lipperValueAtRiskNormalETL1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperValueAtRiskNormalETL1yr_DESC",
+  "name_en": "Scan lipperValueAtRiskNormalETL1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperValueAtRiskQuantile1yr_ASC",
+  "name_en": "Scan lipperValueAtRiskQuantile1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperValueAtRiskQuantile1yr_DESC",
+  "name_en": "Scan lipperValueAtRiskQuantile1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperValueAtRiskQuantileETL1yr_ASC",
+  "name_en": "Scan lipperValueAtRiskQuantileETL1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperValueAtRiskQuantileETL1yr_DESC",
+  "name_en": "Scan lipperValueAtRiskQuantileETL1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperVariance1yr_ASC",
+  "name_en": "Scan lipperVariance1yr Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperVariance1yr_DESC",
+  "name_en": "Scan lipperVariance1yr Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperWeightedFinalCompositeZScore_ASC",
+  "name_en": "Scan lipperWeightedFinalCompositeZScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperWeightedFinalCompositeZScore_DESC",
+  "name_en": "Scan lipperWeightedFinalCompositeZScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperYieldToMaturity_ASC",
+  "name_en": "Scan lipperYieldToMaturity Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperYieldToMaturity_DESC",
+  "name_en": "Scan lipperYieldToMaturity Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperYieldValue_ASC",
+  "name_en": "Scan lipperYieldValue Asc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_lipperYieldValue_DESC",
+  "name_en": "Scan lipperYieldValue Desc",
+  "name_en_is_guess": true,
+  "name_zh": "",
+  "tooltip_zh": "",
+  "access": "unrestricted",
+  "instruments": [
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_netProfitMarginTTM_ASC",
+  "name_en": "Scan netProfitMarginTTM Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近12月淨利率最低",
+  "tooltip_zh": "近12個月淨利率(Net Profit Margin)最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_netProfitMarginTTM_DESC",
+  "name_en": "Scan netProfitMarginTTM Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近12月淨利率最高",
+  "tooltip_zh": "近12個月淨利率(Net Profit Margin)最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_numPriceTargets_ASC",
+  "name_en": "Scan numPriceTargets Asc",
+  "name_en_is_guess": true,
+  "name_zh": "目標價家數最少",
+  "tooltip_zh": "提供目標價的分析師家數最少的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_numPriceTargets_DESC",
+  "name_en": "Scan numPriceTargets Desc",
+  "name_en_is_guess": true,
+  "name_zh": "目標價家數最多",
+  "tooltip_zh": "提供目標價的分析師家數最多的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_numRatings_ASC",
+  "name_en": "Scan numRatings Asc",
+  "name_en_is_guess": true,
+  "name_zh": "分析師評等家數最少",
+  "tooltip_zh": "提供評等的分析師家數最少的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_numRatings_DESC",
+  "name_en": "Scan numRatings Desc",
+  "name_en_is_guess": true,
+  "name_zh": "分析師評等家數最多",
+  "tooltip_zh": "提供評等的分析師家數最多的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_numShares_ASC",
+  "name_en": "Scan numShares Asc",
+  "name_en_is_guess": true,
+  "name_zh": "總股數最少",
+  "tooltip_zh": "公司已發行總股數最少的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_numShares_DESC",
+  "name_en": "Scan numShares Desc",
+  "name_en_is_guess": true,
+  "name_zh": "總股數最多",
+  "tooltip_zh": "公司已發行總股數最多的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_operatingMarginTTM_ASC",
+  "name_en": "Scan operatingMarginTTM Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近12月營益率最低",
+  "tooltip_zh": "近12個月營業利益率(Operating Margin)最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_operatingMarginTTM_DESC",
+  "name_en": "Scan operatingMarginTTM Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近12月營益率最高",
+  "tooltip_zh": "近12個月營業利益率(Operating Margin)最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_payoutRatioTTM_ASC",
+  "name_en": "Scan payoutRatioTTM Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近12月股利發放率最低",
+  "tooltip_zh": "近12個月股利發放率(Payout Ratio)最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_payoutRatioTTM_DESC",
+  "name_en": "Scan payoutRatioTTM Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近12月股利發放率最高",
+  "tooltip_zh": "近12個月股利發放率(Payout Ratio)最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_price2CashTTM_ASC",
+  "name_en": "Scan price2CashTTM Asc",
+  "name_en_is_guess": true,
+  "name_zh": "股價現金比最低",
+  "tooltip_zh": "近12個月股價對每股現金比值(Price/Cash)最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_price2CashTTM_DESC",
+  "name_en": "Scan price2CashTTM Desc",
+  "name_en_is_guess": true,
+  "name_zh": "股價現金比最高",
+  "tooltip_zh": "近12個月股價對每股現金比值(Price/Cash)最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_returnOnInvestmentTTM_ASC",
+  "name_en": "Scan returnOnInvestmentTTM Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近12月投資報酬率最低",
+  "tooltip_zh": "近12個月投資報酬率(ROI)最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_returnOnInvestmentTTM_DESC",
+  "name_en": "Scan returnOnInvestmentTTM Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近12月投資報酬率最高",
+  "tooltip_zh": "近12個月投資報酬率(ROI)最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_revChange_ASC",
+  "name_en": "Scan revChange Asc",
+  "name_en_is_guess": true,
+  "name_zh": "營收變動率最低",
+  "tooltip_zh": "營收變動率最低(衰退最多)的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_revChange_DESC",
+  "name_en": "Scan revChange Desc",
+  "name_en_is_guess": true,
+  "name_zh": "營收變動率最高",
+  "tooltip_zh": "營收變動率最高(成長最多)的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_revGrowthRate5Y_ASC",
+  "name_en": "Scan revGrowthRate5Y Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近5年營收成長率最低",
+  "tooltip_zh": "近5年營收成長率最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_revGrowthRate5Y_DESC",
+  "name_en": "Scan revGrowthRate5Y Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近5年營收成長率最高",
+  "tooltip_zh": "近5年營收成長率最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_sharesAvailableNorm_ASC",
+  "name_en": "Scan sharesAvailableNorm Asc",
+  "name_en_is_guess": true,
+  "name_zh": "可借券股數最少",
+  "tooltip_zh": "可供放空借券的股數(標準化後)最少的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_sharesAvailableNorm_DESC",
+  "name_en": "Scan sharesAvailableNorm Desc",
+  "name_en_is_guess": true,
+  "name_zh": "可借券股數最多",
+  "tooltip_zh": "可供放空借券的股數(標準化後)最多的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_socialSentimentScoreChange_ASC",
+  "name_en": "Scan socialSentimentScoreChange Asc",
+  "name_en_is_guess": true,
+  "name_zh": "社群情緒變動最負向",
+  "tooltip_zh": "社群媒體情緒分數變動幅度最低(轉差最多)的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_socialSentimentScoreChange_DESC",
+  "name_en": "Scan socialSentimentScoreChange Desc",
+  "name_en_is_guess": true,
+  "name_zh": "社群情緒變動最正向",
+  "tooltip_zh": "社群媒體情緒分數變動幅度最高(轉好最多)的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_socialSentimentScore_ASC",
+  "name_en": "Scan socialSentimentScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "社群情緒分數最低",
+  "tooltip_zh": "社群媒體情緒分數最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_socialSentimentScore_DESC",
+  "name_en": "Scan socialSentimentScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "社群情緒分數最高",
+  "tooltip_zh": "社群媒體情緒分數最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_stVolumeVsAvg10min_ASC",
+  "name_en": "Scan stVolumeVsAvg10min Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近10分鐘量對均量比最低",
+  "tooltip_zh": "近10分鐘成交量相對平均成交量比值最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_stVolumeVsAvg10min_DESC",
+  "name_en": "Scan stVolumeVsAvg10min Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近10分鐘量對均量比最高",
+  "tooltip_zh": "近10分鐘成交量相對平均成交量比值最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_stVolumeVsAvg3min_ASC",
+  "name_en": "Scan stVolumeVsAvg3min Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近3分鐘量對均量比最低",
+  "tooltip_zh": "近3分鐘成交量相對平均成交量比值最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_stVolumeVsAvg3min_DESC",
+  "name_en": "Scan stVolumeVsAvg3min Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近3分鐘量對均量比最高",
+  "tooltip_zh": "近3分鐘成交量相對平均成交量比值最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_stVolumeVsAvg5min_ASC",
+  "name_en": "Scan stVolumeVsAvg5min Asc",
+  "name_en_is_guess": true,
+  "name_zh": "近5分鐘量對均量比最低",
+  "tooltip_zh": "近5分鐘成交量相對平均成交量比值最低的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_stVolumeVsAvg5min_DESC",
+  "name_en": "Scan stVolumeVsAvg5min Desc",
+  "name_en_is_guess": true,
+  "name_zh": "近5分鐘量對均量比最高",
+  "tooltip_zh": "近5分鐘成交量相對平均成交量比值最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_tweetVolumeScoreChange_ASC",
+  "name_en": "Scan tweetVolumeScoreChange Asc",
+  "name_en_is_guess": true,
+  "name_zh": "推特討論量變動最低",
+  "tooltip_zh": "推特(Twitter/X)討論量分數變動幅度最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_tweetVolumeScoreChange_DESC",
+  "name_en": "Scan tweetVolumeScoreChange Desc",
+  "name_en_is_guess": true,
+  "name_zh": "推特討論量變動最高",
+  "tooltip_zh": "推特(Twitter/X)討論量分數變動幅度最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_tweetVolumeScore_ASC",
+  "name_en": "Scan tweetVolumeScore Asc",
+  "name_en_is_guess": true,
+  "name_zh": "推特討論量分數最低",
+  "tooltip_zh": "推特(Twitter/X)討論量分數最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_tweetVolumeScore_DESC",
+  "name_en": "Scan tweetVolumeScore Desc",
+  "name_en_is_guess": true,
+  "name_zh": "推特討論量分數最高",
+  "tooltip_zh": "推特(Twitter/X)討論量分數最高的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "SCAN_utilization_ASC",
+  "name_en": "Scan utilization Asc",
+  "name_en_is_guess": true,
+  "name_zh": "借券使用率最低",
+  "tooltip_zh": "股票借券使用率(已借出股數占可借股數比例)最低的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "SCAN_utilization_DESC",
+  "name_en": "Scan utilization Desc",
+  "name_en_is_guess": true,
+  "name_zh": "借券使用率最高",
+  "tooltip_zh": "股票借券使用率最高，反映放空壓力較大的股票。",
+  "access": "unrestricted",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "TOP_AFTER_HOURS_PERC_GAIN",
+  "name_en": "Top After Hours Percent Gain",
+  "name_en_is_guess": true,
+  "name_zh": "盤後漲幅最大",
+  "tooltip_zh": "盤後交易時段股價漲幅最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "TOP_AFTER_HOURS_PERC_LOSE",
+  "name_en": "Top After Hours Percent Lose",
+  "name_en_is_guess": true,
+  "name_zh": "盤後跌幅最大",
+  "tooltip_zh": "盤後交易時段股價跌幅最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "TOP_OPEN_PERC_GAIN",
+  "name_en": "Top Open Percent Gain",
+  "name_en_is_guess": true,
+  "name_zh": "開盤漲幅最大",
+  "tooltip_zh": "相對前一收盤價，開盤漲幅最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "TOP_OPEN_PERC_LOSE",
+  "name_en": "Top Open Percent Lose",
+  "name_en_is_guess": true,
+  "name_zh": "開盤跌幅最大",
+  "tooltip_zh": "相對前一收盤價，開盤跌幅最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "TOP_OPT_IMP_VOLAT_GAIN",
+  "name_en": "Top Option Implied Volatility Gain",
+  "name_en_is_guess": true,
+  "name_zh": "隱含波動率漲幅最大",
+  "tooltip_zh": "選擇權隱含波動率當日上升幅度最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "TOP_OPT_IMP_VOLAT_LOSE",
+  "name_en": "Top Option Implied Volatility Lose",
+  "name_en_is_guess": true,
+  "name_zh": "隱含波動率跌幅最大",
+  "tooltip_zh": "選擇權隱含波動率當日下降幅度最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "TOP_PERC_GAIN",
+  "name_en": "% Gainers (High-Low)",
+  "name_en_is_guess": false,
+  "name_zh": "股價漲幅最大",
+  "tooltip_zh": "當日股價漲幅百分比最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "TOP_PERC_LOSE",
+  "name_en": "% Losers (High-Low)",
+  "name_en_is_guess": false,
+  "name_zh": "股價跌幅最大",
+  "tooltip_zh": "當日股價跌幅百分比最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "TOP_PRICE_RANGE",
+  "name_en": "Top Price Range",
+  "name_en_is_guess": true,
+  "name_zh": "股價振幅最大",
+  "tooltip_zh": "當日股價最高最低價差(振幅)最大的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "TOP_STOCK_BUY_IMBALANCE_ADV_RATIO",
+  "name_en": "Top Stock Buy Imbalance Adv Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "買盤失衡比最高",
+  "tooltip_zh": "買方委託失衡量相對平均成交量(ADV)比值最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "TOP_STOCK_BUY_REG_IMBALANCE_ADV_RATIO",
+  "name_en": "Top Stock Buy Reg Imbalance Adv Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "常規時段買盤失衡比最高",
+  "tooltip_zh": "正規交易時段買方委託失衡量相對平均成交量比值最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "TOP_STOCK_SELL_IMBALANCE_ADV_RATIO",
+  "name_en": "Top Stock Sell Imbalance Adv Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "賣盤失衡比最高",
+  "tooltip_zh": "賣方委託失衡量相對平均成交量(ADV)比值最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "TOP_STOCK_SELL_REG_IMBALANCE_ADV_RATIO",
+  "name_en": "Top Stock Sell Reg Imbalance Adv Ratio",
+  "name_en_is_guess": true,
+  "name_zh": "常規時段賣盤失衡比最高",
+  "tooltip_zh": "正規交易時段賣方委託失衡量相對平均成交量比值最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK"
+  ]
+ },
+ {
+  "code": "TOP_TRADE_COUNT",
+  "name_en": "Trade Count (High-Low)",
+  "name_en_is_guess": false,
+  "name_zh": "成交筆數最多",
+  "tooltip_zh": "當日成交筆數最多的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "TOP_TRADE_RATE",
+  "name_en": "Trade Rate (High-Low)",
+  "name_en_is_guess": false,
+  "name_zh": "成交速率最快",
+  "tooltip_zh": "近期每分鐘成交筆數(成交速率)最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ },
+ {
+  "code": "TOP_VOLUME_RATE",
+  "name_en": "Top Volume Rate",
+  "name_en_is_guess": true,
+  "name_zh": "成交量增速最快",
+  "tooltip_zh": "近期成交量相對平均量增加速率最高的股票。",
+  "access": "allowed",
+  "instruments": [
+   "STK",
+   "ETF.EQ.US"
+  ]
+ }
+]

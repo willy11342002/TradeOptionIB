@@ -21,7 +21,15 @@ pref/
 # pref/ 的例外，見 app/paths.py 的說明。
 .env
 
-# gce/ 底下部署到 VM 用的 IBC config.ini 含帳密，只留 .example 範本進
-# 版控，實際檔案(config.live.ini/config.paper.ini)不要 commit。
-gce/ibc/config.live.ini
-gce/ibc/config.paper.ini
+# gce/ 部署腳本讀的 GCP project id、IBKR 帳密等設定，只留 .example 範
+# 本進版控，實際檔案不要 commit。
+gce/.env
+
+# reqScannerParametersAsync() 的原始 XML 全量 dump (~1.8MB)，只是產生
+# app/resources/scan_filters.json / scan_types.json 這兩份精簡翻譯資料
+# 用的一次性素材 (scripts/gen_scanner_catalog.py)，app 本身不吃這個檔
+# 案，不需要進版控。
+scanner_parameters.xml
+
+# app/services/app_logging.py 寫的錯誤/崩潰紀錄，本機除錯用，不進版控。
+logs/

@@ -1,0 +1,7265 @@
+[
+ {
+  "id": "AV1MOCHNG",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "1個月報酬率",
+  "tooltip_zh": "過去1個月總報酬率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etf1moChngAbove",
+    "name_en": "1mo Change (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etf1moChngBelow",
+    "name_en": "1mo Change (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AV3MOCHNG",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "3個月報酬率",
+  "tooltip_zh": "過去3個月總報酬率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etf3moChngAbove",
+    "name_en": "3mo Change (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etf3moChngBelow",
+    "name_en": "3mo Change (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AV5YREPS",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "5年EPS成長率",
+  "tooltip_zh": "過去5年每股盈餘複合成長率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etf5yrEPSAbove",
+    "name_en": "5yr EPS Growth (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etf5yrEPSBelow",
+    "name_en": "5yr EPS Growth (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVALTAR",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "ALTAR評分",
+  "tooltip_zh": "AltaVista綜合評分指標",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfALTARAbove",
+    "name_en": "Altar Score (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "etfALTARBelow",
+    "name_en": "Altar Score (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVASSETS",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "管理資產規模",
+  "tooltip_zh": "基金管理的總資產金額",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfAssetsAbove",
+    "name_en": "Assets Under Management (AltaVista) Above",
+    "unit_zh": "百萬美元"
+   },
+   {
+    "code": "etfAssetsBelow",
+    "name_en": "Assets Under Management (AltaVista) Below",
+    "unit_zh": "百萬美元"
+   }
+  ]
+ },
+ {
+  "id": "AVASSETTURNS",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "資產周轉率",
+  "tooltip_zh": "營收相對於總資產的比率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfAssetTurnsAbove",
+    "name_en": "Asset Turnover Ratio (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "etfAssetTurnsBelow",
+    "name_en": "Asset Turnover Ratio (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVAVGALTAR",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "平均ALTAR評分",
+  "tooltip_zh": "AltaVista平均綜合評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfAvgALTARAbove",
+    "name_en": "Avg Altar Score (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "etfAvgALTARBelow",
+    "name_en": "Avg Altar Score (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVBETASPX",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "S&P 500 Beta",
+  "tooltip_zh": "相對於標普500指數的Beta值",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfBetaSPXAbove",
+    "name_en": "Beta S&P500 (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "etfBetaSPXBelow",
+    "name_en": "Beta S&P500 (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVBIDASKPCT",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "平均買賣價差",
+  "tooltip_zh": "平均買賣價差佔價格的百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfBidAskPctAbove",
+    "name_en": "Average Bid Ask Spread (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfBidAskPctBelow",
+    "name_en": "Average Bid Ask Spread (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVCOMP_COUNT",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "成分股檔數",
+  "tooltip_zh": "ETF持有的成分股總數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfComponent_CountAbove",
+    "name_en": "Number of Components (AltaVista) Above",
+    "unit_zh": "檔"
+   },
+   {
+    "code": "etfComponent_CountBelow",
+    "name_en": "Number of Components (AltaVista) Below",
+    "unit_zh": "檔"
+   }
+  ]
+ },
+ {
+  "id": "AVCONVEX_WGTAVG",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "加權凸性",
+  "tooltip_zh": "債券組合的加權平均凸性",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfCONVEX_WgtAvgAbove",
+    "name_en": "Convexity Weighted Average (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "etfCONVEX_WgtAvgBelow",
+    "name_en": "Convexity Weighted Average (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVCPN_WGTAVG",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "加權票面利率",
+  "tooltip_zh": "債券組合的加權平均票面利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfCPN_WgtAvgAbove",
+    "name_en": "Coupon Weighted Average (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfCPN_WgtAvgBelow",
+    "name_en": "Coupon Weighted Average (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVCURYLD_WGTAVG",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "加權當期收益率",
+  "tooltip_zh": "債券組合的加權平均當期收益率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfCurYld_WgtAvgAbove",
+    "name_en": "Current Yield Weighted Average (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfCurYld_WgtAvgBelow",
+    "name_en": "Current Yield Weighted Average (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVDEV",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "已開發市場曝險",
+  "tooltip_zh": "投資組合配置於已開發市場的比例",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfDevAbove",
+    "name_en": "Developed Market Exposure (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfDevBelow",
+    "name_en": "Developed Market Exposure (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVDUR_WGTAVG",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "加權麥考利存續期",
+  "tooltip_zh": "債券組合的加權平均麥考利存續期間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfDUR_WgtAvgAbove",
+    "name_en": "Macaulay Duration Weighted Average (AltaVista) Above",
+    "unit_zh": "年"
+   },
+   {
+    "code": "etfDUR_WgtAvgBelow",
+    "name_en": "Macaulay Duration Weighted Average (AltaVista) Below",
+    "unit_zh": "年"
+   }
+  ]
+ },
+ {
+  "id": "AVEMG",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "新興市場曝險",
+  "tooltip_zh": "投資組合配置於新興市場的比例",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfEmgAbove",
+    "name_en": "Emerging Market Exposure (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfEmgBelow",
+    "name_en": "Emerging Market Exposure (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVEXPENSE",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "總開支比率",
+  "tooltip_zh": "年度總開支佔資產的百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfExpenseAbove",
+    "name_en": "Expense (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfExpenseBelow",
+    "name_en": "Expense (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVFINUM_DISTINCT",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "發行機構家數",
+  "tooltip_zh": "債券ETF持有的不同發行機構數量",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfNum_DistinctAbove",
+    "name_en": "Number of Issuers (AltaVista) Above",
+    "unit_zh": "家"
+   },
+   {
+    "code": "etfNum_DistinctBelow",
+    "name_en": "Number of Issuers (AltaVista) Below",
+    "unit_zh": "家"
+   }
+  ]
+ },
+ {
+  "id": "AVFWD_PCF",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "股價現金流量比(預估)",
+  "tooltip_zh": "股價相對於預估每股現金流量的比率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfFwd_PCFAbove",
+    "name_en": "Forward Price/Cash Flow (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "etfFwd_PCFBelow",
+    "name_en": "Forward Price/Cash Flow (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVFWD_PE",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "本益比(預估)",
+  "tooltip_zh": "股價相對於預估每股盈餘的比率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfFwd_PEAbove",
+    "name_en": "Forward Price/Earnings (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "etfFwd_PEBelow",
+    "name_en": "Forward Price/Earnings (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVFWD_YLD",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "殖利率(預估)",
+  "tooltip_zh": "預估未來12個月的股息殖利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfFwd_YldAbove",
+    "name_en": "Forward Dividend Yield (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfFwd_YldBelow",
+    "name_en": "Forward Dividend Yield (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVFYCURBVPS",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "每股淨值(本年度預估)",
+  "tooltip_zh": "本年度預估每股帳面淨值",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "currYrETFFYBVPerShareAbove",
+    "name_en": "Curr Year Book Value Per Share (AltaVista) Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "currYrETFFYBVPerShareBelow",
+    "name_en": "Curr Year Book Value Per Share (AltaVista) Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "AVFYCURDPG",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "每股股息(本年度預估)",
+  "tooltip_zh": "本年度預估每股股息金額",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "currYrETFFYDPSAbove",
+    "name_en": "Curr Year Dividends Per Share (AltaVista) Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "currYrETFFYDPSBelow",
+    "name_en": "Curr Year Dividends Per Share (AltaVista) Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "AVFYCURDY",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "殖利率(本年度預估)",
+  "tooltip_zh": "本年度預估股息殖利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "currYrETFFYDividendYieldAbove",
+    "name_en": "Curr Year Dividend Yield (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "currYrETFFYDividendYieldBelow",
+    "name_en": "Curr Year Dividend Yield (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVFYCUREPS",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "每股盈餘(本年度預估)",
+  "tooltip_zh": "本年度預估每股盈餘",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "currYrETFFYEPSAbove",
+    "name_en": "Curr Year Earnings Per Share (AltaVista) Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "currYrETFFYEPSBelow",
+    "name_en": "Curr Year Earnings Per Share (AltaVista) Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "AVFYCURNET",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "淨利率(今年度)",
+  "tooltip_zh": "依Alta Vista數據篩選今年度淨利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "currYrETFFYNetMarginAbove",
+    "name_en": "Curr Year Net Margins Per Share (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "currYrETFFYNetMarginBelow",
+    "name_en": "Curr Year Net Margins Per Share (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVFYCURPBV",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "股價淨值比(今年度)",
+  "tooltip_zh": "依Alta Vista數據篩選今年度股價淨值比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "currYrETFFYPriceToBookValueAbove",
+    "name_en": "Curr Year Price/Book Value Ratio (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "currYrETFFYPriceToBookValueBelow",
+    "name_en": "Curr Year Price/Book Value Ratio (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVFYCURPCF",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "股價現金流量比(今年度)",
+  "tooltip_zh": "依Alta Vista數據篩選今年度股價現金流量比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "currYrETFFYPriceToCashFlowAbove",
+    "name_en": "Curr Year Price/Cash Flow Ratio (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "currYrETFFYPriceToCashFlowBelow",
+    "name_en": "Curr Year Price/Cash Flow Ratio (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVFYCURPE",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "本益比(今年度)",
+  "tooltip_zh": "依Alta Vista數據篩選今年度本益比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "currYrETFFYPriceToEarningsAbove",
+    "name_en": "Curr Year Price/Earnings Ratio (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "currYrETFFYPriceToEarningsBelow",
+    "name_en": "Curr Year Price/Earnings Ratio (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVFYCURPEG",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "本益成長比(今年度)",
+  "tooltip_zh": "依Alta Vista數據篩選今年度本益成長比(PEG)",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "currYrETFFYPriceToGrowthAbove",
+    "name_en": "Curr Year Price/Growth Ratio (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "currYrETFFYPriceToGrowthBelow",
+    "name_en": "Curr Year Price/Growth Ratio (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVFYCURPS",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "股價營收比(今年度)",
+  "tooltip_zh": "依Alta Vista數據篩選今年度股價營收比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "currYrETFFYPriceToSalesAbove",
+    "name_en": "Curr Year Price/Sales Ratio (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "currYrETFFYPriceToSalesBelow",
+    "name_en": "Curr Year Price/Sales Ratio (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVFYCURROE",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "股東權益報酬率(今年度)",
+  "tooltip_zh": "依Alta Vista數據篩選今年度ROE",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "currYrETFFYRoEAbove",
+    "name_en": "Curr Year Return on Equity (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "currYrETFFYRoEBelow",
+    "name_en": "Curr Year Return on Equity (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVFYCURSALYOY",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "每股營收成長率(今年度)",
+  "tooltip_zh": "依Alta Vista數據篩選今年度每股營收成長率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "currYrETFFYSPSGrowthAbove",
+    "name_en": "Curr Year Sales Per Share Growth (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "currYrETFFYSPSGrowthBelow",
+    "name_en": "Curr Year Sales Per Share Growth (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVFYCURSPS",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "每股營收(今年度)",
+  "tooltip_zh": "依Alta Vista數據篩選今年度每股營收",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "currYrETFFYSPSAbove",
+    "name_en": "Curr Year Sales Per Share (AltaVista) Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "currYrETFFYSPSBelow",
+    "name_en": "Curr Year Sales Per Share (AltaVista) Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "AVFYCURYOY",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "每股盈餘成長率(今年度)",
+  "tooltip_zh": "依Alta Vista數據篩選今年度EPS成長率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "currYrETFFYEPSGrowthAbove",
+    "name_en": "Curr Year Earnings Per Share Growth (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "currYrETFFYEPSGrowthBelow",
+    "name_en": "Curr Year Earnings Per Share Growth (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVFYPRVBVPS",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "每股淨值(前一年度)",
+  "tooltip_zh": "依Alta Vista數據篩選前一年度每股淨值",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "prevYrETFFYBVPerShareAbove",
+    "name_en": "Prev Year Book Value Per Share (AltaVista) Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "prevYrETFFYBVPerShareBelow",
+    "name_en": "Prev Year Book Value Per Share (AltaVista) Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "AVFYPRVDPG",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "每股股利(前一年度)",
+  "tooltip_zh": "依Alta Vista數據篩選前一年度每股股利",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "prevYrETFFYDPSAbove",
+    "name_en": "Prev Year Dividends Per Share (AltaVista) Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "prevYrETFFYDPSBelow",
+    "name_en": "Prev Year Dividends Per Share (AltaVista) Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "AVFYPRVDY",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "股息殖利率(前一年度)",
+  "tooltip_zh": "依Alta Vista數據篩選前一年度股息殖利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "prevYrETFFYDividendYieldAbove",
+    "name_en": "Prev Year Dividend Yield (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "prevYrETFFYDividendYieldBelow",
+    "name_en": "Prev Year Dividend Yield (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVFYPRVEPS",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "每股盈餘(前一年度)",
+  "tooltip_zh": "依Alta Vista數據篩選前一年度EPS",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "prevYrETFFYEPSAbove",
+    "name_en": "Prev Year Earnings Per Share (AltaVista) Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "prevYrETFFYEPSBelow",
+    "name_en": "Prev Year Earnings Per Share (AltaVista) Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "AVFYPRVNET",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "淨利率(前一年度)",
+  "tooltip_zh": "依Alta Vista數據篩選前一年度淨利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "prevYrETFFYNetMarginAbove",
+    "name_en": "Prev Year Net Margins Per Share (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "prevYrETFFYNetMarginBelow",
+    "name_en": "Prev Year Net Margins Per Share (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVFYPRVPBV",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "股價淨值比(前一年度)",
+  "tooltip_zh": "依Alta Vista數據篩選前一年度股價淨值比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "prevYrETFFYPriceToBookValueAbove",
+    "name_en": "Prev Year Price/Book Value Ratio (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "prevYrETFFYPriceToBookValueBelow",
+    "name_en": "Prev Year Price/Book Value Ratio (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVFYPRVPCF",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "股價現金流量比(前一年度)",
+  "tooltip_zh": "依Alta Vista數據篩選前一年度股價現金流量比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "prevYrETFFYPriceToCashFlowAbove",
+    "name_en": "Prev Year Price/Cash Flow Ratio (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "prevYrETFFYPriceToCashFlowBelow",
+    "name_en": "Prev Year Price/Cash Flow Ratio (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVFYPRVPE",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "本益比(前一年度)",
+  "tooltip_zh": "依Alta Vista數據篩選前一年度本益比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "prevYrETFFYPriceToEarningsAbove",
+    "name_en": "Prev Year Price/Earnings Ratio (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "prevYrETFFYPriceToEarningsBelow",
+    "name_en": "Prev Year Price/Earnings Ratio (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVFYPRVPEG",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "本益成長比(前一年度)",
+  "tooltip_zh": "依Alta Vista數據篩選前一年度本益成長比(PEG)",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "prevYrETFFYPriceToGrowthAbove",
+    "name_en": "Prev Year Price/Growth Ratio (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "prevYrETFFYPriceToGrowthBelow",
+    "name_en": "Prev Year Price/Growth Ratio (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVFYPRVPS",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "股價營收比(前一年度)",
+  "tooltip_zh": "依Alta Vista數據篩選前一年度股價營收比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "prevYrETFFYPriceToSalesAbove",
+    "name_en": "Prev Year Price/Sales Ratio (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "prevYrETFFYPriceToSalesBelow",
+    "name_en": "Prev Year Price/Sales Ratio (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVFYPRVROE",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "股東權益報酬率(前一年度)",
+  "tooltip_zh": "依Alta Vista數據篩選前一年度ROE",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "prevYrETFFYRoEAbove",
+    "name_en": "Prev Year Return on Equity (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "prevYrETFFYRoEBelow",
+    "name_en": "Prev Year Return on Equity (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVFYPRVSALYOY",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "每股營收成長率(前一年度)",
+  "tooltip_zh": "依Alta Vista數據篩選前一年度每股營收成長率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "prevYrETFFYSPSGrowthAbove",
+    "name_en": "Prev Year Sales Per Share Growth (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "prevYrETFFYSPSGrowthBelow",
+    "name_en": "Prev Year Sales Per Share Growth (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVFYPRVSPS",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "每股營收(前一年度)",
+  "tooltip_zh": "依Alta Vista數據篩選前一年度每股營收",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "prevYrETFFYSPSAbove",
+    "name_en": "Prev Year Sales Per Share (AltaVista) Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "prevYrETFFYSPSBelow",
+    "name_en": "Prev Year Sales Per Share (AltaVista) Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "AVFYPRVYOY",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "每股盈餘成長率(前一年度)",
+  "tooltip_zh": "依Alta Vista數據篩選前一年度EPS成長率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "prevYrETFFYEPSGrowthAbove",
+    "name_en": "Prev Year Earnings Per Share Growth (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "prevYrETFFYEPSGrowthBelow",
+    "name_en": "Prev Year Earnings Per Share Growth (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVLEVERAGE",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "槓桿倍數",
+  "tooltip_zh": "依Alta Vista數據篩選ETF槓桿倍數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfLeverageAbove",
+    "name_en": "Leverage (AltaVista) Above",
+    "unit_zh": "x"
+   },
+   {
+    "code": "etfLeverageBelow",
+    "name_en": "Leverage (AltaVista) Below",
+    "unit_zh": "x"
+   }
+  ]
+ },
+ {
+  "id": "AVLTG",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "長期成長率",
+  "tooltip_zh": "AltaVista計算的長期成長率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfLTGAbove",
+    "name_en": "Long Term Growth (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfLTGBelow",
+    "name_en": "Long Term Growth (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVMATURITY_WGTAVG",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "加權平均到期日",
+  "tooltip_zh": "AltaVista計算的債券組合加權平均到期日",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfMaturity_WgtAvgAbove",
+    "name_en": "Maturity Weighted Average (AltaVista) Above",
+    "unit_zh": "年"
+   },
+   {
+    "code": "etfMaturity_WgtAvgBelow",
+    "name_en": "Maturity Weighted Average (AltaVista) Below",
+    "unit_zh": "年"
+   }
+  ]
+ },
+ {
+  "id": "AVMOD_DUR_WGTAVG",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "加權平均修正存續期間",
+  "tooltip_zh": "AltaVista計算的債券組合加權平均修正存續期間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfMOD_DUR_WgtAvgAbove",
+    "name_en": "Modified Duration Weighted Average (AltaVista) Above",
+    "unit_zh": "年"
+   },
+   {
+    "code": "etfMOD_DUR_WgtAvgBelow",
+    "name_en": "Modified Duration Weighted Average (AltaVista) Below",
+    "unit_zh": "年"
+   }
+  ]
+ },
+ {
+  "id": "AVPAYOUT",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "配息率",
+  "tooltip_zh": "AltaVista計算的配息率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfPayoutAbove",
+    "name_en": "Payout (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfPayoutBelow",
+    "name_en": "Payout (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVPCT_AT_MTY",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "標準到期日債券占比",
+  "tooltip_zh": "AltaVista計算的具標準到期日債券持有比例",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfPct_at_MtyAbove",
+    "name_en": "Portion With Standard Maturity (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfPct_at_MtyBelow",
+    "name_en": "Portion With Standard Maturity (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVPCT_FIXED",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "固定利率債券占比",
+  "tooltip_zh": "AltaVista計算的固定利率債券持有比例",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfPct_FixedAbove",
+    "name_en": "Portion With Fixed Interest Rate (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfPct_FixedBelow",
+    "name_en": "Portion With Fixed Interest Rate (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVRSI",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "30日RSI",
+  "tooltip_zh": "AltaVista計算的30日相對強弱指標",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfRSIAbove",
+    "name_en": "30-day RSI (AltaVista) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "etfRSIBelow",
+    "name_en": "30-day RSI (AltaVista) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVSHT_INT",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "融券餘額",
+  "tooltip_zh": "AltaVista計算的融券餘額",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfSht_IntAbove",
+    "name_en": "Short Interest (AltaVista) Above",
+    "unit_zh": "股"
+   },
+   {
+    "code": "etfSht_IntBelow",
+    "name_en": "Short Interest  (AltaVista) Below",
+    "unit_zh": "股"
+   }
+  ]
+ },
+ {
+  "id": "AVTR10YR",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "10年總報酬",
+  "tooltip_zh": "AltaVista計算的10年總報酬率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfTR10yrAbove",
+    "name_en": "10yr Total Return (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfTR10yrBelow",
+    "name_en": "10yr Total Return (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVTR1YR",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "1年總報酬",
+  "tooltip_zh": "AltaVista計算的1年總報酬率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfTR1yrAbove",
+    "name_en": "1yr Total Return (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfTR1yrBelow",
+    "name_en": "1yr Total Return (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVTR5YR",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "5年總報酬",
+  "tooltip_zh": "AltaVista計算的5年總報酬率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfTR5yrAbove",
+    "name_en": "5yr Total Return (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfTR5yrBelow",
+    "name_en": "5yr Total Return (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVTRACKINGDIFFPCT",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "1年追蹤誤差",
+  "tooltip_zh": "AltaVista計算的1年追蹤誤差百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfTrackingDiffPctAbove",
+    "name_en": "1yr Tracking Difference (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfTrackingDiffPctBelow",
+    "name_en": "1yr Tracking Difference (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVTRINCEP",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "成立以來總報酬",
+  "tooltip_zh": "AltaVista計算的成立以來總報酬率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfTRIncepAbove",
+    "name_en": "Total Return Since Inception (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfTRIncepBelow",
+    "name_en": "Total Return Since Inception (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVTRYTD",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "年初至今總報酬",
+  "tooltip_zh": "AltaVista計算的年初至今總報酬率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfTRytdAbove",
+    "name_en": "Year-to-Date Total Return (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfTRytdBelow",
+    "name_en": "Year-to-Date Total Return (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVYTM_WGTAVG",
+  "kind": "range",
+  "category_en": "Alta Vista",
+  "category_zh": "Alta Vista",
+  "label_zh": "加權平均到期殖利率",
+  "tooltip_zh": "AltaVista計算的債券組合加權平均到期殖利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "etfYTM_WgtAvgAbove",
+    "name_en": "Yield-To-Maturity Weighted Average (AltaVista) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "etfYTM_WgtAvgBelow",
+    "name_en": "Yield-To-Maturity Weighted Average (AltaVista) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "BOND_STRUCT_REL",
+  "kind": "simple",
+  "category_en": "Attributes",
+  "category_zh": "屬性",
+  "label_zh": "包含關聯發行人",
+  "tooltip_zh": "是否包含結構相關的債券發行人",
+  "value_type": "bool",
+  "fields": [
+   {
+    "code": "bondStructRelated",
+    "name_en": "Incl. related issuers",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "IMBALANCE",
+  "kind": "range",
+  "category_en": "Auction",
+  "category_zh": "拍賣",
+  "label_zh": "買賣失衡量",
+  "tooltip_zh": "拍賣時的買賣單量失衡數值",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "imbalanceAbove",
+    "name_en": "Imbalance Above",
+    "unit_zh": "股"
+   },
+   {
+    "code": "imbalanceBelow",
+    "name_en": "Imbalance Below",
+    "unit_zh": "股"
+   }
+  ]
+ },
+ {
+  "id": "IMBALANCEADVRATIOPERC",
+  "kind": "range",
+  "category_en": "Auction",
+  "category_zh": "拍賣",
+  "label_zh": "失衡量/ADV比率",
+  "tooltip_zh": "失衡量相對於平均日成交量的百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "displayImbalanceAdvRatioAbove",
+    "name_en": "Imbalance Adv Ratio (%) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "displayImbalanceAdvRatioBelow",
+    "name_en": "Imbalance Adv Ratio (%) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "REGIMBALANCE",
+  "kind": "range",
+  "category_en": "Auction",
+  "category_zh": "拍賣",
+  "label_zh": "監管失衡量",
+  "tooltip_zh": "監管申報的買賣單量失衡數值",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "regulatoryImbalanceAbove",
+    "name_en": "Regulatory Imbalance Above",
+    "unit_zh": "股"
+   },
+   {
+    "code": "regulatoryImbalanceBelow",
+    "name_en": "Regulatory Imbalance Below",
+    "unit_zh": "股"
+   }
+  ]
+ },
+ {
+  "id": "REGIMBALANCEADVRATIOPERC",
+  "kind": "range",
+  "category_en": "Auction",
+  "category_zh": "拍賣",
+  "label_zh": "監管失衡量/ADV比率",
+  "tooltip_zh": "監管失衡量相對於平均日成交量的百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "displayRegulatoryImbAdvRatioAbove",
+    "name_en": "Regulatory Imbalance Adv Ratio (%) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "displayRegulatoryImbAdvRatioBelow",
+    "name_en": "Regulatory Imbalance Adv Ratio (%) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "ESG_COMBINED_SCORE",
+  "kind": "range",
+  "category_en": "ESG - Combined Scores",
+  "category_zh": "ESG綜合評分",
+  "label_zh": "ESG綜合分數",
+  "tooltip_zh": "ESG綜合評分總分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgCombinedScoreAbove",
+    "name_en": "ESG Combined Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgCombinedScoreBelow",
+    "name_en": "ESG Combined Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "ESG_SCORE",
+  "kind": "range",
+  "category_en": "ESG - Combined Scores",
+  "category_zh": "ESG綜合評分",
+  "label_zh": "ESG分數",
+  "tooltip_zh": "ESG整體評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgScoreAbove",
+    "name_en": "ESG Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgScoreBelow",
+    "name_en": "ESG Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "ESG_COMMUNITY_SCORE",
+  "kind": "range",
+  "category_en": "ESG - Pillar Scores",
+  "category_zh": "ESG支柱評分",
+  "label_zh": "社區關係分數",
+  "tooltip_zh": "ESG社區關係支柱評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgCommunityScoreAbove",
+    "name_en": "ESG Community Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgCommunityScoreBelow",
+    "name_en": "ESG Community Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "ESG_CONTROVERSIES_SCORE",
+  "kind": "range",
+  "category_en": "ESG - Pillar Scores",
+  "category_zh": "ESG支柱評分",
+  "label_zh": "爭議事件分數",
+  "tooltip_zh": "ESG爭議事件支柱評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgControversiesScoreAbove",
+    "name_en": "ESG Controversies Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgControversiesScoreBelow",
+    "name_en": "ESG Controversies Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "ESG_CSR_STRATEGY_SCORE",
+  "kind": "range",
+  "category_en": "ESG - Pillar Scores",
+  "category_zh": "ESG支柱評分",
+  "label_zh": "CSR策略分數",
+  "tooltip_zh": "ESG企業社會責任策略支柱評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgStrategyScoreAbove",
+    "name_en": "ESG CSR Strategy Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgStrategyScoreBelow",
+    "name_en": "ESG CSR Strategy Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "ESG_EMISSIONS_SCORE",
+  "kind": "range",
+  "category_en": "ESG - Pillar Scores",
+  "category_zh": "ESG - 支柱評分",
+  "label_zh": "碳排放評分",
+  "tooltip_zh": "篩選公司碳排放管理表現評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgEmissionsScoreAbove",
+    "name_en": "ESG Emissions Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgEmissionsScoreBelow",
+    "name_en": "ESG Emissions Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "ESG_ENV_INNOVATION_SCORE",
+  "kind": "range",
+  "category_en": "ESG - Pillar Scores",
+  "category_zh": "ESG - 支柱評分",
+  "label_zh": "環境創新評分",
+  "tooltip_zh": "篩選公司環境創新能力評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgEnvInvScoreAbove",
+    "name_en": "ESG Environmental Innovation Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgEnvInvScoreBelow",
+    "name_en": "ESG Environmental Innovation Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "ESG_HUMAN_RIGHTS_SCORE",
+  "kind": "range",
+  "category_en": "ESG - Pillar Scores",
+  "category_zh": "ESG - 支柱評分",
+  "label_zh": "人權評分",
+  "tooltip_zh": "篩選公司人權保障表現評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgHrScoreAbove",
+    "name_en": "ESG Human Rights Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgHrScoreBelow",
+    "name_en": "ESG Human Rights Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "ESG_MANAGEMENT_SCORE",
+  "kind": "range",
+  "category_en": "ESG - Pillar Scores",
+  "category_zh": "ESG - 支柱評分",
+  "label_zh": "管理階層評分",
+  "tooltip_zh": "篩選公司管理階層治理表現評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgManagementScoreAbove",
+    "name_en": "ESG Management Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgManagementScoreBelow",
+    "name_en": "ESG Management Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "ESG_PRODUCT_RESPONSIBILITY_SCORE",
+  "kind": "range",
+  "category_en": "ESG - Pillar Scores",
+  "category_zh": "ESG - 支柱評分",
+  "label_zh": "產品責任評分",
+  "tooltip_zh": "篩選公司產品責任表現評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgProdRespScoreAbove",
+    "name_en": "ESG Product Responsibility Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgProdRespScoreBelow",
+    "name_en": "ESG Product Responsibility Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "ESG_RESOURCE_USE_SCORE",
+  "kind": "range",
+  "category_en": "ESG - Pillar Scores",
+  "category_zh": "ESG - 支柱評分",
+  "label_zh": "資源使用評分",
+  "tooltip_zh": "篩選公司資源使用效率評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgResourceUseScoreAbove",
+    "name_en": "ESG Resource Use Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgResourceUseScoreBelow",
+    "name_en": "ESG Resource Use Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "ESG_SHAREHOLDERS_SCORE",
+  "kind": "range",
+  "category_en": "ESG - Pillar Scores",
+  "category_zh": "ESG - 支柱評分",
+  "label_zh": "股東權益評分",
+  "tooltip_zh": "篩選公司股東權益保障評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgShareholdersScoreAbove",
+    "name_en": "ESG Shareholders Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgShareholdersScoreBelow",
+    "name_en": "ESG Shareholders Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "ESG_WORKFORCE_SCORE",
+  "kind": "range",
+  "category_en": "ESG - Pillar Scores",
+  "category_zh": "ESG - 支柱評分",
+  "label_zh": "勞動力評分",
+  "tooltip_zh": "篩選公司勞動力管理表現評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgWorkforceScoreAbove",
+    "name_en": "ESG Workforce Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgWorkforceScoreBelow",
+    "name_en": "ESG Workforce Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "ESG_CORP_GOV_PILLAR_SCORE",
+  "kind": "range",
+  "category_en": "ESG Corporate Governance Score",
+  "category_zh": "ESG 公司治理評分",
+  "label_zh": "公司治理總評分",
+  "tooltip_zh": "篩選公司整體公司治理評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgCorpGovPillarScoreAbove",
+    "name_en": "ESG Corporate Governance Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgCorpGovPillarScoreBelow",
+    "name_en": "ESG Corporate Governance Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "ESG_ENV_PILLAR_SCORE",
+  "kind": "range",
+  "category_en": "ESG Environmental Score",
+  "category_zh": "ESG 環境評分",
+  "label_zh": "環境總評分",
+  "tooltip_zh": "篩選公司整體環境表現評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgEnvPillarScoreAbove",
+    "name_en": "ESG Environmental Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgEnvPillarScoreBelow",
+    "name_en": "ESG Environmental Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "ESG_SOCIAL_PILLAR_SCORE",
+  "kind": "range",
+  "category_en": "ESG Social Score",
+  "category_zh": "ESG 社會評分",
+  "label_zh": "社會總評分",
+  "tooltip_zh": "篩選公司整體社會責任評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "esgSocialPillarScoreAbove",
+    "name_en": "ESG Social Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "esgSocialPillarScoreBelow",
+    "name_en": "ESG Social Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVGPRICETARGET",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "分析師目標價",
+  "tooltip_zh": "篩選分析師平均目標價區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "avgPriceTargetAbove",
+    "name_en": "Avg Analyst Price Target Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "avgPriceTargetBelow",
+    "name_en": "Avg Analyst Price Target Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "AVGRATING",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "分析師評級",
+  "tooltip_zh": "篩選分析師平均評級區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "avgRatingAbove",
+    "name_en": "Avg Analyst Rating Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "avgRatingBelow",
+    "name_en": "Avg Analyst Rating Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AVGTARGET2PRICERATIO",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "目標價/現價比",
+  "tooltip_zh": "篩選分析師目標價相對現價的比率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "avgAnalystTarget2PriceRatioAbove",
+    "name_en": "Avg Analyst Target/Price Ratio Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "avgAnalystTarget2PriceRatioBelow",
+    "name_en": "Avg Analyst Target/Price Ratio Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "BOND_AMT_OUTSTANDING",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "流通債券金額",
+  "tooltip_zh": "篩選流通在外債券總金額區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondAmtOutstandingAbove",
+    "name_en": "Amt. Outstanding Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "bondAmtOutstandingBelow",
+    "name_en": "Amt. Outstanding Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "BOND_DEBT_2_BOOK_RATIO",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "負債/帳面值比",
+  "tooltip_zh": "篩選負債相對帳面價值比率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondDebt2BookRatioAbove",
+    "name_en": "Debt/Book Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "bondDebt2BookRatioBelow",
+    "name_en": "Debt/Book Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "BOND_DEBT_2_EQUITY_RATIO",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "負債/股東權益比",
+  "tooltip_zh": "篩選負債權益比率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondDebt2EquityRatioAbove",
+    "name_en": "Debt/Equity Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "bondDebt2EquityRatioBelow",
+    "name_en": "Debt/Equity Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "BOND_DEBT_2_TAN_BOOK_RATIO",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "負債/有形帳面值比",
+  "tooltip_zh": "篩選負債相對有形帳面價值比率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondDebt2TanBookRatioAbove",
+    "name_en": "Debt/Tang. Book Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "bondDebt2TanBookRatioBelow",
+    "name_en": "Debt/Tang. Book Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "BOND_DEBT_OUTSTANDING",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "流通負債金額",
+  "tooltip_zh": "篩選流通在外負債總金額區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondDebtOutstandingAbove",
+    "name_en": "Debt Outstanding Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "bondDebtOutstandingBelow",
+    "name_en": "Debt Outstanding Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "BOND_DEBT_OUTSTANDING_MUNI",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "市政債流通負債",
+  "tooltip_zh": "篩選市政債流通在外負債金額區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondDebtOutstandingMuniAbove",
+    "name_en": "Debt Outstanding Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "bondDebtOutstandingMuniBelow",
+    "name_en": "Debt Outstanding Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "BOND_EQUITY_2_BOOK_RATIO",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "股東權益/帳面值比",
+  "tooltip_zh": "篩選股東權益相對帳面價值比率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondEquity2BookRatioAbove",
+    "name_en": "Equity/Book Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "bondEquity2BookRatioBelow",
+    "name_en": "Equity/Book Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "BOND_EQUITY_2_TAN_BOOK_RATIO",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "股東權益/有形帳面值比",
+  "tooltip_zh": "篩選股東權益相對有形帳面價值比率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondEquity2TanBookRatioAbove",
+    "name_en": "Equity/Tang. Book Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "bondEquity2TanBookRatioBelow",
+    "name_en": "Equity/Tang. Book Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "BOND_STK_MKTCAP",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "股權市值",
+  "tooltip_zh": "篩選股權市值區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondStkMarketCapAbove",
+    "name_en": "Equity Cap. Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "bondStkMarketCapBelow",
+    "name_en": "Equity Cap. Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "EPS_CHANGE_TTM",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "EPS變動率(TTM)",
+  "tooltip_zh": "篩選近四季每股盈餘變動百分比區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "epsChangeTTMAbove",
+    "name_en": "EPS Chg TTM % (Refinitiv) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "epsChangeTTMBelow",
+    "name_en": "EPS Chg TTM % (Refinitiv) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "FLOATSHARES",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "流通在外股數",
+  "tooltip_zh": "篩選流通在外股數區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "floatSharesAbove",
+    "name_en": "Float Shares Above",
+    "unit_zh": "股"
+   },
+   {
+    "code": "floatSharesBelow",
+    "name_en": "Float Shares Below",
+    "unit_zh": "股"
+   }
+  ]
+ },
+ {
+  "id": "GROWTHRATE",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "成長率",
+  "tooltip_zh": "根據 Refinitiv 資料，篩選每股盈餘預估成長率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "minGrowthRate",
+    "name_en": "Growth Rate Above (Refinitiv)",
+    "unit_zh": "%"
+   },
+   {
+    "code": "maxGrowthRate",
+    "name_en": "Growth Rate Below (Refinitiv)",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HPR_1M",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "近1個月報酬",
+  "tooltip_zh": "篩選近1個月股價報酬率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "histPerfRatio1mAbove",
+    "name_en": "1 Month Performance Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "histPerfRatio1mBelow",
+    "name_en": "1 Month Performance Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HPR_1W",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "近1週報酬",
+  "tooltip_zh": "篩選近1週股價報酬率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "histPerfRatio1wAbove",
+    "name_en": "1 Week Performance Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "histPerfRatio1wBelow",
+    "name_en": "1 Week Performance Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HPR_1Y",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "近1年報酬",
+  "tooltip_zh": "篩選近1年股價報酬率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "histPerfRatio1yAbove",
+    "name_en": "1 Year Performance Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "histPerfRatio1yBelow",
+    "name_en": "1 Year Performance Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HPR_3M",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "近3個月報酬",
+  "tooltip_zh": "篩選近3個月股價報酬率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "histPerfRatio3mAbove",
+    "name_en": "3 Months Performance Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "histPerfRatio3mBelow",
+    "name_en": "3 Months Performance Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HPR_3Y",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "近3年報酬",
+  "tooltip_zh": "篩選近3年股價報酬率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "histPerfRatio3yAbove",
+    "name_en": "3 Years Performance Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "histPerfRatio3yBelow",
+    "name_en": "3 Years Performance Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HPR_5Y",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "近5年報酬",
+  "tooltip_zh": "篩選近5年股價報酬率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "histPerfRatio5yAbove",
+    "name_en": "5 Years Performance Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "histPerfRatio5yBelow",
+    "name_en": "5 Years Performance Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HPR_6M",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "近6個月報酬",
+  "tooltip_zh": "篩選近6個月股價報酬率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "histPerfRatio6mAbove",
+    "name_en": "6 Months Performance Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "histPerfRatio6mBelow",
+    "name_en": "6 Months Performance Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HPR_MTD",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "月初至今報酬",
+  "tooltip_zh": "篩選本月以來股價報酬率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "histPerfRatioMTDAbove",
+    "name_en": "Month-To-Date Performance Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "histPerfRatioMTDBelow",
+    "name_en": "Month-To-Date Performance Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HPR_YTD",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "年初至今報酬",
+  "tooltip_zh": "篩選今年以來股價報酬率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "histPerfRatioYTDAbove",
+    "name_en": "Year-To-Date Performance Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "histPerfRatioYTDBelow",
+    "name_en": "Year-To-Date Performance Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "MKTCAP",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "市值",
+  "tooltip_zh": "篩選公司市值規模區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "marketCapAbove1e6",
+    "name_en": "Capitalization Above",
+    "unit_zh": "百萬美元"
+   },
+   {
+    "code": "marketCapBelow1e6",
+    "name_en": "Capitalization Below",
+    "unit_zh": "百萬美元"
+   }
+  ]
+ },
+ {
+  "id": "NET_PROFIT_MARGIN_TTM",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "淨利率(TTM)",
+  "tooltip_zh": "根據 Refinitiv 資料，篩選近四季淨利率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "netProfitMarginTTMAbove",
+    "name_en": "Net Profit Margin(%) (Refinitiv) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "netProfitMarginTTMBelow",
+    "name_en": "Net Profit Margin(%) (Refinitiv) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "NUMPRICETARGETS",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "目標價家數",
+  "tooltip_zh": "篩選有發布目標價的券商分析師家數區間",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "numPriceTargetsAbove",
+    "name_en": "# of Analyst Price Targets Above",
+    "unit_zh": "家"
+   },
+   {
+    "code": "numPriceTargetsBelow",
+    "name_en": "# of Analyst Price Targets Below",
+    "unit_zh": "家"
+   }
+  ]
+ },
+ {
+  "id": "NUMRATINGS",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "評等家數",
+  "tooltip_zh": "篩選有發布評級的券商分析師家數區間",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "numRatingsAbove",
+    "name_en": "# of Analyst Ratings Above",
+    "unit_zh": "家"
+   },
+   {
+    "code": "numRatingsBelow",
+    "name_en": "# of Analyst Ratings Below",
+    "unit_zh": "家"
+   }
+  ]
+ },
+ {
+  "id": "NUMSHARES",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "流通股本",
+  "tooltip_zh": "篩選在外流通股數區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "numSharesAbove",
+    "name_en": "Shares Outstanding Above",
+    "unit_zh": "股"
+   },
+   {
+    "code": "numSharesBelow",
+    "name_en": "Shares Outstanding Below",
+    "unit_zh": "股"
+   }
+  ]
+ },
+ {
+  "id": "OPERATING_MARGIN_TTM",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "營業利益率(TTM)",
+  "tooltip_zh": "根據 Refinitiv 資料，篩選近四季營業利益率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "operatingMarginTTMAbove",
+    "name_en": "Operating Margin (Refinitiv) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "operatingMarginTTMBelow",
+    "name_en": "Operating Margin (Refinitiv) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "PAYOUT_RATIO_TTM",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "配息率(TTM)",
+  "tooltip_zh": "根據 Refinitiv 資料，篩選近四季股息配發率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "payoutRatioTTMAbove",
+    "name_en": "Payout Ratio TTM (Refinitiv) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "payoutRatioTTMBelow",
+    "name_en": "Payout Ratio TTM (Refinitiv) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "PERATIO",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "本益比",
+  "tooltip_zh": "根據 Refinitiv 資料，篩選本益比區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "minPeRatio",
+    "name_en": "P/E Ratio Above (Refinitiv)",
+    "unit_zh": ""
+   },
+   {
+    "code": "maxPeRatio",
+    "name_en": "P/E Ratio Below (Refinitiv)",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "PRICE2BK",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "股價淨值比",
+  "tooltip_zh": "根據 Refinitiv 資料，篩選股價淨值比區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "minPrice2Bk",
+    "name_en": "Price/Book Ratio Above (Refinitiv)",
+    "unit_zh": ""
+   },
+   {
+    "code": "maxPrice2Bk",
+    "name_en": "Price/Book Ratio Below (Refinitiv)",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "PRICE2TANBK",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "股價有形淨值比",
+  "tooltip_zh": "根據 Refinitiv 資料，篩選股價對有形淨值比區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "minPrice2TanBk",
+    "name_en": "Price/Tang. Book Above (Refinitiv)",
+    "unit_zh": ""
+   },
+   {
+    "code": "maxPrice2TanBk",
+    "name_en": "Price/Tang. Book Below (Refinitiv)",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "PRICE_2_CASH_TTM",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "現金股價比(TTM)",
+  "tooltip_zh": "根據 Refinitiv 資料，篩選每股現金對股價比區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "price2CashTTMAbove",
+    "name_en": "Price To Cash Per Share (Refinitiv) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "price2CashTTMBelow",
+    "name_en": "Price To Cash Per Share (Refinitiv) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "QUICKRATIO",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "速動比率",
+  "tooltip_zh": "根據 Refinitiv 資料，篩選速動比率區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "minQuickRatio",
+    "name_en": "Quick Ratio Above (Refinitiv)",
+    "unit_zh": ""
+   },
+   {
+    "code": "maxQuickRatio",
+    "name_en": "Quick Ratio Below (Refinitiv)",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "RETEQUITY",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "股東權益報酬率",
+  "tooltip_zh": "根據 Refinitiv 資料，篩選股東權益報酬率(ROE)區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "minRetnOnEq",
+    "name_en": "Return On Equity Above (Refinitiv)",
+    "unit_zh": "%"
+   },
+   {
+    "code": "maxRetnOnEq",
+    "name_en": "Return On Equity Below (Refinitiv)",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "RETURN_ON_INVESTMENT_TTM",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "投資報酬率(TTM)",
+  "tooltip_zh": "根據 Refinitiv 資料，篩選近四季投資報酬率(ROI)區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "returnOnInvestmentTTMAbove",
+    "name_en": "Return On Investment (Refinitiv) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "returnOnInvestmentTTMBelow",
+    "name_en": "Return On Investment (Refinitiv) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "REV_CHANGE",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "基本面",
+  "label_zh": "營收變動率",
+  "tooltip_zh": "根據 Refinitiv 資料，篩選營收變動百分比區間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "revChangeAbove",
+    "name_en": "Rev Change(%) (Refinitiv) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "revChangeBelow",
+    "name_en": "Rev Change(%) (Refinitiv) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "REV_GROWTH_RATE_5Y",
+  "kind": "range",
+  "category_en": "Fundamentals",
+  "category_zh": "財務指標",
+  "label_zh": "5年營收成長率",
+  "tooltip_zh": "篩選過去5年營收成長率（Refinitiv資料）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "revGrowthRate5YAbove",
+    "name_en": "Revenue Growth Rate 5Y (Refinitiv) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "revGrowthRate5YBelow",
+    "name_en": "Revenue Growth Rate 5Y (Refinitiv) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "BOND_CONVEXITY",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "債券凸性",
+  "tooltip_zh": "篩選債券凸性（衡量利率敏感度變化）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondConvexityAbove",
+    "name_en": "Convexity Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "bondConvexityBelow",
+    "name_en": "Convexity Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "BOND_DURATION",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "債券存續期間",
+  "tooltip_zh": "篩選債券存續期間（衡量利率風險）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondDurationAbove",
+    "name_en": "Duration (%) Above",
+    "unit_zh": "年"
+   },
+   {
+    "code": "bondDurationBelow",
+    "name_en": "Duration (%) Below",
+    "unit_zh": "年"
+   }
+  ]
+ },
+ {
+  "id": "BOND_INCREMENT_SIZE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "增額發行規模",
+  "tooltip_zh": "篩選債券增額發行規模",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "bondIncrementSizeAbove",
+    "name_en": "Increment Size Above",
+    "unit_zh": "百萬美元"
+   },
+   {
+    "code": "bondIncrementSizeBelow",
+    "name_en": "Increment Size Below",
+    "unit_zh": "百萬美元"
+   }
+  ]
+ },
+ {
+  "id": "BOND_INITIAL_SIZE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "初始發行規模",
+  "tooltip_zh": "篩選債券初始發行規模",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "bondInitialSizeAbove",
+    "name_en": "Initial Size Above",
+    "unit_zh": "百萬美元"
+   },
+   {
+    "code": "bondInitialSizeBelow",
+    "name_en": "Initial Size Below",
+    "unit_zh": "百萬美元"
+   }
+  ]
+ },
+ {
+  "id": "CONVOPT",
+  "kind": "simple",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "排除可轉債",
+  "tooltip_zh": "是否排除可轉換債券",
+  "value_type": "bool",
+  "fields": [
+   {
+    "code": "excludeConvertible",
+    "name_en": "Exclude Convertible",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "CPNRATE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "票面利率",
+  "tooltip_zh": "篩選債券票面利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "couponRateAbove",
+    "name_en": "Coupon Rate Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "couponRateBelow",
+    "name_en": "Coupon Rate Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "EMA_100",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "100日指數移動平均線",
+  "tooltip_zh": "篩選股價相對於100日EMA的位置",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "curEMA100Above",
+    "name_en": "EMA(100) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "curEMA100Below",
+    "name_en": "EMA(100) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "EMA_20",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "20日指數移動平均線",
+  "tooltip_zh": "篩選股價相對於20日EMA的位置",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "curEMA20Above",
+    "name_en": "EMA(20) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "curEMA20Below",
+    "name_en": "EMA(20) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "EMA_200",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "200日指數移動平均線",
+  "tooltip_zh": "篩選股價相對於200日EMA的位置",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "curEMA200Above",
+    "name_en": "EMA(200) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "curEMA200Below",
+    "name_en": "EMA(200) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "EMA_50",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "50日指數移動平均線",
+  "tooltip_zh": "篩選股價相對於50日EMA的位置",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "curEMA50Above",
+    "name_en": "EMA(50) Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "curEMA50Below",
+    "name_en": "EMA(50) Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "FEERATE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "費用率",
+  "tooltip_zh": "篩選基金或ETF的費用率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "feeRateAbove",
+    "name_en": "Fee Rate Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "feeRateBelow",
+    "name_en": "Fee Rate Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HASOPTIONS",
+  "kind": "simple",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "有選擇權",
+  "tooltip_zh": "是否僅顯示有選擇權的商品",
+  "value_type": "bool",
+  "fields": [
+   {
+    "code": "hasOptionsIs",
+    "name_en": "Has Options",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "HIGH_VS_HL13",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "13週高點距離",
+  "tooltip_zh": "篩選目前價格距13週高點的百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "highVsHistHL13wAbove",
+    "name_en": "13 Week High Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "highVsHistHL13wBelow",
+    "name_en": "13 Week High Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HIGH_VS_HL26",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "26週高點距離",
+  "tooltip_zh": "篩選目前價格距26週高點的百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "highVsHistHL26wAbove",
+    "name_en": "26 Week High Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "highVsHistHL26wBelow",
+    "name_en": "26 Week High Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HIGH_VS_HL52",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "52週高點距離",
+  "tooltip_zh": "篩選目前價格距52週高點的百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "highVsHistHL52wAbove",
+    "name_en": "52 Week High Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "highVsHistHL52wBelow",
+    "name_en": "52 Week High Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LEADFUT",
+  "kind": "simple",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "僅近月契約",
+  "tooltip_zh": "是否僅顯示期貨近月主力契約",
+  "value_type": "bool",
+  "fields": [
+   {
+    "code": "leadFutOnly",
+    "name_en": "Lead Month Only",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_ALPHA_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "1年Alpha",
+  "tooltip_zh": "篩選Lipper評估的1年Alpha值（超額報酬）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperAlpha1yrAbove",
+    "name_en": "Alpha 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperAlpha1yrBelow",
+    "name_en": "Alpha 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_AVG_COUPON",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "平均票面利率",
+  "tooltip_zh": "篩選Lipper計算的平均票面利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperAverageCouponAbove",
+    "name_en": "Average Coupon Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperAverageCouponBelow",
+    "name_en": "Average Coupon Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_AVG_FIN_COMP_ZSCORE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "平均綜合Z分數",
+  "tooltip_zh": "篩選Lipper平均最終綜合Z分數（風險評估指標）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperAverageFinalCompositeZScoreAbove",
+    "name_en": "Average Final Composite Z-Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperAverageFinalCompositeZScoreBelow",
+    "name_en": "Average Final Composite Z-Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_AVG_LOSS_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "1年平均虧損",
+  "tooltip_zh": "篩選Lipper評估的1年平均虧損幅度",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperAverageLoss1yrAbove",
+    "name_en": "Average Loss 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperAverageLoss1yrBelow",
+    "name_en": "Average Loss 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_AVG_RETURN_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "1年平均報酬",
+  "tooltip_zh": "篩選Lipper評估的1年平均報酬率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperAverageReturn1yrAbove",
+    "name_en": "Average Return 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperAverageReturn1yrBelow",
+    "name_en": "Average Return 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_BEAR_BETA_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "1年熊市Beta",
+  "tooltip_zh": "篩選Lipper評估的1年熊市Beta（下跌市場敏感度）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperBearBeta1yrAbove",
+    "name_en": "Bear Beta 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperBearBeta1yrBelow",
+    "name_en": "Bear Beta 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_BETA_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "1年Beta",
+  "tooltip_zh": "篩選Lipper評估的1年Beta值（市場敏感度）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperBeta1yrAbove",
+    "name_en": "Beta 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperBeta1yrBelow",
+    "name_en": "Beta 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_BULL_BETA_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "1年牛市Beta",
+  "tooltip_zh": "篩選Lipper評估的1年牛市Beta（上漲市場敏感度）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperBullBeta1yrAbove",
+    "name_en": "Bull Beta 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperBullBeta1yrBelow",
+    "name_en": "Bull Beta 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_CALC_AVG_QUALITY",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "平均品質評分",
+  "tooltip_zh": "Lipper計算的平均品質評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperCalculatedAverageQualityAbove",
+    "name_en": "Calculated Average Quality Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperCalculatedAverageQualityBelow",
+    "name_en": "Calculated Average Quality Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_COMP_ZSCORE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "綜合Z分數",
+  "tooltip_zh": "最新綜合Z分數，用於評估基金相對表現",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperLatestCompositeZScoreAbove",
+    "name_en": "Composite Z-Score Latest Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperLatestCompositeZScoreBelow",
+    "name_en": "Composite Z-Score Latest Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_CORREL_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "一年相關係數",
+  "tooltip_zh": "與基準指數的一年期相關係數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperCorrelation1yrAbove",
+    "name_en": "Correlation 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperCorrelation1yrBelow",
+    "name_en": "Correlation 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_COVAR_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "一年共變異數",
+  "tooltip_zh": "與基準指數的一年期共變異數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperCovariance1yrAbove",
+    "name_en": "CoVariance 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperCovariance1yrBelow",
+    "name_en": "CoVariance 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_DIST_YLD_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "一年配息率",
+  "tooltip_zh": "過去一年的配息收益率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperDistributionYield1yrValueAbove",
+    "name_en": "Distribution Yield 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperDistributionYield1yrValueBelow",
+    "name_en": "Distribution Yield 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_DIV_YIELD_WGT_AVG",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "加權平均股息率",
+  "tooltip_zh": "投資組合的加權平均股息收益率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperDividendYieldWAvgAbove",
+    "name_en": "Dividend Yield Weighted Average Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperDividendYieldWAvgBelow",
+    "name_en": "Dividend Yield Weighted Average Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_DOWN_DEV_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "一年下檔標準差",
+  "tooltip_zh": "過去一年的下檔風險（只計算報酬率低於平均的部分）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperDownsideDeviationPopulation1yrAbove",
+    "name_en": "Downside Deviation 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperDownsideDeviationPopulation1yrBelow",
+    "name_en": "Downside Deviation 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_DPS_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "一年每股股息",
+  "tooltip_zh": "過去一年的每股股息金額",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperDividendPerShare1yrAbove",
+    "name_en": "Dividend Per Share 1Yr Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "lipperDividendPerShare1yrBelow",
+    "name_en": "Dividend Per Share 1Yr Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_DPS_3YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "三年每股股息",
+  "tooltip_zh": "過去三年的每股股息金額",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperDividendPerShare3yrAbove",
+    "name_en": "Dividend Per Share 3Yr Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "lipperDividendPerShare3yrBelow",
+    "name_en": "Dividend Per Share 3Yr Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_EBIT_2_INT",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "利息保障倍數",
+  "tooltip_zh": "息前稅前盈餘相對於利息費用的倍數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperEBIT2InterestAbove",
+    "name_en": "EBIT to Interest Above",
+    "unit_zh": "倍"
+   },
+   {
+    "code": "lipperEBIT2InterestBelow",
+    "name_en": "EBIT to Interest Below",
+    "unit_zh": "倍"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_EFF_MATURITY",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "有效存續期間",
+  "tooltip_zh": "債券投資組合的加權平均到期時間",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperEffectiveMaturityAbove",
+    "name_en": "Effective Maturity Above",
+    "unit_zh": "年"
+   },
+   {
+    "code": "lipperEffectiveMaturityBelow",
+    "name_en": "Effective Maturity Below",
+    "unit_zh": "年"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_EPS_GRWTH_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "一年EPS成長率",
+  "tooltip_zh": "過去一年的每股盈餘成長率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperEPSGrowth1yrAbove",
+    "name_en": "EPS Growth - 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperEPSGrowth1yrBelow",
+    "name_en": "EPS Growth - 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_EPS_GRWTH_3YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "三年EPS成長率",
+  "tooltip_zh": "過去三年的每股盈餘成長率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperEPSGrowth3yrAbove",
+    "name_en": "EPS Growth - 3Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperEPSGrowth3yrBelow",
+    "name_en": "EPS Growth - 3Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_EPS_GRWTH_5YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "五年EPS成長率",
+  "tooltip_zh": "過去五年的每股盈餘成長率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperEPSGrowth5yrAbove",
+    "name_en": "EPS Growth - 5Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperEPSGrowth5yrBelow",
+    "name_en": "EPS Growth - 5Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_GRWTH_ANN_10YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "十年年化報酬率",
+  "tooltip_zh": "過去十年的年化報酬率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperAnnualizedPerformance10yrValueAbove",
+    "name_en": "Annualized Performance 10Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperAnnualizedPerformance10yrValueBelow",
+    "name_en": "Annualized Performance 10Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_GRWTH_ANN_3YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "三年年化報酬率",
+  "tooltip_zh": "過去三年的年化報酬率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperAnnualizedPerformance3yrValueAbove",
+    "name_en": "Annualized Performance 3Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperAnnualizedPerformance3yrValueBelow",
+    "name_en": "Annualized Performance 3Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_GRWTH_ANN_5YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "五年年化報酬率",
+  "tooltip_zh": "過去五年的年化報酬率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperAnnualizedPerformance5yrValueAbove",
+    "name_en": "Annualized Performance 5Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperAnnualizedPerformance5yrValueBelow",
+    "name_en": "Annualized Performance 5Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_GRWTH_CUM",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "累積報酬率",
+  "tooltip_zh": "自成立以來的累積報酬率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperPercentageGrowthCumulativeValueAbove",
+    "name_en": "Percentage Growth Cumulative Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperPercentageGrowthCumulativeValueBelow",
+    "name_en": "Percentage Growth Cumulative Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_INFO_RATIO_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "一年資訊比率",
+  "tooltip_zh": "過去一年的資訊比率，衡量超額報酬相對於追蹤誤差的效率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperInformationRatio1yrAbove",
+    "name_en": "Information Ratio 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperInformationRatio1yrBelow",
+    "name_en": "Information Ratio 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_LEVERAGE_RATIO",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "槓桿比率",
+  "tooltip_zh": "基金的槓桿使用比率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperFundLeverageRatioAbove",
+    "name_en": "Fund Leverage Ratio Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperFundLeverageRatioBelow",
+    "name_en": "Fund Leverage Ratio Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_LT_DEBT_2_SE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "長期負債權益比",
+  "tooltip_zh": "長期負債相對於股東權益的比率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperLTDebt2ShareholdersEquityAbove",
+    "name_en": "LT Debt / Shareholders Equity Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperLTDebt2ShareholdersEquityBelow",
+    "name_en": "LT Debt / Shareholders Equity Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_MAX_DRAW_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "一年最大回撤",
+  "tooltip_zh": "過去一年內從高點到低點的最大跌幅",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperMaximumDrawdown1yrAbove",
+    "name_en": "Max Drawdown 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperMaximumDrawdown1yrBelow",
+    "name_en": "Max Drawdown 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_MAX_GAIN_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "一年最大漲幅",
+  "tooltip_zh": "過去一年內的最大單期漲幅",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperMaxGain1yrAbove",
+    "name_en": "Max Gain 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperMaxGain1yrBelow",
+    "name_en": "Max Gain 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_MAX_LOSS_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "一年最大跌幅",
+  "tooltip_zh": "過去一年內的最大單期跌幅",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperMaxLoss1yrAbove",
+    "name_en": "Max Loss 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperMaxLoss1yrBelow",
+    "name_en": "Max Loss 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_MKT_CAP_AVG",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "平均市值",
+  "tooltip_zh": "投資組合的平均市值規模",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperMktCapAvgLatestAbove",
+    "name_en": "Market Capitalisation - Avg. Latest Above",
+    "unit_zh": "百萬美元"
+   },
+   {
+    "code": "lipperMktCapAvgLatestBelow",
+    "name_en": "Market Capitalisation - Avg. Latest Below",
+    "unit_zh": "百萬美元"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_NOM_MATURITY",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "名目存續期間",
+  "tooltip_zh": "債券基金的名目存續期間，衡量利率風險敏感度",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperNominalMaturityAbove",
+    "name_en": "Nominal Maturity Above",
+    "unit_zh": "年"
+   },
+   {
+    "code": "lipperNominalMaturityBelow",
+    "name_en": "Nominal Maturity Below",
+    "unit_zh": "年"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_NUM_OF_SEC",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "持債檔數",
+  "tooltip_zh": "基金持有的債券檔數，分散風險程度指標",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperNumberOfSecuritiesAbove",
+    "name_en": "Number of Securities Above",
+    "unit_zh": "檔"
+   },
+   {
+    "code": "lipperNumberOfSecuritiesBelow",
+    "name_en": "Number of Securities Below",
+    "unit_zh": "檔"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_OP_CASH_FLOW_GRWTH_RATE_3YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "營運現金流成長率（3年）",
+  "tooltip_zh": "過去三年營運現金流的年化複合成長率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperOperCashFlowGrowthRate3yrAbove",
+    "name_en": "Operating Cash Flow - Growth Rate 3Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperOperCashFlowGrowthRate3yrBelow",
+    "name_en": "Operating Cash Flow - Growth Rate 3Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_PAYOUT_RATIO",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "股利發放率",
+  "tooltip_zh": "每股股利占每股盈餘的比例",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperDividendPayoutRatioAbove",
+    "name_en": "Dividend Payout Ratio Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperDividendPayoutRatioBelow",
+    "name_en": "Dividend Payout Ratio Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_PAYOUT_RATIO_5YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "股利發放率（5年均值）",
+  "tooltip_zh": "過去五年平均股利發放率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperDividendPayoutRatio5yrAbove",
+    "name_en": "Dividend Payout Ratio - 5Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperDividendPayoutRatio5yrBelow",
+    "name_en": "Dividend Payout Ratio - 5Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_PB_ZSCORE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "股價淨值比 Z 分數",
+  "tooltip_zh": "股價淨值比相對於同業的標準化分數，正值表示高於平均",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperLatestPrice2BookZScoreAbove",
+    "name_en": "Price to Book Z-Score Latest Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperLatestPrice2BookZScoreBelow",
+    "name_en": "Price to Book Z-Score Latest Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_PCT_CHANGE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "漲跌幅",
+  "tooltip_zh": "特定期間內的價格變動百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperPctChangeAbove",
+    "name_en": "Pct Change Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperPctChangeBelow",
+    "name_en": "Pct Change Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_PE_ZSCORE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "本益比 Z 分數",
+  "tooltip_zh": "本益比相對於同業的標準化分數，正值表示高於平均",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperLatestPrice2EarningsZScoreAbove",
+    "name_en": "Price to Earnings Z-Score Latest Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperLatestPrice2EarningsZScoreBelow",
+    "name_en": "Price to Earnings Z-Score Latest Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_POS_PERIODS_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "正報酬期數（1年）",
+  "tooltip_zh": "過去一年內產生正報酬的期數統計",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperPositivePeriods1yrAbove",
+    "name_en": "Positive Periods 1Yr Above",
+    "unit_zh": "期"
+   },
+   {
+    "code": "lipperPositivePeriods1yrBelow",
+    "name_en": "Positive Periods 1Yr Below",
+    "unit_zh": "期"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_PRICE_2_BOOK",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "股價淨值比",
+  "tooltip_zh": "股價相對於每股淨資產的倍數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperPrice2BookRatioAbove",
+    "name_en": "Price/Book Above",
+    "unit_zh": "倍"
+   },
+   {
+    "code": "lipperPrice2BookRatioBelow",
+    "name_en": "Price/Book Below",
+    "unit_zh": "倍"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_PRICE_2_BOOK_LATEST",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "股價淨值比（最新）",
+  "tooltip_zh": "最新股價淨值比數據",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperLatestPrice2BookRatioAbove",
+    "name_en": "Price/Book Ratio Latest Above",
+    "unit_zh": "倍"
+   },
+   {
+    "code": "lipperLatestPrice2BookRatioBelow",
+    "name_en": "Price/Book Ratio Latest Below",
+    "unit_zh": "倍"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_PRICE_2_CASH",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "股價現金流量比",
+  "tooltip_zh": "股價相對於每股現金流量的倍數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperPrice2CashAbove",
+    "name_en": "Price to Cash Above",
+    "unit_zh": "倍"
+   },
+   {
+    "code": "lipperPrice2CashBelow",
+    "name_en": "Price to Cash Below",
+    "unit_zh": "倍"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_PRICE_2_DIV",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "股價股利比",
+  "tooltip_zh": "股價相對於每股股利的倍數，股利收益率的倒數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperPrice2DividendAbove",
+    "name_en": "Price to Dividend Above",
+    "unit_zh": "倍"
+   },
+   {
+    "code": "lipperPrice2DividendBelow",
+    "name_en": "Price to Dividend Below",
+    "unit_zh": "倍"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_PRICE_2_EARNINGS",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "本益比",
+  "tooltip_zh": "股價相對於每股盈餘的倍數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperPrice2EarningsRatioAbove",
+    "name_en": "Price/Earnings Ratio Above",
+    "unit_zh": "倍"
+   },
+   {
+    "code": "lipperPrice2EarningsRatioBelow",
+    "name_en": "Price/Earnings Ratio Below",
+    "unit_zh": "倍"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_PRICE_2_EARNINGS_LATEST",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "本益比（最新）",
+  "tooltip_zh": "最新本益比數據",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperLatestPrice2EarningsRatioAbove",
+    "name_en": "Price/Earnings Ratio Latest Above",
+    "unit_zh": "倍"
+   },
+   {
+    "code": "lipperLatestPrice2EarningsRatioBelow",
+    "name_en": "Price/Earnings Ratio Latest Below",
+    "unit_zh": "倍"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_PRICE_2_SALES",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "股價營收比",
+  "tooltip_zh": "股價相對於每股營收的倍數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperPrice2SalesRatioAbove",
+    "name_en": "Price/Sales Ratio Latest Above",
+    "unit_zh": "倍"
+   },
+   {
+    "code": "lipperPrice2SalesRatioBelow",
+    "name_en": "Price/Sales Ratio Latest Below",
+    "unit_zh": "倍"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_PRICE_2_SALES_LATEST",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "股價營收比（最新）",
+  "tooltip_zh": "最新股價營收比數據",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperLatestPrice2SalesRatioAbove",
+    "name_en": "Price/Sales Ratio Latest Above",
+    "unit_zh": "倍"
+   },
+   {
+    "code": "lipperLatestPrice2SalesRatioBelow",
+    "name_en": "Price/Sales Ratio Latest Below",
+    "unit_zh": "倍"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_PROJ_YIELD",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "預估殖利率",
+  "tooltip_zh": "預期未來的配息殖利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperProjectedYieldValueAbove",
+    "name_en": "Projected Yield Value Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperProjectedYieldValueBelow",
+    "name_en": "Projected Yield Value Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_PS_ZSCORE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "股價營收比 Z 分數",
+  "tooltip_zh": "股價營收比相對於同業的標準化分數，正值表示高於平均",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperLatestPrice2SalesZScoreAbove",
+    "name_en": "Price/Sales Z-Score Latest Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperLatestPrice2SalesZScoreBelow",
+    "name_en": "Price/Sales Z-Score Latest Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_REL_STRENGTH",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "相對強弱指標",
+  "tooltip_zh": "相對於大盤或其他基準的價格表現強度",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperRelativeStrengthAbove",
+    "name_en": "Relative Strength Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperRelativeStrengthBelow",
+    "name_en": "Relative Strength Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_RET_ON_CAPITAL",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "資本報酬率",
+  "tooltip_zh": "稅後淨利相對於投入資本的報酬比率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperReturnOnCapitalAbove",
+    "name_en": "Return on Capital Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperReturnOnCapitalBelow",
+    "name_en": "Return on Capital Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_RET_ON_CAPITAL_3YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "資本報酬率（3年均值）",
+  "tooltip_zh": "過去三年平均資本報酬率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperReturnOnCapital3yrAbove",
+    "name_en": "Return on Capital 3Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperReturnOnCapital3yrBelow",
+    "name_en": "Return on Capital 3Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_RET_RISK_RATIO_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "報酬風險比（1年）",
+  "tooltip_zh": "過去一年報酬相對於風險（標準差）的比值，夏普比概念",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperReturnRiskRatio1yrAbove",
+    "name_en": "Return Risk Ratio 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperReturnRiskRatio1yrBelow",
+    "name_en": "Return Risk Ratio 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_ROA_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "資產報酬率（1年）",
+  "tooltip_zh": "過去一年淨利相對於總資產的報酬比率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperReturnOnAssets1yrAbove",
+    "name_en": "Return on Assets 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperReturnOnAssets1yrBelow",
+    "name_en": "Return on Assets 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_ROA_3YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "基本資料",
+  "label_zh": "資產報酬率（3年均值）",
+  "tooltip_zh": "過去三年平均資產報酬率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperReturnOnAssets3yrAbove",
+    "name_en": "Return on Assets 3Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperReturnOnAssets3yrBelow",
+    "name_en": "Return on Assets 3Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_ROE_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "股東權益報酬率(1年)",
+  "tooltip_zh": "篩選最近1年股東權益報酬率(ROE)的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperReturnOnEquity1yrAbove",
+    "name_en": "Return on Equity 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperReturnOnEquity1yrBelow",
+    "name_en": "Return on Equity 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_ROE_3YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "股東權益報酬率(3年)",
+  "tooltip_zh": "篩選最近3年股東權益報酬率(ROE)的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperReturnOnEquity3yrAbove",
+    "name_en": "Return on Equity 3Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperReturnOnEquity3yrBelow",
+    "name_en": "Return on Equity 3Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_ROE_WGT_AVG_LATEST",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "股東權益報酬率(加權平均)",
+  "tooltip_zh": "篩選最新加權平均股東權益報酬率(ROE)的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperLatestReturnOnEquityWAvgAbove",
+    "name_en": "Return on Equity Weighted Average Latest Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperLatestReturnOnEquityWAvgBelow",
+    "name_en": "Return on Equity Weighted Average Latest Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_ROE_ZSCORE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "股東權益報酬率 Z分數",
+  "tooltip_zh": "篩選最新股東權益報酬率(ROE)Z分數的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperReturnOnEquityZScoreAbove",
+    "name_en": "Return on Equity Z-Score Latest Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperReturnOnEquityZScoreBelow",
+    "name_en": "Return on Equity Z-Score Latest Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_ROI_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "投資報酬率(1年)",
+  "tooltip_zh": "篩選最近1年投資報酬率(ROI)的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperReturnOnInvestment1yrAbove",
+    "name_en": "Return on Investment 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperReturnOnInvestment1yrBelow",
+    "name_en": "Return on Investment 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_ROI_3YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "投資報酬率(3年)",
+  "tooltip_zh": "篩選最近3年投資報酬率(ROI)的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperReturnOnInvestment3yrAbove",
+    "name_en": "Return on Investment 3Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperReturnOnInvestment3yrBelow",
+    "name_en": "Return on Investment 3Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_RSQ_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "R平方(1年)",
+  "tooltip_zh": "篩選最近1年R平方(R-Squared)的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperRSquared1yrAbove",
+    "name_en": "R-Squared 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperRSquared1yrBelow",
+    "name_en": "R-Squared 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_RSQ_ADJ_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "調整後R平方(1年)",
+  "tooltip_zh": "篩選最近1年調整後R平方(Adjusted R-Squared)的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperAdjustedRSquared1yrAbove",
+    "name_en": "R-Squared Adjusted 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperAdjustedRSquared1yrBelow",
+    "name_en": "R-Squared Adjusted 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_SALES_2_TOTAL_ASSETS",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "營收資產比",
+  "tooltip_zh": "篩選營收對總資產比率的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperSales2TotalAssetsAbove",
+    "name_en": "Sales to Total Assets Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperSales2TotalAssetsBelow",
+    "name_en": "Sales to Total Assets Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_SALES_GRWTH_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "營收成長率(1年)",
+  "tooltip_zh": "篩選最近1年營收成長率的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperSalesGrowth1yrAbove",
+    "name_en": "Sales Growth 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperSalesGrowth1yrBelow",
+    "name_en": "Sales Growth 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_SALES_GRWTH_3YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "營收成長率(3年)",
+  "tooltip_zh": "篩選最近3年營收成長率的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperSalesGrowth3yrAbove",
+    "name_en": "Sales Growth 3Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperSalesGrowth3yrBelow",
+    "name_en": "Sales Growth 3Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_SALES_GRWTH_5YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "營收成長率(5年)",
+  "tooltip_zh": "篩選最近5年營收成長率的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperSalesGrowth5yrAbove",
+    "name_en": "Sales Growth 5Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperSalesGrowth5yrBelow",
+    "name_en": "Sales Growth 5Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_SEMI_DEV_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "半標準差(1年)",
+  "tooltip_zh": "篩選最近1年半標準差(Semi Deviation)的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperSemiDeviation1yrAbove",
+    "name_en": "Semi Deviation 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperSemiDeviation1yrBelow",
+    "name_en": "Semi Deviation 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_SEMI_VAR_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "半變異數(1年)",
+  "tooltip_zh": "篩選最近1年半變異數(Semi Variance)的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperSemiVariance1yrAbove",
+    "name_en": "Semi Variance 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperSemiVariance1yrBelow",
+    "name_en": "Semi Variance 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_SHARPE_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "夏普比率(1年)",
+  "tooltip_zh": "篩選最近1年夏普比率(Sharpe Ratio)的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperSharpeRatio1yrAbove",
+    "name_en": "Sharpe Ratio 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperSharpeRatio1yrBelow",
+    "name_en": "Sharpe Ratio 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_SORTINO_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "索提諾比率(1年)",
+  "tooltip_zh": "篩選最近1年索提諾比率(Sortino Ratio)的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperSortino1yrAbove",
+    "name_en": "Sortino Ratio 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperSortino1yrBelow",
+    "name_en": "Sortino Ratio 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_SPS_GRWTH_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "每股營收成長率(1年)",
+  "tooltip_zh": "篩選最近1年每股營收成長率的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperSalesPerShareGrowth1yrAbove",
+    "name_en": "Sales Per Share Growth 1 Year Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperSalesPerShareGrowth1yrBelow",
+    "name_en": "Sales Per Share Growth 1 Year Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_SPS_GRWTH_3YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "每股營收成長率(3年)",
+  "tooltip_zh": "篩選最近3年每股營收成長率的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperSalesPerShareGrowth3yrAbove",
+    "name_en": "Sales Per Share Growth 3 Year Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperSalesPerShareGrowth3yrBelow",
+    "name_en": "Sales Per Share Growth 3 Year Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_SPS_GRWTH_3YR_LATEST",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "每股營收成長率(3年最新)",
+  "tooltip_zh": "篩選最新3年每股營收成長率的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperLatestSalesPerShareGrowth3yrAbove",
+    "name_en": "Sales Per Share Growth 3Yr Latest Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperLatestSalesPerShareGrowth3yrBelow",
+    "name_en": "Sales Per Share Growth 3Yr Latest Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_SPS_GRWTH_ZSCORE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "每股營收成長率 Z分數",
+  "tooltip_zh": "篩選最新每股營收成長率(SPS Growth)Z分數的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperLatestSPSGrowthZScoreAbove",
+    "name_en": "SPS Growth Z-Score Latest Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperLatestSPSGrowthZScoreBelow",
+    "name_en": "SPS Growth Z-Score Latest Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_SRRI_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "綜合風險報酬指標(1年)",
+  "tooltip_zh": "篩選最近1年綜合風險報酬指標(SRRI)的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperSRRI1yrAbove",
+    "name_en": "Synthetic Risk and Reward Indicator 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperSRRI1yrBelow",
+    "name_en": "Synthetic Risk and Reward Indicator 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_STD_DEV_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "標準差(1年)",
+  "tooltip_zh": "篩選最近1年標準差(Standard Deviation)的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperStandardDeviation1yrAbove",
+    "name_en": "Standard Deviation 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperStandardDeviation1yrBelow",
+    "name_en": "Standard Deviation 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_TOT_ASSETS_2_TOT_EQ",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "資產權益比",
+  "tooltip_zh": "篩選總資產對總股東權益比率的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperTotalAssets2TotalEquityAbove",
+    "name_en": "Total Assets / Total Equity Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperTotalAssets2TotalEquityBelow",
+    "name_en": "Total Assets / Total Equity Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_TOT_DEBT_2_TOT_CAP",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "負債資本比",
+  "tooltip_zh": "篩選總負債對總資本比率的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperTotalDebt2TotalCapitalAbove",
+    "name_en": "Total Debt / Total Capital Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperTotalDebt2TotalCapitalBelow",
+    "name_en": "Total Debt / Total Capital Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_TOT_DEBT_2_TOT_EQ",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "負債權益比",
+  "tooltip_zh": "篩選總負債對總股東權益比率的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperTotalDebt2TotalEquityAbove",
+    "name_en": "Total Debt / Total Equity Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperTotalDebt2TotalEquityBelow",
+    "name_en": "Total Debt / Total Equity Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_TOT_EXP_RATIO",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "總開支比率",
+  "tooltip_zh": "基金總開支佔資產淨值的百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperTotalExpenseRatioAbove",
+    "name_en": "Total Expense Ratio Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperTotalExpenseRatioBelow",
+    "name_en": "Total Expense Ratio Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_TOT_NET_ASST",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "總淨資產",
+  "tooltip_zh": "基金總淨資產規模",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperTotalNetAssetsAbove",
+    "name_en": "Total Net Assets Above",
+    "unit_zh": "百萬美元"
+   },
+   {
+    "code": "lipperTotalNetAssetsBelow",
+    "name_en": "Total Net Assets Below",
+    "unit_zh": "百萬美元"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_TRACKING_ERR_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "1年追蹤誤差",
+  "tooltip_zh": "基金過去1年相對於基準指數的追蹤誤差",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperTrackingError1yrAbove",
+    "name_en": "Tracking Error 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperTrackingError1yrBelow",
+    "name_en": "Tracking Error 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_TREYNOR_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "1年Treynor比率",
+  "tooltip_zh": "基金過去1年的Treynor風險調整報酬比率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperTreynorRatio1yrAbove",
+    "name_en": "Treynor Ratio 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperTreynorRatio1yrBelow",
+    "name_en": "Treynor Ratio 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_VARIANCE_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "1年變異數",
+  "tooltip_zh": "基金過去1年報酬率的變異數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperVariance1yrAbove",
+    "name_en": "Variance 1Yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperVariance1yrBelow",
+    "name_en": "Variance 1Yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_VAR_NORMAL_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "1年常態VaR",
+  "tooltip_zh": "基金過去1年在常態分佈假設下的風險值",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperValueAtRiskNormal1yrAbove",
+    "name_en": "Value At Risk Normal 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperValueAtRiskNormal1yrBelow",
+    "name_en": "Value At Risk Normal 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_VAR_NORMAL_ETL_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "1年常態ETL",
+  "tooltip_zh": "基金過去1年在常態分佈假設下的預期尾端損失",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperValueAtRiskNormalETL1yrAbove",
+    "name_en": "Value At Risk Normal End Tail Loss 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperValueAtRiskNormalETL1yrBelow",
+    "name_en": "Value At Risk Normal End Tail Loss 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_VAR_QUANTILE_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "1年分位數VaR",
+  "tooltip_zh": "基金過去1年在特定分位數下的風險值",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperValueAtRiskQuantile1yrAbove",
+    "name_en": "Value At Risk Quantile 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperValueAtRiskQuantile1yrBelow",
+    "name_en": "Value At Risk Quantile 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_VAR_QUANTILE_ETL_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "1年分位數ETL",
+  "tooltip_zh": "基金過去1年在特定分位數下的預期尾端損失",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperValueAtRiskQuantileETL1yrAbove",
+    "name_en": "Value At Risk Quantile End Tail Loss 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperValueAtRiskQuantileETL1yrBelow",
+    "name_en": "Value At Risk Quantile End Tail Loss 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_WGT_FIN_COMP_ZSCORE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "加權綜合Z分數",
+  "tooltip_zh": "基金加權最終綜合評分的標準化Z分數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperWeightedFinalCompositeZScoreAbove",
+    "name_en": "Weighted Final Composite Z-Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperWeightedFinalCompositeZScoreBelow",
+    "name_en": "Weighted Final Composite Z-Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_YIELD_1YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "1年殖利率",
+  "tooltip_zh": "基金過去1年的殖利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperYieldValueAbove",
+    "name_en": "Yield 1Yr Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperYieldValueBelow",
+    "name_en": "Yield 1Yr Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_YIELD_TO_MATURITY",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "到期殖利率",
+  "tooltip_zh": "債券或基金持有至到期的殖利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperYieldToMaturityAbove",
+    "name_en": "Yield to Maturity Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lipperYieldToMaturityBelow",
+    "name_en": "Yield to Maturity Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LIPPER_YIELD_ZSCORE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "殖利率Z分數",
+  "tooltip_zh": "最新殖利率的標準化Z分數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lipperDividendYieldZScoreAbove",
+    "name_en": "Dividend Yield Z-Score Latest Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "lipperDividendYieldZScoreBelow",
+    "name_en": "Dividend Yield Z-Score Latest Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "LOW_VS_HL13",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "13週低點位置",
+  "tooltip_zh": "現價相對於過去13週高低點區間的位置",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lowVsHistHL13wAbove",
+    "name_en": "13 Week Low Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lowVsHistHL13wBelow",
+    "name_en": "13 Week Low Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LOW_VS_HL26",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "26週低點位置",
+  "tooltip_zh": "現價相對於過去26週高低點區間的位置",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lowVsHistHL26wAbove",
+    "name_en": "26 Week Low Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lowVsHistHL26wBelow",
+    "name_en": "26 Week Low Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "LOW_VS_HL52",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "52週低點位置",
+  "tooltip_zh": "現價相對於過去52週高低點區間的位置",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lowVsHistHL52wAbove",
+    "name_en": "52 Week Low Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lowVsHistHL52wBelow",
+    "name_en": "52 Week Low Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "MACD",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "MACD",
+  "tooltip_zh": "指數平滑異同移動平均線指標值",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "curMACDAbove",
+    "name_en": "MACD Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "curMACDBelow",
+    "name_en": "MACD Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MACD_HISTOGRAM",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "MACD柱狀圖",
+  "tooltip_zh": "MACD與訊號線的差值",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "curMACDDistAbove",
+    "name_en": "MACD Histogram Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "curMACDDistBelow",
+    "name_en": "MACD Histogram Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MACD_SIGNAL",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "MACD訊號線",
+  "tooltip_zh": "MACD的訊號線數值",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "curMACDSignalAbove",
+    "name_en": "MACD Signal Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "curMACDSignalBelow",
+    "name_en": "MACD Signal Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_CONSIS_RET_SCR_10YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "10年穩定報酬評分",
+  "tooltip_zh": "基金過去10年的穩定報酬評分",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfConsistentReturnScore10yrAbove",
+    "name_en": "Consistent Return Score 10yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfConsistentReturnScore10yrBelow",
+    "name_en": "Consistent Return Score 10yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_CONSIS_RET_SCR_3YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "3年穩定報酬評分",
+  "tooltip_zh": "基金過去3年的穩定報酬評分",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfConsistentReturnScore3yrAbove",
+    "name_en": "Consistent Return Score 3yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfConsistentReturnScore3yrBelow",
+    "name_en": "Consistent Return Score 3yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_CONSIS_RET_SCR_5YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "5年穩定報酬評分",
+  "tooltip_zh": "基金過去5年的穩定報酬評分",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfConsistentReturnScore5yrAbove",
+    "name_en": "Consistent Return Score 5yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfConsistentReturnScore5yrBelow",
+    "name_en": "Consistent Return Score 5yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_CONSIS_RET_SCR_ALL",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "整體穩定報酬評分",
+  "tooltip_zh": "基金整體的穩定報酬評分",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfConsistentReturnScoreOverallAbove",
+    "name_en": "Consistent Return Score Overall Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfConsistentReturnScoreOverallBelow",
+    "name_en": "Consistent Return Score Overall Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_EXP_SCR_10YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "10年開支評分",
+  "tooltip_zh": "基金過去10年的開支評分",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfExpenseScore10yrAbove",
+    "name_en": "Expense Score 10yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfExpenseScore10yrBelow",
+    "name_en": "Expense Score 10yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_EXP_SCR_3YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "3年開支評分",
+  "tooltip_zh": "基金過去3年的開支評分",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfExpenseScore3yrAbove",
+    "name_en": "Expense Score 3yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfExpenseScore3yrBelow",
+    "name_en": "Expense Score 3yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_EXP_SCR_5YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "費用評分(5年)",
+  "tooltip_zh": "篩選費用評分(5年)的範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfExpenseScore5yrAbove",
+    "name_en": "Expense Score 5yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfExpenseScore5yrBelow",
+    "name_en": "Expense Score 5yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_EXP_SCR_ALL",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "費用評分(總評)",
+  "tooltip_zh": "篩選費用評分(總評)的範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfExpenseScoreOverallAbove",
+    "name_en": "Expense Score Overall Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfExpenseScoreOverallBelow",
+    "name_en": "Expense Score Overall Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_PRESERV_SCR_10YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "資本保全評分(10年)",
+  "tooltip_zh": "篩選資本保全評分(10年)的範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfPreservationScore10yrAbove",
+    "name_en": "Preservation Score 10yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfPreservationScore10yrBelow",
+    "name_en": "Preservation Score 10yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_PRESERV_SCR_3YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "資本保全評分(3年)",
+  "tooltip_zh": "篩選資本保全評分(3年)的範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfPreservationScore3yrAbove",
+    "name_en": "Preservation Score 3yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfPreservationScore3yrBelow",
+    "name_en": "Preservation Score 3yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_PRESERV_SCR_5YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "資本保全評分(5年)",
+  "tooltip_zh": "篩選資本保全評分(5年)的範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfPreservationScore5yrAbove",
+    "name_en": "Preservation Score 5yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfPreservationScore5yrBelow",
+    "name_en": "Preservation Score 5yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_PRESERV_SCR_ALL",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "資本保全評分(總評)",
+  "tooltip_zh": "篩選資本保全評分(總評)的範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfPreservationScoreOverallAbove",
+    "name_en": "Preservation Score Overall Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfPreservationScoreOverallBelow",
+    "name_en": "Preservation Score Overall Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_TAX_EFF_SCR_10YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "稅務效率評分(10年)",
+  "tooltip_zh": "篩選稅務效率評分(10年)的範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfTaxEfficiencyScore10yrAbove",
+    "name_en": "Tax Efficiency Score 10yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfTaxEfficiencyScore10yrBelow",
+    "name_en": "Tax Efficiency Score 10yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_TAX_EFF_SCR_3YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "稅務效率評分(3年)",
+  "tooltip_zh": "篩選稅務效率評分(3年)的範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfTaxEfficiencyScore3yrAbove",
+    "name_en": "Tax Efficiency Score 3yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfTaxEfficiencyScore3yrBelow",
+    "name_en": "Tax Efficiency Score 3yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_TAX_EFF_SCR_5YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "稅務效率評分(5年)",
+  "tooltip_zh": "篩選稅務效率評分(5年)的範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfTaxEfficiencyScore5yrAbove",
+    "name_en": "Tax Efficiency Score 5yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfTaxEfficiencyScore5yrBelow",
+    "name_en": "Tax Efficiency Score 5yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_TAX_EFF_SCR_ALL",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "稅務效率評分(總評)",
+  "tooltip_zh": "篩選稅務效率評分(總評)的範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfTaxEfficiencyScoreOverallAbove",
+    "name_en": "Tax Efficiency Score Overall Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfTaxEfficiencyScoreOverallBelow",
+    "name_en": "Tax Efficiency Score Overall Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_TOT_RET_SCR_10YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "總報酬評分(10年)",
+  "tooltip_zh": "篩選總報酬評分(10年)的範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfTotalReturnScore10yrAbove",
+    "name_en": "Total Return Score 10yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfTotalReturnScore10yrBelow",
+    "name_en": "Total Return Score 10yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_TOT_RET_SCR_3YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "總報酬評分(3年)",
+  "tooltip_zh": "篩選總報酬評分(3年)的範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfTotalReturnScore3yrAbove",
+    "name_en": "Total Return Score 3yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfTotalReturnScore3yrBelow",
+    "name_en": "Total Return Score 3yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_TOT_RET_SCR_5YR",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "總報酬評分(5年)",
+  "tooltip_zh": "篩選總報酬評分(5年)的範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfTotalReturnScore5yrAbove",
+    "name_en": "Total Return Score 5yr Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfTotalReturnScore5yrBelow",
+    "name_en": "Total Return Score 5yr Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_LDR_TOT_RET_SCR_ALL",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "總報酬評分(總評)",
+  "tooltip_zh": "篩選總報酬評分(總評)的範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "mfTotalReturnScoreOverallAbove",
+    "name_en": "Total Return Score Overall Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "mfTotalReturnScoreOverallBelow",
+    "name_en": "Total Return Score Overall Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "MF_PRICE_CHG_VAL",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "價格變動值",
+  "tooltip_zh": "篩選價格變動值的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "mfPriceChangeValueAbove",
+    "name_en": "Price Change Value Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "mfPriceChangeValueBelow",
+    "name_en": "Price Change Value Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "NEXTEARNINGSDATETIME",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "下次財報日期時間",
+  "tooltip_zh": "篩選下次財報公布的日期時間範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "nextEarningsDateTimeAbove",
+    "name_en": "Next Earnings Date Time Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "nextEarningsDateTimeBelow",
+    "name_en": "Next Earnings Date Time Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "PEAELIGIBLE",
+  "kind": "simple",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "PEA合格標的",
+  "tooltip_zh": "篩選是否符合PEA(Plan d'Épargne en Actions)投資資格",
+  "value_type": "bool",
+  "fields": [
+   {
+    "code": "peaEligibleStkIs",
+    "name_en": "PEA Eligible",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "PPO",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "PPO指標",
+  "tooltip_zh": "篩選百分比價格震盪指標(PPO)的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "curPPOAbove",
+    "name_en": "PPO Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "curPPOBelow",
+    "name_en": "PPO Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "PPO_HISTOGRAM",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "PPO柱狀圖",
+  "tooltip_zh": "篩選PPO柱狀圖值的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "curPPODistAbove",
+    "name_en": "PPO Histogram Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "curPPODistBelow",
+    "name_en": "PPO Histogram Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "PPO_SIGNAL",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "PPO訊號線",
+  "tooltip_zh": "篩選PPO訊號線值的範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "curPPOSignalAbove",
+    "name_en": "PPO Signal Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "curPPOSignalBelow",
+    "name_en": "PPO Signal Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "PRICE_VS_EMA_100",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "股價與EMA(100)乖離率",
+  "tooltip_zh": "篩選股價與100日指數移動平均線的乖離率範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lastVsEMAChangeRatio100Above",
+    "name_en": "Price vs EMA(100) Change(%) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lastVsEMAChangeRatio100Below",
+    "name_en": "Price vs EMA(100) Change(%) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "PRICE_VS_EMA_20",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "股價與EMA(20)乖離率",
+  "tooltip_zh": "篩選股價與20日指數移動平均線的乖離率範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lastVsEMAChangeRatio20Above",
+    "name_en": "Price vs EMA(20) Change(%) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lastVsEMAChangeRatio20Below",
+    "name_en": "Price vs EMA(20) Change(%) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "PRICE_VS_EMA_200",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "股價與EMA(200)乖離率",
+  "tooltip_zh": "篩選股價與200日指數移動平均線的乖離率範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lastVsEMAChangeRatio200Above",
+    "name_en": "Price vs EMA(200) Change(%) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lastVsEMAChangeRatio200Below",
+    "name_en": "Price vs EMA(200) Change(%) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "PRICE_VS_EMA_50",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "股價與EMA(50)乖離率",
+  "tooltip_zh": "篩選股價與50日指數移動平均線的乖離率範圍",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "lastVsEMAChangeRatio50Above",
+    "name_en": "Price vs EMA(50) Change(%) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "lastVsEMAChangeRatio50Below",
+    "name_en": "Price vs EMA(50) Change(%) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "SHORTABLESHARES",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "可借券數量",
+  "tooltip_zh": "篩選可借券做空的股數範圍",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "sharesAvailableManyAbove",
+    "name_en": "Shares Available Above",
+    "unit_zh": "股"
+   },
+   {
+    "code": "sharesAvailableManyBelow",
+    "name_en": "Shares Available Below",
+    "unit_zh": "股"
+   }
+  ]
+ },
+ {
+  "id": "STVOLUMEVSAVG_10MIN",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "10分鐘成交量比均量",
+  "tooltip_zh": "近10分鐘成交量相對於平均成交量的比率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "stVolumeVsAvg10minAbove",
+    "name_en": "10min Volume vs Average Volume Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "stVolumeVsAvg10minBelow",
+    "name_en": "10min Volume vs Average Volume Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "STVOLUMEVSAVG_3MIN",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "3分鐘成交量比均量",
+  "tooltip_zh": "近3分鐘成交量相對於平均成交量的比率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "stVolumeVsAvg3minAbove",
+    "name_en": "3min Volume vs Average Volume Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "stVolumeVsAvg3minBelow",
+    "name_en": "3min Volume vs Average Volume Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "STVOLUMEVSAVG_5MIN",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "5分鐘成交量比均量",
+  "tooltip_zh": "近5分鐘成交量相對於平均成交量的比率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "stVolumeVsAvg5minAbove",
+    "name_en": "5min Volume vs Average Volume Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "stVolumeVsAvg5minBelow",
+    "name_en": "5min Volume vs Average Volume Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "STVOLUME_10MIN",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "10分鐘成交量",
+  "tooltip_zh": "近10分鐘內的總成交股數",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "stVolume10minAbove",
+    "name_en": "10min Volume Above",
+    "unit_zh": "股"
+   },
+   {
+    "code": "stVolume10minBelow",
+    "name_en": "10min Volume Below",
+    "unit_zh": "股"
+   }
+  ]
+ },
+ {
+  "id": "STVOLUME_3MIN",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "3分鐘成交量",
+  "tooltip_zh": "近3分鐘內的總成交股數",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "stVolume3minAbove",
+    "name_en": "3min Volume Above",
+    "unit_zh": "股"
+   },
+   {
+    "code": "stVolume3minBelow",
+    "name_en": "3min Volume Below",
+    "unit_zh": "股"
+   }
+  ]
+ },
+ {
+  "id": "STVOLUME_5MIN",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "5分鐘成交量",
+  "tooltip_zh": "近5分鐘內的總成交股數",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "stVolume5minAbove",
+    "name_en": "5min Volume Above",
+    "unit_zh": "股"
+   },
+   {
+    "code": "stVolume5minBelow",
+    "name_en": "5min Volume Below",
+    "unit_zh": "股"
+   }
+  ]
+ },
+ {
+  "id": "TRADECOUNT",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "成交筆數",
+  "tooltip_zh": "統計期間內的總成交筆數",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "tradeCountAbove",
+    "name_en": "Trade Count Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "tradeCountBelow",
+    "name_en": "Trade Count Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "TRADERATE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "成交速率",
+  "tooltip_zh": "每秒成交筆數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "tradeRateAbove",
+    "name_en": "Trade Rate Above",
+    "unit_zh": "筆/秒"
+   },
+   {
+    "code": "tradeRateBelow",
+    "name_en": "Trade Rate Below",
+    "unit_zh": "筆/秒"
+   }
+  ]
+ },
+ {
+  "id": "UTILIZATION",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "借券利用率",
+  "tooltip_zh": "融券被借出的比例",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "utilizationAbove",
+    "name_en": "Utilization Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "utilizationBelow",
+    "name_en": "Utilization Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "VOLUMERATE",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "成交速率",
+  "tooltip_zh": "每秒成交股數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "volumeRateAbove",
+    "name_en": "Volume Rate Above",
+    "unit_zh": "股/秒"
+   },
+   {
+    "code": "volumeRateBelow",
+    "name_en": "Volume Rate Below",
+    "unit_zh": "股/秒"
+   }
+  ]
+ },
+ {
+  "id": "VOLUMEVSAVG",
+  "kind": "range",
+  "category_en": "General",
+  "category_zh": "一般",
+  "label_zh": "成交量比均量",
+  "tooltip_zh": "當日成交量相對於平均成交量的比率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "volumeVsAvgAbove",
+    "name_en": "Volume vs Average Volume Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "volumeVsAvgBelow",
+    "name_en": "Volume vs Average Volume Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "AVGVOLUME",
+  "kind": "range",
+  "category_en": "High/Low/Volume",
+  "category_zh": "高/低/成交量",
+  "label_zh": "日均成交量",
+  "tooltip_zh": "過去一段期間的平均每日成交股數",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "avgVolumeAbove",
+    "name_en": "Avg Volume Above",
+    "unit_zh": "股"
+   },
+   {
+    "code": "avgVolumeBelow",
+    "name_en": "Avg Volume Below",
+    "unit_zh": "股"
+   }
+  ]
+ },
+ {
+  "id": "AVGVOLUME_USD",
+  "kind": "range",
+  "category_en": "High/Low/Volume",
+  "category_zh": "高/低/成交量",
+  "label_zh": "日均成交金額",
+  "tooltip_zh": "過去一段期間的平均每日成交金額",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "avgUsdVolumeAbove",
+    "name_en": "Avg Volume ($) Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "avgUsdVolumeBelow",
+    "name_en": "Avg Volume ($) Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "VOLUME",
+  "kind": "simple",
+  "category_en": "High/Low/Volume",
+  "category_zh": "高/低/成交量",
+  "label_zh": "成交量",
+  "tooltip_zh": "當日總成交股數",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "volumeAbove",
+    "name_en": "Volume Above",
+    "unit_zh": "股"
+   }
+  ]
+ },
+ {
+  "id": "VOLUME_USD",
+  "kind": "range",
+  "category_en": "High/Low/Volume",
+  "category_zh": "高/低/成交量",
+  "label_zh": "成交金額",
+  "tooltip_zh": "當日總成交金額",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "usdVolumeAbove",
+    "name_en": "Volume ($) Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "usdVolumeBelow",
+    "name_en": "Volume ($) Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "AVGOPTVOLUME",
+  "kind": "simple",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "選擇權日均成交量",
+  "tooltip_zh": "選擇權過去一段期間的平均每日成交量",
+  "value_type": "int",
+  "fields": [
+   {
+    "code": "avgOptVolumeAbove",
+    "name_en": "Average Opt. Volume Above",
+    "unit_zh": "口"
+   }
+  ]
+ },
+ {
+  "id": "HV_PERCENTILE13",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "13週歷史波動率百分位",
+  "tooltip_zh": "13週歷史波動率在過去一年中的百分位排名",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "HVPercntl13wAbove",
+    "name_en": "13 Week HV Percentile Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "HVPercntl13wBelow",
+    "name_en": "13 Week HV Percentile Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HV_PERCENTILE26",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "26週歷史波動率百分位",
+  "tooltip_zh": "26週歷史波動率在過去一年中的百分位排名",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "HVPercntl26wAbove",
+    "name_en": "26 Week HV Percentile Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "HVPercntl26wBelow",
+    "name_en": "26 Week HV Percentile Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HV_PERCENTILE52",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "52週歷史波動率百分位",
+  "tooltip_zh": "52週歷史波動率在過去一年中的百分位排名",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "HVPercntl52wAbove",
+    "name_en": "52 Week HV Percentile Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "HVPercntl52wBelow",
+    "name_en": "52 Week HV Percentile Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HV_RANK13",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "13週歷史波動率排名",
+  "tooltip_zh": "13週歷史波動率在過去一年中的排名（1-100）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "hvRank13wAbove",
+    "name_en": "13 Week HV Rank Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "hvRank13wBelow",
+    "name_en": "13 Week HV Rank Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "HV_RANK26",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "26週歷史波動率排名",
+  "tooltip_zh": "26週歷史波動率在過去一年中的排名（1-100）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "HVRank26wAbove",
+    "name_en": "26 Week HV Rank Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "HVRank26wBelow",
+    "name_en": "26 Week HV Rank Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "HV_RANK52",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "52週歷史波動率排名",
+  "tooltip_zh": "52週歷史波動率在過去一年中的排名（1-100）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "HVRank52wAbove",
+    "name_en": "52 Week HV Rank Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "HVRank52wBelow",
+    "name_en": "52 Week HV Rank Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "IMPVOLAT",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "隱含波動率",
+  "tooltip_zh": "選擇權隱含波動率（IV）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "impVolatAbove",
+    "name_en": "Opt Imp Vol Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "impVolatBelow",
+    "name_en": "Opt Imp Vol Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "IMPVOLATCHANGEPERC",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "隱含波動率變化",
+  "tooltip_zh": "選擇權隱含波動率的百分比變化",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "impVolatChangePercAbove",
+    "name_en": "Opt Imp Vol Change (%) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "impVolatChangePercBelow",
+    "name_en": "Opt Imp Vol Change (%) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "IMPVOLATOVERHIST",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "隱含/歷史波動率比",
+  "tooltip_zh": "隱含波動率相對於歷史波動率的比率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "impVolatOverHistAbove",
+    "name_en": "Opt Imp Vol Over Hist Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "impVolatOverHistBelow",
+    "name_en": "Opt Imp Vol Over Hist Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "IV_PERCENTILE13",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "13週隱含波動率百分位",
+  "tooltip_zh": "近13週隱含波動率（IV）的歷史百分位排名",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "ivPercntl13wAbove",
+    "name_en": "13 Week IV Percentile Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "ivPercntl13wBelow",
+    "name_en": "13 Week IV Percentile Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "IV_PERCENTILE26",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "26週隱含波動率百分位",
+  "tooltip_zh": "近26週隱含波動率（IV）的歷史百分位排名",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "ivPercntl26wAbove",
+    "name_en": "26 Week IV Percentile Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "ivPercntl26wBelow",
+    "name_en": "26 Week IV Percentile Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "IV_PERCENTILE52",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "52週隱含波動率百分位",
+  "tooltip_zh": "近52週隱含波動率（IV）的歷史百分位排名",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "ivPercntl52wAbove",
+    "name_en": "52 Week IV Percentile Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "ivPercntl52wBelow",
+    "name_en": "52 Week IV Percentile Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "IV_RANK13",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "13週隱含波動率排名",
+  "tooltip_zh": "近13週隱含波動率（IV）的歷史區間排名",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "ivRank13wAbove",
+    "name_en": "13 Week IV Rank Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "ivRank13wBelow",
+    "name_en": "13 Week IV Rank Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "IV_RANK26",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "26週隱含波動率排名",
+  "tooltip_zh": "近26週隱含波動率（IV）的歷史區間排名",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "ivRank26wAbove",
+    "name_en": "26 Week IV Rank Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "ivRank26wBelow",
+    "name_en": "26 Week IV Rank Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "IV_RANK52",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "52週隱含波動率排名",
+  "tooltip_zh": "近52週隱含波動率（IV）的歷史區間排名",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "ivRank52wAbove",
+    "name_en": "52 Week IV Rank Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "ivRank52wBelow",
+    "name_en": "52 Week IV Rank Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "OPTOI",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "選擇權未平倉量",
+  "tooltip_zh": "選擇權合約的未平倉口數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "optOpenInterestAbove",
+    "name_en": "Opt Open Interest Above",
+    "unit_zh": "口"
+   },
+   {
+    "code": "optOpenInterestBelow",
+    "name_en": "Opt Open Interest Below",
+    "unit_zh": "口"
+   }
+  ]
+ },
+ {
+  "id": "OPTVOLUME",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "選擇權成交量",
+  "tooltip_zh": "選擇權合約的成交口數",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "optVolumeAbove",
+    "name_en": "Option Volume Above",
+    "unit_zh": "口"
+   },
+   {
+    "code": "optVolumeBelow",
+    "name_en": "Option Volume Below",
+    "unit_zh": "口"
+   }
+  ]
+ },
+ {
+  "id": "OPTVOLUMEPCRATIO",
+  "kind": "range",
+  "category_en": "Options",
+  "category_zh": "選擇權",
+  "label_zh": "選擇權成交買賣比",
+  "tooltip_zh": "選擇權成交量Put/Call比率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "optVolumePCRatioAbove",
+    "name_en": "Opt Volume P/C Ratio Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "optVolumePCRatioBelow",
+    "name_en": "Opt Volume P/C Ratio Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "AFTERHRSCHANGE",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "盤後漲跌額",
+  "tooltip_zh": "盤後交易時段的價格變動金額",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "afterHoursChangeAbove",
+    "name_en": "After-Hours Change Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "afterHoursChangeBelow",
+    "name_en": "After-Hours Change Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "AFTERHRSCHANGEPERC",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "盤後漲跌幅",
+  "tooltip_zh": "盤後交易時段的價格變動百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "afterHoursChangePercAbove",
+    "name_en": "After-Hours Change (%) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "afterHoursChangePercBelow",
+    "name_en": "After-Hours Change (%) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "BOND_ASK",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券賣價",
+  "tooltip_zh": "債券的賣方報價（Ask Price）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondAskAbove",
+    "name_en": "Price Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "bondAskBelow",
+    "name_en": "Price Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "BOND_ASK_SZ_VALUE",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券賣量",
+  "tooltip_zh": "債券賣方報價的數量",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondAskSizeValueAbove",
+    "name_en": "Quantity Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "bondAskSizeValueBelow",
+    "name_en": "Quantity Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "BOND_ASK_YIELD",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券賣價殖利率",
+  "tooltip_zh": "債券賣方報價對應的到期殖利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondAskYieldAbove",
+    "name_en": "Yield Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "bondAskYieldBelow",
+    "name_en": "Yield Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "BOND_BID",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券買價",
+  "tooltip_zh": "債券的買方報價（Bid Price）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondBidAbove",
+    "name_en": "Price Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "bondBidBelow",
+    "name_en": "Price Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "BOND_BID_OR_ASK",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券買賣價",
+  "tooltip_zh": "債券的買價或賣價",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondBidOrAskAbove",
+    "name_en": "Price Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "bondBidOrAskBelow",
+    "name_en": "Price Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "BOND_BID_OR_ASK_SZ_VALUE",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券買賣量",
+  "tooltip_zh": "債券買賣報價的數量",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondBidOrAskSizeValueAbove",
+    "name_en": "Quantity Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "bondBidOrAskSizeValueBelow",
+    "name_en": "Quantity Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "BOND_BID_OR_ASK_VALID",
+  "kind": "simple",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "排除無報價債券",
+  "tooltip_zh": "是否排除沒有有效報價的債券",
+  "value_type": "bool",
+  "fields": [
+   {
+    "code": "bondValidBidOrAskOnly",
+    "name_en": "Include bonds without quotes",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "BOND_BID_OR_ASK_YIELD",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券買賣價殖利率",
+  "tooltip_zh": "債券買賣報價對應的到期殖利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondBidOrAskYieldAbove",
+    "name_en": "Yield Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "bondBidOrAskYieldBelow",
+    "name_en": "Yield Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "BOND_BID_SZ_VALUE",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券買量",
+  "tooltip_zh": "債券買方報價的數量",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondBidSizeValueAbove",
+    "name_en": "Quantity Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "bondBidSizeValueBelow",
+    "name_en": "Quantity Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "BOND_BID_YIELD",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券買價殖利率",
+  "tooltip_zh": "債券買方報價對應的到期殖利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondBidYieldAbove",
+    "name_en": "Yield Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "bondBidYieldBelow",
+    "name_en": "Yield Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "BOND_NET_ASK",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券淨賣價",
+  "tooltip_zh": "債券的淨賣方報價（不含應計利息）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondNetAskAbove",
+    "name_en": "Price Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "bondNetAskBelow",
+    "name_en": "Price Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "BOND_NET_ASK_SZ_VALUE",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券淨賣量",
+  "tooltip_zh": "債券淨賣方報價的數量",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondNetAskSizeValueAbove",
+    "name_en": "Quantity Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "bondNetAskSizeValueBelow",
+    "name_en": "Quantity Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "BOND_NET_ASK_YIELD",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券淨賣價殖利率",
+  "tooltip_zh": "債券淨賣方報價對應的到期殖利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondNetAskYieldAbove",
+    "name_en": "Yield Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "bondNetAskYieldBelow",
+    "name_en": "Yield Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "BOND_NET_BID",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券淨買價",
+  "tooltip_zh": "債券的淨買方報價（不含應計利息）",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondNetBidAbove",
+    "name_en": "Price Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "bondNetBidBelow",
+    "name_en": "Price Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "BOND_NET_BID_OR_ASK",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券淨買賣價",
+  "tooltip_zh": "債券的淨買價或賣價",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondNetBidOrAskAbove",
+    "name_en": "Price Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "bondNetBidOrAskBelow",
+    "name_en": "Price Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "BOND_NET_BID_OR_ASK_SZ_VALUE",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券淨買賣價量值",
+  "tooltip_zh": "債券淨買賣價對應的委託量值",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondNetBidOrAskSizeValueAbove",
+    "name_en": "Quantity Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "bondNetBidOrAskSizeValueBelow",
+    "name_en": "Quantity Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "BOND_NET_BID_OR_ASK_VALID",
+  "kind": "simple",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "無報價債券",
+  "tooltip_zh": "是否包含沒有報價的債券",
+  "value_type": "bool",
+  "fields": [
+   {
+    "code": "bondValidNetBidOrAskOnly",
+    "name_en": "Include bonds without quotes",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "BOND_NET_BID_OR_ASK_YIELD",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券淨買賣價殖利率",
+  "tooltip_zh": "債券淨買賣價對應的殖利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondNetBidOrAskYieldAbove",
+    "name_en": "Yield Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "bondNetBidOrAskYieldBelow",
+    "name_en": "Yield Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "BOND_NET_BID_SZ_VALUE",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券淨買價量值",
+  "tooltip_zh": "債券淨買價對應的委託量值",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondNetBidSizeValueAbove",
+    "name_en": "Quantity Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "bondNetBidSizeValueBelow",
+    "name_en": "Quantity Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "BOND_NET_BID_YIELD",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券淨買價殖利率",
+  "tooltip_zh": "債券淨買價對應的殖利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondNetBidYieldAbove",
+    "name_en": "Yield Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "bondNetBidYieldBelow",
+    "name_en": "Yield Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "BOND_NET_SPREAD",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券淨價差",
+  "tooltip_zh": "債券買賣淨價的價差",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondNetSpreadAbove",
+    "name_en": "Spread Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "bondNetSpreadBelow",
+    "name_en": "Spread Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "BOND_SPREAD",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "債券價差",
+  "tooltip_zh": "債券買賣價的價差",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "bondSpreadAbove",
+    "name_en": "Spread Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "bondSpreadBelow",
+    "name_en": "Spread Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "CHANGEOPENPERC",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "開盤至今漲跌幅",
+  "tooltip_zh": "自開盤以來的價格變動百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "changeOpenPercAbove",
+    "name_en": "Change Since Open (%) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "changeOpenPercBelow",
+    "name_en": "Change Since Open (%) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "CHANGEPERC",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "漲跌幅",
+  "tooltip_zh": "相對於前一交易日的價格變動百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "changePercAbove",
+    "name_en": "Change (%) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "changePercBelow",
+    "name_en": "Change (%) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "DIVIB",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "預估股息率",
+  "tooltip_zh": "預估每股股息相對股價的百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "dividendFrdAbove",
+    "name_en": "Dividends Above (%)",
+    "unit_zh": "%"
+   },
+   {
+    "code": "dividendFrdBelow",
+    "name_en": "Dividends Below (%)",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "DIVYIELDIB",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "預估殖利率",
+  "tooltip_zh": "預估股息殖利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "dividendYieldFrdAbove",
+    "name_en": "Dividend Yield Above (%)",
+    "unit_zh": "%"
+   },
+   {
+    "code": "dividendYieldFrdBelow",
+    "name_en": "Dividend Yield Below (%)",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HISTDIVIB",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "歷史股息率(TTM)",
+  "tooltip_zh": "過去十二個月每股股息相對股價的百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "histDividendFrdAbove",
+    "name_en": "Dividends TTM Above (%)",
+    "unit_zh": "%"
+   },
+   {
+    "code": "histDividendFrdBelow",
+    "name_en": "Dividends TTM Below (%)",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "HISTDIVYIELDIB",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "歷史殖利率(TTM)",
+  "tooltip_zh": "過去十二個月的股息殖利率",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "histDividendFrdYieldAbove",
+    "name_en": "Dividend Yield TTM Above (%)",
+    "unit_zh": "%"
+   },
+   {
+    "code": "histDividendFrdYieldBelow",
+    "name_en": "Dividend Yield TTM Below (%)",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "NEXTDIVAMOUNT",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "下次每股股息",
+  "tooltip_zh": "預計發放的下一筆每股股息金額",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "dividendNextAmountAbove",
+    "name_en": "Next Dividend per Share Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "dividendNextAmountBelow",
+    "name_en": "Next Dividend per Share Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "OPENGAPPERC",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "開盤跳空幅度",
+  "tooltip_zh": "開盤價相對前收盤價的跳空百分比",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "openGapPercAbove",
+    "name_en": "Gap (%) Above",
+    "unit_zh": "%"
+   },
+   {
+    "code": "openGapPercBelow",
+    "name_en": "Gap (%) Below",
+    "unit_zh": "%"
+   }
+  ]
+ },
+ {
+  "id": "PRICE",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "股價",
+  "tooltip_zh": "目前成交價格",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "priceAbove",
+    "name_en": "Price Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "priceBelow",
+    "name_en": "Price Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "PRICERANGE",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "價格區間",
+  "tooltip_zh": "設定價格範圍的上下限",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "priceRangeAbove",
+    "name_en": "Price Range Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "priceRangeBelow",
+    "name_en": "Price Range Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "PRICE_USD",
+  "kind": "range",
+  "category_en": "Prices",
+  "category_zh": "價格",
+  "label_zh": "股價(美元)",
+  "tooltip_zh": "以美元計價的目前成交價格",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "usdPriceAbove",
+    "name_en": "Price ($) Above",
+    "unit_zh": "美元"
+   },
+   {
+    "code": "usdPriceBelow",
+    "name_en": "Price ($) Below",
+    "unit_zh": "美元"
+   }
+  ]
+ },
+ {
+  "id": "SCHANGE",
+  "kind": "range",
+  "category_en": "Social Sentiment",
+  "category_zh": "社群情緒",
+  "label_zh": "社群情緒分數變化",
+  "tooltip_zh": "社群情緒分數的變動幅度",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "socialSentimentScoreChangeAbove",
+    "name_en": "Social Sentiment Score Change Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "socialSentimentScoreChangeBelow",
+    "name_en": "Social Sentiment Score Change Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "SSCORE",
+  "kind": "range",
+  "category_en": "Social Sentiment",
+  "category_zh": "社群情緒",
+  "label_zh": "社群情緒分數",
+  "tooltip_zh": "社群媒體對該標的的情緒評分",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "socialSentimentScoreAbove",
+    "name_en": "Social Sentiment Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "socialSentimentScoreBelow",
+    "name_en": "Social Sentiment Score Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "SVCHANGE",
+  "kind": "range",
+  "category_en": "Social Sentiment",
+  "category_zh": "社群情緒",
+  "label_zh": "推文量分數變化",
+  "tooltip_zh": "推文數量評分指標的變動幅度",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "tweetVolumeScoreChangeAbove",
+    "name_en": "Tweet Volume Score Change Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "tweetVolumeScoreChangeBelow",
+    "name_en": "Tweet Volume Score Change Below",
+    "unit_zh": ""
+   }
+  ]
+ },
+ {
+  "id": "SVSCORE",
+  "kind": "range",
+  "category_en": "Social Sentiment",
+  "category_zh": "社群情緒",
+  "label_zh": "推文量分數",
+  "tooltip_zh": "社群媒體推文數量的評分指標",
+  "value_type": "double",
+  "fields": [
+   {
+    "code": "tweetVolumeScoreAbove",
+    "name_en": "Tweet Volume Score Above",
+    "unit_zh": ""
+   },
+   {
+    "code": "tweetVolumeScoreBelow",
+    "name_en": "Tweet Volume Score Below",
+    "unit_zh": ""
+   }
+  ]
+ }
+]

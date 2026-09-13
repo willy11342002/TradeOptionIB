@@ -22,18 +22,16 @@ order_book.py 裡)已經跟著這次改動整套移除，不是搬過來這裡�
 from typing import Dict, Optional
 
 from ib_async import LimitOrder, Trade
-from PyQt5.QtCore import QObject, pyqtSignal
 
 from app.models.ib_client import IBClient
+from app.services.signal import Signal
 
 
-class IBOrderClient(QObject):
-    order_sent = pyqtSignal(int)       # orderId，剛送出(PendingSubmit)當下
-    order_failed = pyqtSignal(str)     # 送出/改價/刪單失敗訊息
-    order_report = pyqtSignal(dict)    # 委託狀態變化，見 _trade_to_report()
-
+class IBOrderClient:
     def __init__(self, ib_client: IBClient):
-        super().__init__()
+        self.order_sent = Signal()     # orderId，剛送出(PendingSubmit)當下
+        self.order_failed = Signal()   # 送出/改價/刪單失敗訊息
+        self.order_report = Signal()   # 委託狀態變化，見 _trade_to_report()
         self._ib_client = ib_client
         self._ib = ib_client.ib
         # *** 重開程式後這個字典本來是空的，cancel_order 會找不到上一個

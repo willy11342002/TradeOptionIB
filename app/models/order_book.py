@@ -34,10 +34,10 @@ from typing import Dict, List, Optional
 
 from ib_async import Bag, ComboLeg
 from ib_async import Contract as IBContract
-from PyQt5.QtCore import QObject, pyqtSignal
 
 from app.models.ib_order_client import IBOrderClient
 from app.services import order_book_store
+from app.services.signal import Signal
 
 STATUS_STAGED = "staged"
 STATUS_LIVE = "live"       # 已送出，掛在 IB 上等成交(PendingSubmit/PreSubmitted/Submitted/PendingCancel 都算)
@@ -93,13 +93,11 @@ class OrderRecord:
                 f"{leg2.local_symbol or leg2.symbol}{'買' if leg2.buy else '賣'}")
 
 
-class OrderBookManager(QObject):
-    records_changed = pyqtSignal()  # 任何一筆的內容變了(新增/刪除/狀態更新)，UI 重新整個表格
-    order_book_error = pyqtSignal(str)      # 送出/改價/改量/刪單「當下」失敗
-    record_rejected = pyqtSignal(str, str)  # (委託描述, 錯誤訊息)：委託被交易所判定無效，一定要跳出來
-
+class OrderBookManager:
     def __init__(self, order_client: IBOrderClient):
-        super().__init__()
+        self.records_changed = Signal()    # 任何一筆的內容變了(新增/刪除/狀態更新)，UI 重新整個表格
+        self.order_book_error = Signal()   # 送出/改價/改量/刪單「當下」失敗
+        self.record_rejected = Signal()    # (委託描述, 錯誤訊息)：委託被交易所判定無效，一定要跳出來
         self._order_client = order_client
         self._order_client.order_report.connect(self._on_report)
         self._order_client.order_failed.connect(self.order_book_error.emit)

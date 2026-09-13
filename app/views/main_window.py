@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem, QGroupBox, QHeaderView, QPushButton,
     QMessageBox, QToolBar, QDockWidget, QInputDialog, QStyledItemDelegate,
 )
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor, QBrush, QPen
 from qasync import asyncSlot
 
@@ -24,6 +24,7 @@ from app.views.order_book_widgets import FillReportWidget, OrderBookWidget
 from app.views.order_entry_widget import OrderEntryWidget
 from app.views.payoff_chart_widget import PayoffChartWidget
 from app.views.position_widgets import PositionTreeWidget
+from app.views.screener_widget import ScreenerWidget
 
 # 表格底色跟著淺色/深色模式切換；漲跌紅綠字、Delta 這些「語意」顏色兩個
 # 主題共用，不受影響。
@@ -131,6 +132,7 @@ class MainWindow(QMainWindow):
         self.quote_client.quote_updated.connect(self._on_quote_updated)
         self.quote_client.quote_error.connect(self._on_quote_error)
 
+        self._current_layout_name = None  # 目前套用中的版面名稱，給「視窗」選單打勾用，見 _reload_layout_menus()
         self._build_ui()
         self._restore_query_params()
         self.position_manager.refresh()
@@ -145,7 +147,16 @@ class MainWindow(QMainWindow):
 
         self._default_geometry = self.saveGeometry()
         self._default_state = self.saveState()
-        self._restore_last_layout()
+        # *** 不能在這裡直接呼叫 _restore_last_layout() ***：這時候視窗
+        # 還沒 show()/showMaximized()(main.py 是先建完 MainWindow 才呼叫
+        # showMaximized())，QMainWindow 內部的 dock 分割區還沒真的排版
+        # 過、量不到真實可用空間，restoreState() 在這個時間點還原出來的
+        # dock 寬度比例就會是錯的——這也是「手動按套用版面是對的、但一
+        # 開視窗就不對」的原因：手動按的時候視窗早就 show 過了，量得到
+        # 正確尺寸。改用 QTimer.singleShot(0, ...) 排到下一輪事件迴圈，
+        # 讓 main.py 的 showMaximized() 先跑完，這裡才真正還原——跟
+        # main.py::_show_connect_dialog() 為什麼要用同一招是一樣的道理。
+        QTimer.singleShot(0, self._restore_last_layout)
 
     def _build_toolbar(self):
         toolbar = QToolBar("工具列", self)
@@ -156,33 +167,13 @@ class MainWindow(QMainWindow):
         self.theme_toggle = theme.make_theme_toggle(self)
         self.theme_toggle.toggled.connect(lambda _checked: self._apply_table_theme())
         toolbar.addWidget(self.theme_toggle)
-        toolbar.addSeparator()
-
-        toolbar.addWidget(QLabel(" 版面配置："))
-        self.layout_combo = QComboBox()
-        self.layout_combo.setMinimumWidth(140)
-        toolbar.addWidget(self.layout_combo)
-
-        apply_btn = QPushButton("套用")
-        apply_btn.clicked.connect(self._on_apply_layout)
-        toolbar.addWidget(apply_btn)
-
-        save_btn = QPushButton("儲存目前版面...")
-        save_btn.clicked.connect(self._on_save_layout)
-        toolbar.addWidget(save_btn)
-
-        delete_btn = QPushButton("刪除版面")
-        delete_btn.clicked.connect(self._on_delete_layout)
-        toolbar.addWidget(delete_btn)
-
-        reset_btn = QPushButton("重設為預設版面")
-        reset_btn.clicked.connect(self._on_reset_layout)
-        toolbar.addWidget(reset_btn)
-
-        self._reload_layout_combo()
 
     def _build_docks(self):
         self.quote_dock = self._make_dock("dock_quote", "選擇權報價", self._build_option_quote_widget())
+
+        self.screener_widget = ScreenerWidget(self.ib_client)
+        self.screener_widget.symbol_selected.connect(self._on_screener_symbol_selected)
+        self.screener_dock = self._make_dock("dock_screener", "選擇權篩選器", self.screener_widget)
 
         self.order_entry_widget = OrderEntryWidget(
             self.order_book_manager, self.quote_client, self._get_contract,
@@ -206,6 +197,9 @@ class MainWindow(QMainWindow):
         self.payoff_dock = self._make_dock("dock_payoff", "到期損益圖", self.payoff_chart_widget)
 
         self.addDockWidget(Qt.LeftDockWidgetArea, self.quote_dock)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.screener_dock)
+        self.tabifyDockWidget(self.quote_dock, self.screener_dock)
+        self.quote_dock.raise_()
 
         self.addDockWidget(Qt.RightDockWidgetArea, self.order_entry_dock)
         self.addDockWidget(Qt.RightDockWidgetArea, self.order_book_dock)
@@ -223,10 +217,24 @@ class MainWindow(QMainWindow):
 
         view_menu = self.menuBar().addMenu("視窗")
         for dock in (
-            self.quote_dock, self.order_entry_dock, self.order_book_dock,
+            self.quote_dock, self.screener_dock, self.order_entry_dock, self.order_book_dock,
             self.fill_report_dock, self.equity_dock, self.position_dock, self.payoff_dock,
         ):
             view_menu.addAction(dock.toggleViewAction())
+
+        # *** 版面配置改放進「視窗」選單，不再用工具列上一整排 combo+按
+        # 鈕 ***：常見應用程式(Visual Studio 的「視窗」選單、IntelliJ 的
+        # 「Window」選單)都是把「套用/儲存/管理版面」放在選單裡的子選單
+        # /動作，不是常駐佔掉工具列空間的一排控制項——工具列只留使用者
+        # 高頻互動的深色模式切換。
+        view_menu.addSeparator()
+        self._apply_layout_menu = view_menu.addMenu("套用版面")
+        save_layout_action = view_menu.addAction("儲存目前版面...")
+        save_layout_action.triggered.connect(self._on_save_layout)
+        self._delete_layout_menu = view_menu.addMenu("刪除版面")
+        reset_layout_action = view_menu.addAction("重設為預設版面")
+        reset_layout_action.triggered.connect(self._on_reset_layout)
+        self._reload_layout_menus()
 
     def _make_dock(self, object_name: str, title: str, widget: QWidget) -> QDockWidget:
         dock = QDockWidget(title, self)
@@ -237,6 +245,18 @@ class MainWindow(QMainWindow):
         )
         return dock
 
+    def _ensure_screener_tabbed(self):
+        """套用/還原版面之後補呼叫一次——這支 app 支援使用者自己存版面
+        (layout_store)，新增 screener_dock 這個 dock 之後，使用者機器上
+        既有的舊版面(存檔當時這個 dock 還不存在)完全不知道它該分到哪一
+        組：restoreState() 對「版面裡沒記錄過」的 dock 不會主動幫忙分
+        組，套用舊版面後 quote_dock 會被搬回存檔當時的位置，screener_dock
+        卻留在原地，兩個因此被拆開、不再是頁籤(這是實測踩到的真實案
+        例，不是假設性防呆)。每次套用版面後都補一次 tabify，已經是同一
+        組的話這行是no-op，不會有副作用。"""
+        if self.screener_dock not in self.tabifiedDockWidgets(self.quote_dock):
+            self.tabifyDockWidget(self.quote_dock, self.screener_dock)
+
     def _build_option_quote_widget(self) -> QWidget:
         widget = QWidget()
         layout = QVBoxLayout(widget)
@@ -246,18 +266,28 @@ class MainWindow(QMainWindow):
         return widget
 
     # ------------------------------------------------------------ 版面配置
-    def _reload_layout_combo(self):
-        current = self.layout_combo.currentText()
+    def _reload_layout_menus(self):
+        """重新列出「視窗」選單裡「套用版面」/「刪除版面」兩個子選單的
+        內容——存檔/刪除版面之後都要呼叫，保持選單跟 layout_store 的內
+        容一致。「套用版面」裡目前套用中的那個打勾，純粹提示用，跟
+        combo box 當年顯示目前選取項目是同一個用途。"""
         names = layout_store.list_layouts()
-        self.layout_combo.clear()
-        self.layout_combo.addItems(names)
-        if current in names:
-            self.layout_combo.setCurrentText(current)
 
-    def _on_apply_layout(self):
-        name = self.layout_combo.currentText()
-        if not name:
-            return
+        self._apply_layout_menu.clear()
+        for name in names:
+            action = self._apply_layout_menu.addAction(name)
+            action.setCheckable(True)
+            action.setChecked(name == self._current_layout_name)
+            action.triggered.connect(lambda checked=False, n=name: self._on_apply_layout(n))
+        self._apply_layout_menu.setEnabled(bool(names))
+
+        self._delete_layout_menu.clear()
+        for name in names:
+            action = self._delete_layout_menu.addAction(name)
+            action.triggered.connect(lambda checked=False, n=name: self._on_delete_layout(n))
+        self._delete_layout_menu.setEnabled(bool(names))
+
+    def _on_apply_layout(self, name: str):
         result = layout_store.load_layout(name)
         if result is None:
             QMessageBox.warning(self, "套用版面失敗", f"找不到版面「{name}」")
@@ -265,23 +295,23 @@ class MainWindow(QMainWindow):
         geometry, state = result
         self.restoreGeometry(geometry)
         self.restoreState(state)
+        self._ensure_screener_tabbed()
         layout_store.set_last_layout_name(name)
+        self._current_layout_name = name
+        self._reload_layout_menus()
         self.status_label.setText(f"已套用版面「{name}」")
 
     def _on_save_layout(self):
-        name, ok = QInputDialog.getText(self, "儲存版面", "版面名稱", text=self.layout_combo.currentText() or "預設")
+        name, ok = QInputDialog.getText(self, "儲存版面", "版面名稱", text=self._current_layout_name or "預設")
         name = name.strip() if ok else ""
         if not name:
             return
         layout_store.save_layout(name, bytes(self.saveGeometry()), bytes(self.saveState()))
-        self._reload_layout_combo()
-        self.layout_combo.setCurrentText(name)
+        self._current_layout_name = name
+        self._reload_layout_menus()
         self.status_label.setText(f"已儲存版面「{name}」")
 
-    def _on_delete_layout(self):
-        name = self.layout_combo.currentText()
-        if not name:
-            return
+    def _on_delete_layout(self, name: str):
         confirm = QMessageBox.question(
             self, "刪除版面", f"確定要刪除版面「{name}」嗎？",
             QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
@@ -289,12 +319,17 @@ class MainWindow(QMainWindow):
         if confirm != QMessageBox.Yes:
             return
         layout_store.delete_layout(name)
-        self._reload_layout_combo()
+        if self._current_layout_name == name:
+            self._current_layout_name = None
+        self._reload_layout_menus()
         self.status_label.setText(f"已刪除版面「{name}」")
 
     def _on_reset_layout(self):
         self.restoreGeometry(self._default_geometry)
         self.restoreState(self._default_state)
+        self._ensure_screener_tabbed()
+        self._current_layout_name = None
+        self._reload_layout_menus()
         self.status_label.setText("已重設為預設版面")
 
     def _restore_last_layout(self):
@@ -307,7 +342,9 @@ class MainWindow(QMainWindow):
         geometry, state = result
         self.restoreGeometry(geometry)
         self.restoreState(state)
-        self.layout_combo.setCurrentText(name)
+        self._ensure_screener_tabbed()
+        self._current_layout_name = name
+        self._reload_layout_menus()
 
     def _on_order_rejected(self, label: str, error_msg: str):
         QMessageBox.critical(self, "委託失敗", f"{label}\n\n{error_msg}")
@@ -484,12 +521,30 @@ class MainWindow(QMainWindow):
             self.expiry_combo.setCurrentIndex(0)
 
         self.quote_client.subscribe([stock])
+        # 標的股票只有這一檔，訂閱後主動排一次退回查詢，不要傻等
+        # pendingTickersEvent 先來一次 tick 才觸發 fallback——見
+        # IBQuoteClient.prime_fallback() 的說明，這是「現價完全不會查」
+        # 的根本原因。
+        self.quote_client.prime_fallback(stock)
         # 到期日清單列出來之後，預設帶出第一個到期日的報價——跟使用者
         # 自己選到期日走的是同一套 _show_expiry_quotes_core()，只是這
         # 裡已經鎖過 self._busy 了，直接呼叫，不要再經過會因為忙碌中而
         # 跳過的 _on_query_params_changed()。
         if self.expiry_combo.count() > 0:
             await self._show_expiry_quotes_core()
+
+    @asyncSlot(str, str)
+    async def _on_screener_symbol_selected(self, symbol: str, expiry: str):
+        """篩選器結果表格雙擊某一列通過復篩的標的，帶去選擇權報價 dock
+        查看完整選擇權鏈——重用既有的查詢流程(_run_query_symbol +
+        expiry_combo)，不在篩選器那邊另外做一套訂閱邏輯。"""
+        self.symbol_edit.setText(symbol)
+        await self._run_query_symbol(symbol)
+        idx = self.expiry_combo.findData(expiry)
+        if idx >= 0:
+            self.expiry_combo.setCurrentIndex(idx)
+        self.quote_dock.setVisible(True)
+        self.quote_dock.raise_()
 
     def _on_quote_error(self, symbol_or_action: str, message: str):
         self.status_label.setText(f"報價查詢失敗 [{symbol_or_action}]: {message}")

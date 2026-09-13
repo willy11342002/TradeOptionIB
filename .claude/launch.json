@@ -1,0 +1,11 @@
+{
+    "version": "0.0.1",
+    "configurations": [
+        {
+            "name": "nicegui-main",
+            "runtimeExecutable": ".venv/Scripts/python.exe",
+            "runtimeArgs": ["main.py"],
+            "port": 8080
+        }
+    ]
+}

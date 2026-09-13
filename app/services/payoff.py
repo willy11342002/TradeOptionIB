@@ -131,14 +131,25 @@ def payoff_extremes(legs: List[PayoffLeg]) -> PayoffExtremes:
     )
 
 
-def price_axis_range(legs: List[PayoffLeg], padding_ratio: float = 0.2, min_span: float = 500.0) -> Tuple[float, float]:
+def price_axis_range(legs: List[PayoffLeg], padding_ratio: float = 0.2, min_span_ratio: float = 0.15) -> Tuple[float, float]:
     """X 軸(標的價格)範圍：以所有履約價的 min~max 為基準，外加留白比
-    例，並設最小跨度下限(避免單一履約價時跨度變 0)。"""
+    例，並設最小跨度下限(避免單一履約價時跨度變 0)。
+
+    *** 最小跨度改成「履約價中點的比例」，不是寫死的絕對點數 ***：這支
+    app 原本接台指選擇權(TAIFEX)，履約價動輒上萬點，寫死 500 點當最小跨
+    度只占標的價格一小部分，看起來很合理；換成美股/ETF 選擇權之後，履
+    約價可能只是幾十到幾百美元，寫死 500 反而變成「比整組履約價的實際
+    跨度大上好幾倍」，把 X 軸硬拉超寬、線型擠成一條線(使用者在 AAPL 的
+    iron condor 上實測到：損平點 324~346，跨度才 22，硬跨到 500 讓圖幾
+    乎看不出轉折)。改成跟履約價中點的比例算，才能跟著標的價格量級縮
+    放，不會因為換成美股就整組跑掉。"""
     strikes = kink_points(legs)
     if not strikes:
-        return (0.0, min_span)
+        return (0.0, 100.0)
     low, high = min(strikes), max(strikes)
     span = high - low
+    mid = (low + high) / 2
+    min_span = max(mid * min_span_ratio, 1.0)  # 1.0 保底，避免履約價本身就接近 0 時跨度變 0
     if span < min_span:
         pad = (min_span - span) / 2
         low -= pad

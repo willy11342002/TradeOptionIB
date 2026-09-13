@@ -35,9 +35,9 @@ import time
 from typing import Dict, Optional, Tuple
 
 from ib_async import Contract
-from PyQt5.QtCore import QObject, pyqtSignal
 
 from app.models.ib_client import IBClient
+from app.services.signal import Signal
 
 # (durationStr, barSizeSetting, whatToShow)，依序嘗試，第一個有資料的就
 # 用。*** 選擇權在 SMART/BEST 路由查日線 100% 會回 code 162(查無EOD資
@@ -71,12 +71,10 @@ def _clean(value):
     return value
 
 
-class IBQuoteClient(QObject):
-    quote_updated = pyqtSignal(str, dict)  # symbol_key(conId字串), dict同capital_quote_client.py的欄位
-    quote_error = pyqtSignal(str, str)     # symbol_key或動作說明, 錯誤訊息
-
+class IBQuoteClient:
     def __init__(self, ib_client: IBClient):
-        super().__init__()
+        self.quote_updated = Signal()  # symbol_key(conId字串), dict同capital_quote_client.py的欄位
+        self.quote_error = Signal()    # symbol_key或動作說明, 錯誤訊息
         self._ib_client = ib_client
         self._ib = ib_client.ib
         self._contracts: Dict[str, Contract] = {}  # symbol_key -> 已訂閱的 Contract
@@ -106,6 +104,22 @@ class IBQuoteClient(QObject):
 
     def unsubscribe_all(self) -> None:
         self.unsubscribe(list(self._contracts.values()))
+
+    def prime_fallback(self, contract) -> None:
+        """訂閱後立刻主動排一次退回查詢(reqHistoricalData)，不等
+        pendingTickersEvent 先觸發——`_get_fallback_cached()` 原本只有
+        _on_pending_tickers 收到 tick 時才會被呼叫到，如果這檔合約訂閱
+        之後 IB 一次 tick 都沒送(常見於盤中沒有任何成交、或帳戶對這檔沒
+        有市場資料權限又剛好連 frozen tick 都不給)，畫面就會永遠停在
+        「尚未查詢」，因為連「退回查歷史資料」這條路都沒被觸發過。只對
+        標的股票這種「只有一檔、每次查詢只會呼叫一次」的合約用這個——
+        不要對整批選擇權合約也這樣做，reqHistoricalData 有頻率限制，選
+        擇權那邊繼續靠 tick 觸發的 fallback 就夠了。"""
+        key = str(contract.conId)
+        if key in self._fallback_pending:
+            return
+        self._fallback_pending.add(key)
+        asyncio.ensure_future(self._refresh_fallback_async(key, contract))
 
     def fetch_snapshot(self, contract) -> dict:
         """主動查一次目前的報價快照(不需要等事件)，隨時可以呼叫——這是

@@ -12,7 +12,8 @@
 
 ## 事件迴圈：一定要用 qasync，不要用 `ib_async.util.useQt()`
 
-`main.py` 用 `qasync.QEventLoop` 讓 Qt 跟 asyncio 共用同一個事件迴圈。
+`pyqt.py`(舊版 PyQt5 桌面 app 的進入點)用 `qasync.QEventLoop` 讓 Qt 跟
+asyncio 共用同一個事件迴圈。
 **不要改回 `ib_async.util.useQt()`**——那是在 asyncio callback 裡巢狀塞
 一個 Qt `QEventLoop` 的 hack，實測發現只要開始跑（第一次 `connect()` 之
 後）就回不去「沒在跑」的狀態，導致之後任何一個同步 IB 呼叫都保證撞上
@@ -36,7 +37,42 @@
   asyncio「同一執行緒不能同時有兩個 Task 在跑」的重入保護，後者會撞上
   `no running event loop`。正確做法是用 `QTimer.singleShot(0, ...)` 排
   程一個純 Qt callback 在 `run_forever()` 開始後才顯示對話框，細節看
-  `main.py::_show_connect_dialog()` 的說明註解。
+  `pyqt.py::_show_connect_dialog()` 的說明註解。
+
+## 正在往 NiceGUI 遷移，`pyqt.py` 是過渡期還在跑的舊版
+
+PyQt5+qasync 這套組合踩過好幾次完全無聲的 process 崩潰(四條攔截管道
+連同 Windows 自己的事件記錄檔都沒留下任何東西)，決定整個換成 NiceGUI
+(架在 FastAPI/uvicorn 上，純 asyncio，沒有 Qt 事件迴圈這個不穩定的組
+合)。**採漸進式遷移，不是一次性替換**：
+
+- `pyqt.py`(PyQt5+qasync 桌面版，原本的 `main.py`)維持不動、繼續正常
+  運作，上面兩節的 qasync/`asyncSlot()`/同步 vs `xxxAsync()` 規則只適用
+  於這個舊路徑，**遷移完成後這支檔案會整支刪除**。
+- `main.py` 現在是新的 NiceGUI 進入點，跑在一般 asyncio(uvicorn)上，**不
+  需要 qasync**，背景工作一樣用既有的
+  `app/services/background_tasks.py::spawn()`/`run_blocking()`(那支模
+  組本來就是 Qt-free 的，兩邊共用)。NiceGUI 頁面放在 `app/views/`，用
+  `web_` 前綴跟舊的 Qt 檔案區隔(例如 `web_connect_page.py`/
+  `web_quote_board_page.py`)，不另外開資料夾，也不改 `app/` 這個
+  package 的名字。
+- **model 層(`app/models/ib_client.py`/`ib_quote_client.py`/
+  `ib_order_client.py`/`order_book.py`/`positions.py`/
+  `auto_close_manager.py`)已經拔掉 PyQt5 依賴**：`QObject`+`pyqtSignal`
+  改成 `app/services/signal.py` 的 `Signal` 類別(`.connect()`/`.emit()`
+  介面完全一樣，呼叫端寫法不用改)，這樣舊 Qt views 跟新 NiceGUI 頁面才
+  能共用同一份 model 程式碼，不用寫兩份。新增/修改這幾個檔案時，記得
+  `Signal()` 一定要在 `__init__` 裡建立(實例層級)，不能當類別屬性(不
+  然所有實例會共用同一份訂閱清單)。
+- `app_logging.py` 的 `setup_logging()` 接受 `install_qt_handler` 參數
+  (NiceGUI 進程傳 `False`)，另外有 `install_hang_watchdog_asyncio()`
+  給沒有 Qt 事件迴圈的 NiceGUI 進程用(概念跟 Qt 版的
+  `install_hang_watchdog()` 一樣是死人開關，心跳來源換成純 asyncio 背
+  景 task)。
+- 功能對照/後續路線圖(下單/部位/損益圖/自動平倉/市場篩選/AI 助手還沒搬
+  過去)見 `.claude/plans/lazy-plotting-sutton.md`。等 NiceGUI 版做到功
+  能對等，才是刪除 Qt 相關檔案跟 `pyqt5`/`pyqt5-qt5`/`pyqtgraph`/
+  `qasync` 依賴的時機。
 
 ## IB 特性跟 SKCOM 的差異（設計決策依據，不是文件查詢）
 

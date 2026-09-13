@@ -26,25 +26,32 @@
   actions` 裡只存 symbol/expiry/strike/right 這些 JSON 安全的原始欄位
   (不存 Contract 物件本身，那個沒辦法直接 json.dumps)，真正要送單時
   (`_execute_reopen`/`_open_add_leg`)才重新 qualify 一次。
-- **凡是會 qualify 合約的路徑都要是 async**：這支 app 用 qasync 讓 Qt
-  事件迴圈本身就是 asyncio 迴圈(見 main.py)，同步版
-  `ib.qualifyContracts()` 內部的 `loop.run_until_complete()` 在這個架
-  構下一定會撞上「這個事件迴圈已經在跑了」——所以整條從
-  `positions_changed`/`records_changed` 訊號進來、到真正送出重開/加開
-  單的呼叫鏈(`_on_positions_changed`→`_evaluate_positions`→
-  `_fire_take_profit`/`_fire_stop_loss`→`_build_reopen_action`/
-  `_build_new_group_action`/`_open_add_leg`→`_assign_group_for_action`；
-  `_check_chained_fills`→`_execute_reopen`)都是 async def，Qt 訊號的
-  handler 用 `@asyncSlot()` 直接接。規則觸發後的 `rule.status =
-  STATUS_TRIGGERED` 都刻意寫在第一個 `await`(qualify)之前，這樣同一
-  個規則不會因為兩次訊號重疊觸發而被送兩次重複的單。
+- **凡是會 qualify 合約的路徑都要是 async**：這支 app 全程只在單一
+  asyncio 事件迴圈上跑(不管是舊版 qasync 的迴圈還是新版 NiceGUI/uvicorn
+  的迴圈)，同步版 `ib.qualifyContracts()` 內部的
+  `loop.run_until_complete()` 在這個架構下一定會撞上「這個事件迴圈已經
+  在跑了」——所以整條從 `positions_changed`/`records_changed` 訊號進來、
+  到真正送出重開/加開單的呼叫鏈(`_on_positions_changed`→
+  `_evaluate_positions`→`_fire_take_profit`/`_fire_stop_loss`→
+  `_build_reopen_action`/`_build_new_group_action`/`_open_add_leg`→
+  `_assign_group_for_action`；`_check_chained_fills`→`_execute_reopen`)
+  都是 async def。規則觸發後的 `rule.status = STATUS_TRIGGERED` 都刻意
+  寫在第一個 `await`(qualify)之前，這樣同一個規則不會因為兩次訊號重疊
+  觸發而被送兩次重複的單。
+- **`_on_positions_changed`/`_check_chained_fills` 用 `spawn()` 接訊號，
+  不是舊版的 `@asyncSlot()`**：`app.services.signal.Signal.emit()` 是同
+  步呼叫 callback，傳一個 async def 進去只會拿到一個沒人 await 的
+  coroutine 物件，什麼都不會執行——用
+  `app/services/background_tasks.py` 的 `spawn()` 包一層，把訊號觸發
+  的當下排程成一個有強參照保護、不會被 GC 中途回收的 Task(這個模組原本
+  用 qasync 的 `@asyncSlot()` 也是為了同一個目的，但 `@asyncSlot()`
+  本身就踩在「Task 只有區域變數撐著、slot 一返回就可能被 GC 回收」這個
+  陷阱上，`spawn()` 是這支專案已經修過這個陷阱的正確做法，詳見
+  `background_tasks.py` 開頭的說明)。
 """
 import time
 from dataclasses import asdict
 from typing import Dict, List, Optional, Union
-
-from PyQt5.QtCore import QObject, pyqtSignal
-from qasync import asyncSlot
 
 from app.models.auto_close import (
     PositionRules, ReopenSpec, StopLossRule, TakeProfitRule,
@@ -56,6 +63,8 @@ from app.models.option_utils import build_option, vertical_spread_legs
 from app.models.order_book import OrderBookManager, STATUS_FILLED, STATUS_REJECTED, STATUS_CANCELLED
 from app.models.positions import Position, PositionGroup, PositionManager, UNGROUPED_ID, current_price, pnl_points
 from app.services import auto_close_store
+from app.services.background_tasks import spawn
+from app.services.signal import Signal
 
 
 def _trigger_price(position: Position, threshold_points: float, is_take_profit: bool) -> float:
@@ -129,12 +138,10 @@ def _sl_to_dict(rule: Optional[StopLossRule]) -> Optional[dict]:
     }
 
 
-class AutoCloseManager(QObject):
-    rules_changed = pyqtSignal()     # 規則設定/狀態有變動，UI 重繪
-    auto_close_error = pyqtSignal(str)  # 鏈結中的平倉單被交易所真的拒絕，需要人工排查
-
+class AutoCloseManager:
     def __init__(self, ib_client: IBClient, position_manager: PositionManager, order_book_manager: OrderBookManager):
-        super().__init__()
+        self.rules_changed = Signal()      # 規則設定/狀態有變動，UI 重繪
+        self.auto_close_error = Signal()   # 鏈結中的平倉單被交易所真的拒絕，需要人工排查
         self._ib = ib_client.ib
         self._position_manager = position_manager
         self._order_book_manager = order_book_manager
@@ -145,8 +152,8 @@ class AutoCloseManager(QObject):
 
         self._load()
 
-        self._position_manager.positions_changed.connect(self._on_positions_changed)
-        self._order_book_manager.records_changed.connect(self._check_chained_fills)
+        self._position_manager.positions_changed.connect(lambda: spawn(self._on_positions_changed()))
+        self._order_book_manager.records_changed.connect(lambda: spawn(self._check_chained_fills()))
 
     # ------------------------------------------------------------ 讀寫
     def _load(self) -> None:
@@ -239,7 +246,6 @@ class AutoCloseManager(QObject):
         self.rules_changed.emit()
 
     # ------------------------------------------------------------ 觸發判斷
-    @asyncSlot()
     async def _on_positions_changed(self) -> None:
         self._reconcile_orphans()
         await self._evaluate_positions()
@@ -478,7 +484,6 @@ class AutoCloseManager(QObject):
         self._assign_group(position, str(contract.conId))
 
     # ------------------------------------------------------------ 平倉成交後才重開
-    @asyncSlot()
     async def _check_chained_fills(self) -> None:
         # *** 每筆一定要在 await _execute_reopen() 之前就先從
         # _pending_fill_actions 移除、存檔 ***：_execute_reopen() 自己

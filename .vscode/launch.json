@@ -5,10 +5,24 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python Debugger: Current File",
+            "name": "NiceGUI: main.py (auto-reload)",
             "type": "debugpy",
             "request": "launch",
             "program": "main.py",
+            "console": "integratedTerminal",
+            // main.py 用 ui.run(reload=True)：uvicorn 偵測到 .py 檔變動
+            // 會另外開一個子行程重新載入 app，這裡一定要開 subProcess，
+            // 不然中斷點只會停在最外層那個 reloader 監控行程，重啟出來
+            // 的子行程(真正在跑 NiceGUI/處理請求的那個)不會被除錯器接
+            // 上，中斷點形同虛設。
+            "subProcess": true,
+            "justMyCode": true
+        },
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
             "console": "integratedTerminal"
         }
     ]
