@@ -9,6 +9,7 @@
             "type": "debugpy",
             "request": "launch",
             "program": "main.py",
+            "args": ["--reload"],
             "console": "integratedTerminal",
             // main.py 用 ui.run(reload=True)：uvicorn 偵測到 .py 檔變動
             // 會另外開一個子行程重新載入 app，這裡一定要開 subProcess，

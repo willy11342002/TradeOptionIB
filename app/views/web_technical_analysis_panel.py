@@ -1,16 +1,15 @@
 """
 選擇權報價視窗裡的「技術分析」頁籤——顯示目前查詢中標的的K線圖(蠟燭圖
-+下方成交量)，可切換 1分K/5分K/30分K/日線/週線/月線，並支援使用者用
-「畫斜線」/「畫橫線」兩個按鈕在圖表上拖曳畫線(兩者都是切到 Plotly 的
-drawline 工具，「畫橫線」多一步：拖曳完成後自動把那條線拉平成貫穿整個
-可視寬度的水平線，用拖曳起點的價格，價格文字貼著 Y 軸顯示)。故意不做
-成「按鈕武裝→點圖表上哪個位置」這種靠 `plotly_click` 事件的設計——
-Plotly 在 `dragmode="zoom"` 底下單純點擊(沒有拖曳位移)常常不會觸發
++下方成交量)，可切換 1分K/5分K/30分K/日線/週線/月線，並支援使用者畫
+線。「畫斜線」按鈕切到 Plotly 內建的 drawline 工具，使用者自己在圖表上
+拖曳畫一條任意角度的直線；「畫橫線」按鈕不用 drawline，直接在目前可視
+範圍高低價的中間新增一條貫穿整個可視寬度的水平線(價格文字貼著 Y 軸顯
+示)，畫完後用兩個自訂圓點把手拖曳調整位置——故意不做「按鈕武裝→點圖
+表上哪個位置」這種靠 `plotly_click` 事件的設計，因為 Plotly 在
+`dragmode="zoom"` 底下單純點擊(沒有拖曳位移)常常不會觸發
 `plotly_click`，實測驗證過連繞開 NiceGUI、直接掛在 Plotly 原生事件上的
 監聽器都收不到，這是 Plotly 本身「點擊 vs 框選縮放」手勢判定的行為限
-制，不能依賴；改成靠「畫完一條線」這個完成事件(`plotly_relayout` 帶完
-整 shapes 陣列)，這個事件很可靠。畫面/操作行為對照舊版 Qt `pyqtgraph`
-圖表
+制，不能依賴。畫面/操作行為對照舊版 Qt `pyqtgraph` 圖表
 (`candlestick_chart.py`，隨群益 API 一起刪除，已經不在專案裡)的設計：
 Y軸不能用滑鼠/滾輪縮放，可視範圍內的最高最低價由程式自動算好、動態塞
 滿Y軸，使用者只能縮放/拖曳X軸。
@@ -34,17 +33,33 @@ Qt 版的 pyqtgraph：K線用 Plotly 內建的 `candlestick` trace 型別；畫�
 需求「不需要太複雜」。
 
 畫完的直線/斜線可以再拖曳端點調整(Plotly 對 shape 的預設行為，沒有另外
-關掉)，只有「畫橫線」按鈕產生的水平參考線刻意鎖死不可拖曳
-(`editable=False`)，因為那條線的 `x0`/`x1` 用 `xref="paper"`(0~1)貫穿
-整個可視寬度，一旦允許拖曳端點，很容易不小心把「貫穿全寬」的線拖成一
-截不貫穿的線段，價位不對的話直接清除重畫/用 `eraseshape` 刪除更省事。
+關掉)，靠的是 Plotly 內建的 shape editing 機制(`shape.editable=True`)。
 
-拖曳調整既有 shape 端點/位置時，`plotly_relayout` 事件帶的是部分欄位
-(例如 `"shapes[2].x0"`)，不是完整的新 `shapes` 陣列(只有「畫新線」跟
-「用 eraseshape 刪除」這兩種操作才會帶完整陣列，實測驗證過)——
-`_on_relayout()` 裡 `_extract_shape_edits()` 專門解析這種
-`"shapes[N].欄位"` 格式的 key，併回目前存檔的版本再存回去，兩種情況分
-開處理，不要混在一起判斷。
+橫線刻意**不**用這套內建機制——查過 Plotly.js 3.1.1 官方原始碼
+(`src/components/shapes/draw.js`)跟社群討論才確認：(1) 在使用者拖曳
+shape 的過程中呼叫 `Plotly.relayout()`，那個 shape 就不會再更新位置，
+這是 Plotly.js 已知的架構限制，不是我們哪裡沒設對；(2) Plotly 沒有內建
+「只能整條移動、不能個別調整端點」的選項——這正是橫線需要的行為(拖曳
+任一端點都要讓兩邊同步、維持水平)，硬要在「畫完後端糾正回去再推送」這
+條路上做，等於每次拖曳都要呼叫 relayout，會跟使用者正在進行的拖曳互相
+打架(使用者實測回報：一拖就彈回去)。
+
+改成完全繞開 Plotly 的 shape editing：橫線的 `editable` 維持
+False(鎖死，不讓 Plotly 接手)，改由下面這段注入的 JS(`_HLINE_JS`)在橫
+線兩端疊兩個自己畫的圓點把手(純 HTML `<div>`，絕對定位疊在
+`.js-plotly-plot` 容器上，用 `gd._fullLayout.yaxis.p2l()`/`l2p()` 自己
+算價格↔像素的對應)，拖曳這兩個把手時純前端处理(mousemove 只更新視覺，
+不送到後端)，放開滑鼠那一刻才呼叫一次 `Plotly.relayout()` 把最終的
+y0/y1(兩端同一個值)、`label.text` 一起送出去讓後端存檔——`_on_relayout`
+的 `js_handler` 會在 `window.__hlineDragging` 為真的期間直接吞掉事件，
+不要在拖曳過程中對後端灌一堆 relayout(效能考量，也避免中途觸發任何後
+端邏輯)。
+
+「畫斜線」按鈕維持用 Plotly 內建的 `drawline` 工具(切 dragmode，使用者
+自己拖曳)，兩個端點本來就該各自獨立，不需要跟橫線一樣的同步邏輯，拖曳
+調整端點時 `plotly_relayout` 事件帶的是部分欄位(例如 `"shapes[2].x0"`
+這種點記法路徑，可能巢狀到 `"shapes[2].label.text"`)，`_apply_shape_edit()`
+負責把這種路徑正確寫回 shape 字典對應的巢狀位置。
 """
 import datetime
 import re
@@ -87,6 +102,100 @@ _VOLUME_DOWN = "rgba(239, 68, 68, 0.55)"
 # 價格/成交量兩個子圖的 Y 軸 domain，中間留一點空隙分開兩塊。
 _PRICE_DOMAIN = [0.28, 1.0]
 _VOLUME_DOMAIN = [0.0, 0.20]
+
+# 橫線兩端的自訂拖曳把手——完全不用 Plotly 內建的 shape editing，理由見
+# module docstring。`gdOf()` 找的是 `ui.plotly` 這個 NiceGUI 元件的 DOM
+# 容器(id 是 "c"+element.id，見 nicegui.js::getElement())，這個容器本
+# 身在 Plotly.newPlot() 之後就是 `.js-plotly-plot`(不是子節點)，兩種情
+# 況都處理一下比較保險。拖曳中(`window.__hlineDragging`)只做純前端視覺
+# 更新(呼叫 Plotly.relayout 讓橫線跟著把手移動，但不送到後端)，放開滑
+# 鼠那一刻才補送一次最終狀態——`chart.on("plotly_relayout", ...,
+# js_handler=...)` 那邊的 js_handler 靠這個全域旗標判斷要不要把事件轉
+# 發給後端，見 build() 內的說明。
+_HLINE_JS = """
+<script>
+(function () {
+  function gdOf(wrapperId) {
+    const el = document.getElementById(wrapperId);
+    if (!el) return null;
+    return el.classList.contains('js-plotly-plot') ? el : el.querySelector('.js-plotly-plot');
+  }
+
+  window.__hlineSync = function (wrapperId) {
+    const gd = gdOf(wrapperId);
+    if (!gd || !gd._fullLayout || !gd.layout) return;
+    [...gd.querySelectorAll(':scope > .hline-handle')].forEach((el) => el.remove());
+    if (getComputedStyle(gd).position === 'static') gd.style.position = 'relative';
+    const ya = gd._fullLayout.yaxis;
+    const size = gd._fullLayout._size;
+    (gd.layout.shapes || []).forEach((shape, idx) => {
+      if (shape.xref !== 'paper' || shape.yref !== 'y') return;  // 只有橫線才加把手，斜線用 Plotly 內建的端點編輯
+      const pxY = ya.l2p(shape.y0) + size.t;
+      [0.15, 0.85].forEach((frac) => {
+        const handle = document.createElement('div');
+        handle.className = 'hline-handle';
+        handle.style.cssText = 'position:absolute;width:12px;height:12px;border-radius:50%;'
+          + 'background:#f5a623;border:2px solid white;cursor:ns-resize;z-index:20;'
+          + 'transform:translate(-50%,-50%);box-shadow:0 0 2px rgba(0,0,0,.6);';
+        handle.style.left = (size.l + size.w * frac) + 'px';
+        handle.style.top = pxY + 'px';
+        handle.addEventListener('mousedown', (ev) => startDrag(ev, wrapperId, idx));
+        gd.appendChild(handle);
+      });
+    });
+  };
+
+  let dragState = null;
+
+  function startDrag(ev, wrapperId, idx) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    dragState = {wrapperId, idx};
+    window.__hlineDragging = true;
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
+
+  function priceAt(gd, clientY) {
+    const rect = gd.getBoundingClientRect();
+    const size = gd._fullLayout._size;
+    const ya = gd._fullLayout.yaxis;
+    return Math.round(ya.p2l(clientY - rect.top - size.t) * 100) / 100;
+  }
+
+  function onMove(ev) {
+    if (!dragState) return;
+    const gd = gdOf(dragState.wrapperId);
+    if (!gd) return;
+    const price = priceAt(gd, ev.clientY);
+    const patch = {};
+    patch['shapes[' + dragState.idx + '].y0'] = price;
+    patch['shapes[' + dragState.idx + '].y1'] = price;
+    patch['shapes[' + dragState.idx + '].label.text'] = String(price);
+    Plotly.relayout(gd, patch);  // window.__hlineDragging 還是 true，js_handler 不會把這次轉發給後端
+    window.__hlineSync(dragState.wrapperId);
+  }
+
+  function onUp(ev) {
+    if (!dragState) return;
+    const {wrapperId, idx} = dragState;
+    window.__hlineDragging = false;  // 先關掉抑制旗標，接下來這次 relayout 才會真的送到後端
+    const gd = gdOf(wrapperId);
+    const shape = gd && gd.layout.shapes[idx];
+    if (shape) {
+      const patch = {};
+      patch['shapes[' + idx + '].y0'] = shape.y0;
+      patch['shapes[' + idx + '].y1'] = shape.y1;
+      patch['shapes[' + idx + '].label.text'] = shape.label.text;
+      Plotly.relayout(gd, patch);
+    }
+    dragState = null;
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+})();
+</script>
+"""
 
 
 def _palette() -> dict:
@@ -227,6 +336,18 @@ def _extract_shape_edits(args: dict) -> dict[int, dict]:
     return edits
 
 
+def _apply_shape_edit(shape: dict, field: str, value) -> None:
+    """把 `_extract_shape_edits()` 解析出來的欄位路徑寫回 shape 字典——
+    `field` 可能帶點記法巢狀路徑(例如橫線拖曳把手送出的
+    `"label.text"`)，要拆開逐層寫進 `shape["label"]["text"]`，不能直接
+    當成字面上一個叫 `"label.text"` 的 key 塞進去。"""
+    parts = field.split(".")
+    target = shape
+    for part in parts[:-1]:
+        target = target.setdefault(part, {})
+    target[parts[-1]] = value
+
+
 def _format_bar_line(symbol: str, timeframe_label: str, bar: dict) -> str:
     """狀態列文字——顯示這根K棒的開高低收/成交量，取代原本「共幾根K棒」
     這種對使用者沒什麼意義的統計數字(使用者原始要求)。`bar["x"]` 是
@@ -258,7 +379,7 @@ def build(ib_client: IBClient):
     到「技術分析」頁籤那一刻(`set_visible(True)`)才做。"""
     state = {
         "symbol": None, "contract": None, "timeframe": _DEFAULT_TIMEFRAME, "bars": [],
-        "visible": False, "dirty": False, "idle_text": "", "hline_armed": False,
+        "visible": False, "dirty": False, "idle_text": "",
     }
 
     # Plotly 畫十字線(spikeline)固定會在設定的那條線底下再疊一條
@@ -268,6 +389,7 @@ def build(ib_client: IBClient):
     # 「很粗」的真正原因——直接用 CSS 蓋掉這兩條線的寬度，比在
     # layout.xaxis/yaxis 那幾個 spike* 參數上打轉有效。
     ui.add_head_html("<style>.js-plotly-plot .spikeline { stroke-width: 1px !important; }</style>")
+    ui.add_head_html(_HLINE_JS)
 
     with ui.column().classes("w-full gap-2"):
         with ui.row().classes("items-center gap-2"):
@@ -276,25 +398,28 @@ def build(ib_client: IBClient):
                 value=_DEFAULT_TIMEFRAME, label="週期",
             ).classes("w-32")
             ui.button("重新整理", icon="refresh", on_click=lambda: _refresh())
-            # 「畫斜線」/「畫橫線」兩個按鈕都是把 dragmode 切成
-            # "drawline"(跟直接點 Plotly 工具列上的鉛筆圖示是同一件
-            # 事)，讓使用者自己在圖表上拖曳畫一條線——不要做成「按鈕武
-            # 裝→點圖表上哪個位置」，Plotly 在 dragmode="zoom" 底下滑鼠
-            # 沒有明顯拖曳位移的單純點擊常常不會觸發 `plotly_click` 事
-            # 件(跟框選縮放手勢的判定會混淆，這是 Plotly 本身的行為限
-            # 制，不是程式邏輯或 NiceGUI 轉發的問題——直接掛一個不透過
-            # NiceGUI、純 Plotly 原生的 `gd.on('plotly_click', ...)` 監
-            # 聽器實測驗證過，一樣收不到)。「畫橫線」按鈕多做一件事：拖
-            # 曳完成後，把畫出來的線強制拉平成水平線(用拖曳起點的價格)
-            # ，讓使用者可以「畫在自己想要的位置」，又不用真的画得多精
-            # 準水平——這個「畫完一條線」的完成事件(`plotly_relayout`
-            # 帶完整 shapes 陣列)是可靠的，跟不可靠的 `plotly_click` 是
-            # 兩回事，見 `_on_relayout()` 的說明。
+            # 「畫斜線」按鈕切 dragmode 成 "drawline"(跟直接點 Plotly 工
+            # 具列上的鉛筆圖示是同一件事)，讓使用者自己在圖表上拖曳畫一
+            # 條任意角度的線；「畫橫線」不走這條路——直接在目前K棒的高低
+            # 價中間新增一條橫線，畫完後用兩個自訂把手拖曳調整位置(見
+            # module docstring 開頭關於 Plotly shape editing 限制的說
+            # 明)，不需要使用者自己先拖出一條線再被拉平。
             ui.button("畫斜線", icon="edit", on_click=lambda: _on_draw_line_clicked())
             ui.button("畫橫線", icon="horizontal_rule", on_click=lambda: _on_draw_hline_clicked())
             ui.button("清除畫線", icon="clear", on_click=lambda: _on_clear_clicked())
         status_label = ui.label("請先在「選擇權報價」頁籤查詢標的")
         chart = ui.plotly(_empty_figure(_DEFAULT_TIMEFRAME)).classes("w-full h-96")
+
+    def _sync_hline_handles() -> None:
+        """通知前端重新畫一次橫線的拖曳把手(位置依 shapes/yaxis.range
+        算)。呼叫時機：圖表資料重載、Y軸範圍變動(_rescale_y)、shapes 陣
+        列增減之後。包一層 setTimeout 是因為 `chart.update_figure()` 送
+        出的新 figure 要等前端真的跑完 `Plotly.react()`/`newPlot()`，
+        `gd._fullLayout` 才會是最新的，緊接著同一個 tick 呼叫會抓到舊資
+        料，50ms 是憑經驗抓的保守值，不是精確算出來的。"""
+        ui.run_javascript(
+            f"setTimeout(() => {{ window.__hlineSync && window.__hlineSync('c{chart.id}'); }}, 50)"
+        )
 
     def _hline_shape(price: float) -> dict:
         return {
@@ -305,17 +430,9 @@ def build(ib_client: IBClient):
             "xref": "paper", "x0": 0, "x1": 1,
             "yref": "y", "y0": price, "y1": price,
             "line": {"color": "#f5a623", "width": 1},
-            # *** shape.editable 的 schema 預設值是 False，不是 True
-            # ***：只有使用者用 drawline 工具「手畫」出來的新 shape，
-            # Plotly 才會自動幫它加上 editable:true，我們這裡是程式碼自
-            # 己組出來的 shape dict，不明確寫 True 就會是鎖死的(踩過的
-            # 坑，一開始以為「不寫 editable」等於「用預設可編輯」，其實
-            # 剛好相反)——使用者要求橫線能上下拖曳調整價位，這裡就要明
-            # 講。抓著兩端點拖曳理論上可以把 x0/x1 拖離 0/1(不再貫穿全
-            # 寬)，但那是使用者自己要挑端點拖才會發生，抓線本身拖曳只
-            # 會整條平移(y0/y1 一起變、x0/x1 不變)，真的拖壞了就刪掉重
-            # 畫，不特別處理這個邊角案例。
-            "editable": True,
+            # editable 不設(等同 False)——橫線完全不用 Plotly 內建的
+            # shape editing，拖曳調整靠 `_HLINE_JS` 自己疊的把手，理由見
+            # module docstring 開頭。
             # label.xanchor="left" 讓價格文字貼齊畫布最左邊(paper x=0
             # 那一端，正好是 Y 軸的位置)，看起來就像 Y 軸多長出一個自訂
             # 刻度，符合「Y軸要標註這條線畫在哪個價格」的需求。
@@ -343,81 +460,45 @@ def build(ib_client: IBClient):
             "yaxis.range": [lo - pad, hi + pad], "yaxis.autorange": False,
             "yaxis2.range": [0, vol_hi * 1.1 if vol_hi > 0 else 1], "yaxis2.autorange": False,
         })
+        _sync_hline_handles()  # yaxis.range 變了，把手的像素位置要跟著重算
 
     def _on_relayout(e) -> None:
         args = e.args or {}
         if "shapes" in args:
-            # 畫新線(drawline 拖出一條)、或用 eraseshape 整條刪除，
-            # Plotly 都會帶出完整的新 shapes 陣列——這個「畫完一條線」
-            # 的完成事件很可靠(不像 plotly_click)，「畫橫線」按鈕就是
-            # 靠這個：使用者拖曳畫完隨便一條線之後，如果目前是
-            # hline_armed 狀態，把剛畫好的那條(陣列最後一個，drawline
-            # 一律是 append 到最後面)強制改寫成貫穿全寬的水平線，用拖曳
-            # 起點(y0)當價格——這樣使用者可以「拖到畫面上想要的位置」，
-            # 又不用真的畫得多水平。
+            # 畫新線(「畫斜線」按鈕的 drawline 拖出一條)、用 eraseshape
+            # 整條刪除、或是我們自己(畫橫線按鈕/拖曳橫線把手完成時)主動
+            # 推送的完整 shapes 陣列，Plotly 都會帶出完整陣列。橫線不會
+            # 從這裡「新增」(直接由 _on_draw_hline_clicked() 構造好、整
+            # 批推送，不經過 drawline)，所以這裡只要處理「新增了一條線
+            # (斜線)就把 dragmode 切回 zoom」——drawline 模式下沒辦法
+            # 拖曳調整既有線段的端點，見「畫斜線」按鈕的說明。
             shapes = args["shapes"]
             prev_shapes = chart_drawing_store.load(state["symbol"])
-            added_new = len(shapes) > len(prev_shapes)
-            if added_new and state["hline_armed"]:
-                price = shapes[-1].get("y0")
-                shapes[-1] = _hline_shape(price)
-                state["hline_armed"] = False
-                status_label.text = state["idle_text"]
-                chart.run_plot_method("relayout", {"shapes": shapes, "dragmode": "zoom"})
-            elif added_new:
-                # *** 畫完一條線(不管是「畫斜線」按鈕還是上面 hline
-                # 分支)一定要自動把 dragmode 切回 "zoom" ***：Plotly 在
-                # dragmode="drawline" 底下，任何一次點擊/拖曳都會被當成
-                # 「要開始畫新的一條」，既有的 shape 完全沒辦法拖曳調
-                # 整——這是使用者實測回報的：畫完線不會自動變回拖曳模
-                # 式、既有線段(不管橫線斜線)都改不動，兩個症狀其實是同
-                # 一個根因。停在 hline_armed 分支的那一路已經有自己的
-                # relayout 呼叫(順便帶 dragmode)，這裡只處理其他情況
-                # (一般 drawline 畫的斜線/直線)。
+            if len(shapes) > len(prev_shapes):
                 chart.run_plot_method("relayout", {"dragmode": "zoom"})
             chart_drawing_store.save(state["symbol"], shapes)
             # 同步一份到 Python 端的 chart.figure 快取——
             # `_on_clear_clicked()` 清除畫線時要靠這個快取抓到目前完整
             # 的 figure 再改，不能用過期的版本。
             chart.figure["layout"]["shapes"] = shapes
+            _sync_hline_handles()  # shapes 增減了，把手也要跟著增減
             return
         shape_edits = _extract_shape_edits(args)
         if shape_edits:
             # 拖曳調整既有線段的端點/位置，帶的是部分欄位(例如
-            # "shapes[2].x0")，不是完整陣列，這裡從目前存檔的版本讀出
-            # 來，只更新被拖動的那幾條，再存回去。
+            # "shapes[2].x0"，或橫線把手送出的 "shapes[2].label.text"
+            # 這種巢狀路徑)，不是完整陣列，這裡從目前存檔的版本讀出
+            # 來，只更新被拖動的那幾條，再存回去。橫線的兩端同步/標籤更
+            # 新已經在 `_HLINE_JS` 那邊處理好了，這裡不用再猜是哪種線、
+            # 也不用把結果推回瀏覽器(瀏覽器端本來就是這次拖曳的來源，早
+            # 就是最新畫面了)。
             shapes = chart_drawing_store.load(state["symbol"])
-            needs_push_back = False
             for idx, fields in shape_edits.items():
-                if not (0 <= idx < len(shapes)):
-                    continue
-                shape = shapes[idx]
-                shape.update(fields)
-                if shape.get("xref") == "paper":
-                    # *** 橫線一定要在這裡自己把兩個端點拉回同一個價
-                    # 位、更新標籤文字 ***：Plotly 的 shape 端點拖曳本
-                    # 來就是各自獨立的(y0/y1 可以拖成不同值)，這對橫線
-                    # 是不對的——橫線的定義就是 y0==y1，只拖一個端點會
-                    # 讓線歪掉，不再是橫線。用「這次哪個欄位被拖動」取
-                    # 新價位(y1 優先、沒有才用 y0；整條平移時兩者會是
-                    # 同一個值，取哪個都一樣)，兩邊都設成這個值，
-                    # label.text 也跟著換成新的價位文字。
-                    price = fields.get("y1", fields.get("y0", shape.get("y0")))
-                    shape["y0"] = price
-                    shape["y1"] = price
-                    shape.setdefault("label", {})["text"] = f"{price:g}"
-                    needs_push_back = True
-                shapes[idx] = shape
+                if 0 <= idx < len(shapes):
+                    for field, value in fields.items():
+                        _apply_shape_edit(shapes[idx], field, value)
             chart_drawing_store.save(state["symbol"], shapes)
             chart.figure["layout"]["shapes"] = shapes
-            if needs_push_back:
-                # 橫線被拖歪的那個瞬間，瀏覽器畫面已經先顯示了不對稱的
-                # 版本，這裡把糾正好的完整 shapes 推回去，畫面才會立刻
-                # 跳回真正水平的樣子——這個推送本身還會再觸發一次
-                # plotly_relayout，但那次事件的 shapes 陣列長度沒變(不
-                # 是新增/刪除)，會落回最上面的 "shapes" in args 分支，
-                # 該分支只會重存一次同樣內容、不會再推送，不會無窮迴圈。
-                chart.run_plot_method("relayout", {"shapes": shapes})
             return
         if args.get("xaxis.autorange"):
             _rescale_y(None, None)
@@ -431,7 +512,17 @@ def build(ib_client: IBClient):
         if x0 is not None or x1 is not None:
             _rescale_y(x0, x1)
 
-    chart.on("plotly_relayout", _on_relayout)
+    # 自訂把手拖曳中(`window.__hlineDragging` 為 true)的時候，
+    # `_HLINE_JS::onMove()` 會一路呼叫 `Plotly.relayout()` 來即時搬動橫
+    # 線，這本身會連帶觸發一堆 plotly_relayout 事件——這些都只是拖到一
+    # 半的中繼狀態，不需要送回後端(真正要存檔的最終結果，`onUp()` 放開
+    # 滑鼠時會再呼叫一次沒有被這個旗標擋掉的 relayout，那次才會正常送到
+    # `_on_relayout()`)。用 js_handler 直接在瀏覽器端擋掉，避免拖曳過程
+    # 中對後端灌爆一堆沒用的事件。
+    chart.on(
+        "plotly_relayout", _on_relayout,
+        js_handler="(...args) => { if (window.__hlineDragging) return; emit(...args); }",
+    )
 
     def _on_draw_line_clicked() -> None:
         """「畫斜線」按鈕——切到 drawline 工具，使用者自己在圖表上拖曳畫
@@ -439,18 +530,23 @@ def build(ib_client: IBClient):
         只是在我們自己的按鈕列上多一個明顯的入口)。"""
         if state["symbol"] is None or not state["bars"]:
             return
-        state["hline_armed"] = False
         chart.run_plot_method("relayout", {"dragmode": "drawline"})
 
     def _on_draw_hline_clicked() -> None:
-        """「畫橫線」按鈕——一樣切到 drawline 工具讓使用者拖曳，但多記一
-        個 `hline_armed` 旗標，畫完那條線由 `_on_relayout()` 攔下來強制
-        拉平成水平線(用拖曳起點的價格)，理由見按鈕旁邊的註解。"""
+        """「畫橫線」按鈕——直接在目前可視範圍的中間價位新增一條橫線，
+        不經過 drawline(不需要使用者自己拖一條再被拉平)。新線的拖曳調
+        整完全交給 `_HLINE_JS` 的自訂把手處理，這裡只負責建立初始位
+        置、存檔、推送到畫面，並同步一次把手。"""
         if state["symbol"] is None or not state["bars"]:
             return
-        state["hline_armed"] = True
-        status_label.text = "在圖表上拖曳一下(角度不拘)，會自動拉平成橫線"
-        chart.run_plot_method("relayout", {"dragmode": "drawline"})
+        visible = _visible_bars(None, None)
+        price = (min(b["low"] for b in visible) + max(b["high"] for b in visible)) / 2
+        shapes = chart_drawing_store.load(state["symbol"])
+        shapes.append(_hline_shape(price))
+        chart_drawing_store.save(state["symbol"], shapes)
+        chart.figure["layout"]["shapes"] = shapes
+        chart.run_plot_method("relayout", {"shapes": shapes})
+        _sync_hline_handles()
 
     def _on_hover(e) -> None:
         # 蠟燭圖(curveNumber 0)的 hover point 直接帶 open/high/low/close
@@ -531,13 +627,12 @@ def build(ib_client: IBClient):
         })
         fig["layout"]["shapes"] = chart_drawing_store.load(state["symbol"])
         chart.update_figure(fig)
-        _rescale_y(None, None)
+        _rescale_y(None, None)  # 內部已經會呼叫 _sync_hline_handles()
         # 預設(滑鼠沒有停在圖上)顯示最新一根K棒的開高低收/成交量，滑鼠移
         # 到某根K棒上會被 _on_hover() 蓋成那一根的資料，移開再由
         # _on_unhover() 換回這一行。
         state["idle_text"] = _format_bar_line(state["symbol"], label, state["bars"][-1])
         status_label.text = state["idle_text"]
-        state["hline_armed"] = False  # 換標的/換週期，之前武裝中的「畫橫線」狀態沒意義了
 
     async def _on_timeframe_change(e) -> None:
         state["timeframe"] = e.value
@@ -551,7 +646,7 @@ def build(ib_client: IBClient):
         fig["layout"]["shapes"] = []
         fig["layout"]["dragmode"] = "zoom"
         chart.update_figure(fig)
-        state["hline_armed"] = False  # 清畫線的同時取消任何還沒完成的「畫橫線」武裝狀態
+        _sync_hline_handles()
         status_label.text = state["idle_text"]
 
     timeframe_select.on_value_change(_on_timeframe_change)
