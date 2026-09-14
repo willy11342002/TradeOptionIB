@@ -16,9 +16,11 @@ IB 報價封裝，取代 app/models/capital_quote_client.py。
        下一次 tick 因為某個欄位是 -1 就把剛剛的正常值蓋掉，看起來像「查
        到又消失」，其實兩次都是真的收到的 tick，只是第二次的內容根本
        是無效值)。
-    4. ticker.last 拿不到(NaN/-1)時退回 reqHistoricalData 查最近一筆收
-       盤價(股票日線 TRADES，選擇權小時線 MIDPOINT，見
-       scripts/ib_test_historical.py 的核對記錄)。**這個 fallback 查詢
+    4. ticker.last 拿不到(NaN/-1，或 <=0——見 `_ticker_to_data()` 的說明，
+       這個佔位值只有「成交價」這個欄位需要特殊處理，bid/ask 不算)時退
+       回 reqHistoricalData 查最近一筆收盤價(股票日線 TRADES，選擇權小
+       時線 MIDPOINT，見 scripts/ib_test_historical.py 的核對記錄，同樣
+       濾掉 close<=0 的 K 棒)。**這個 fallback 查詢
        絕對不能同步、每次 tick 都重打**：`_on_pending_tickers` 每個
        tick(可能一秒好幾次、同時橫跨四五十檔合約)都會呼叫到，同步版的
        `reqHistoricalData` 本質是「在目前這個 asyncio/Qt 事件迴圈裡等
@@ -159,6 +161,19 @@ class IBQuoteClient:
     def _ticker_to_data(self, ticker) -> dict:
         key = str(ticker.contract.conId)
         last = _clean(ticker.last)
+        # *** last<=0 也當成「沒有值」，跟 NaN/-1 同等對待 ***：實測踩過
+        # 的真實案例——T字報價盤打開後現價先靠退回查詢(歷史資料)正常顯
+        # 示，幾秒後卻跳成 0，追下去發現是即時 tick 送來 last=0(還沒開
+        # 盤/當天還沒有成交、或標的當下沒有即時成交權限時 IB 會送這個佔
+        # 位值，不是 NaN 也不是 -1，`_clean()` 原本沒濾掉)，蓋掉了原本
+        # 正確的退回查詢結果。任何股票/選擇權的成交價不可能真的是 0 或
+        # 負值，這裡濾掉之後會自動退回 `_get_fallback_cached()`，跟
+        # NaN/-1 的處理路徑一致。*** 不要對 bid/ask 套用同樣的過濾 ***：
+        # 極價外選擇權的買價/賣價本來就可能是真的 0(乏人問津、完全沒人
+        # 掛買單)，那是合法報價，不是佔位值，只有「成交價」這個語意上不
+        # 可能為 0 的欄位需要這樣特殊處理。
+        if last is not None and last <= 0:
+            last = None
         if last is None:
             last = self._get_fallback_cached(key, ticker.contract)
         return {
@@ -209,7 +224,11 @@ class IBQuoteClient:
                 )
             except Exception:  # noqa: BLE001
                 continue
-            if bars:
+            # 同上一段「last<=0 當成沒有值」的理由——當天日線/小時線還沒
+            # 收盤成交過(K棒還在形成中)時，IB 可能回傳 close=0 的 K 棒，
+            # 不是拋例外，這種也要濾掉，不然一樣會把 0 快取起來、之後每
+            # 次都退回顯示這個假的 0。
+            if bars and bars[-1].close > 0:
                 price = bars[-1].close
                 break
         self._fallback_cache[key] = (time.time(), price)
@@ -230,6 +249,6 @@ class IBQuoteClient:
                 )
             except Exception:  # noqa: BLE001
                 continue
-            if bars:
+            if bars and bars[-1].close > 0:  # 同 _refresh_fallback_async() 的說明，close=0 的 K 棒不是有效值
                 return bars[-1].close
         return None

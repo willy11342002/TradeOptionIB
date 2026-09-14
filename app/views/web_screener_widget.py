@@ -4,9 +4,10 @@ NiceGUI 版股票篩選器，取代 `app/views/screener_widget.py`(PyQt5 版)及
 `filter_assistant_dialog.py`/`scan_history_widgets.py`——功能行為對照舊版
 1:1 搬過來，畫面改成 NiceGUI 慣用寫法：
 
-    - 整個篩選器是一個置中 `ui.dialog()` modal(跟下單面板/委託簿同一套
-      互動模式)，`build()` 回傳 `open_dialog` 給 `main.py` 接到標題列自
-      己的按鈕上。
+    - 股票篩選器是主畫面(`main.py::index()` 直接把 `build()` 的內容組進
+      `placeholder` 裡，不是彈出的 `ui.dialog()`)——跟下單面板/委託簿/
+      成交回報/選擇權報價那幾個標題列按鈕彈出的置中 modal 不同一套互動
+      模式，`build()` 不回傳開啟函式。
     - 兩個階段(初篩/自選清單)用 `ui.tabs()`/`ui.tab_panels()` 取代舊版
       `QTabWidget`。
     - 「新增篩選條件」「選擇掃描代碼」「AI 條件建議」「查看詳細」「加入
@@ -14,6 +15,10 @@ NiceGUI 版股票篩選器，取代 `app/views/screener_widget.py`(PyQt5 版)及
       QDialog 檔案——這裡沒有拆成好幾支檔案，NiceGUI 的 `build()` 本來
       就是閉包風格，硬拆檔案只會讓一堆內部狀態要用參數傳來傳去，不會比
       較清楚。
+    - 候選清單每一列的「期權報價」按鈕呼叫 `main.py` 傳進來的
+      `open_quote_board(symbol)`(`web_quote_board_page.build()` 回傳的
+      開啟函式)，彈出置中的選擇權報價 dialog 並自動帶入這檔標的、直接
+      查詢一次，不用使用者再手動輸入代碼。
     - 候選清單/自選清單成分股用手刻的 `ui.row()`(勾選框+移除鈕)，不是
       `ui.aggrid`——跟 `web_order_book_widgets.py` 同樣的理由：筆數少、
       需要每列各自的勾選框/按鈕，AG Grid 的效能優勢用不到。
@@ -65,7 +70,7 @@ from app.models.scanner_catalog import (
     FilterDef, ScanTypeDef, filter_by_id, load_filter_catalog, load_scan_type_catalog, scan_type_by_code,
 )
 from app.models.screener import CandidateStock, ScanFilterValue, ScannerParams, enrich_candidates, run_scanner
-from app.services import industry_translations, watchlist_store
+from app.services import filter_preset_store, industry_translations, watchlist_store
 from app.services.background_tasks import spawn
 
 # 篩選條件面板初次開啟時方便使用者的預設值，對照舊版 screener_widget.py 的
@@ -110,10 +115,10 @@ _INSTRUMENT_OPTIONS = {"STK": "股票", "ETF.EQ.US": "ETF"}
 _INSTRUMENT_LOCATION = {"STK": "STK.US.MAJOR", "ETF.EQ.US": "ETF.EQ.US"}
 
 
-def build(ib_client: IBClient) -> Callable:
+def build(ib_client: IBClient, open_quote_board: Callable) -> None:
     ib = ib_client.ib
     state = {
-        "candidates": [],       # list[{"symbol","source","rank","checkbox","row"}]
+        "candidates": [],       # list[{"symbol","source","rank","row"}]
         "filter_rows": {},      # filter_id -> {"filter_def","above","below","row"}
         "selected_scan_code": None,
         "instrument": "STK",    # "STK" 或 "ETF.EQ.US"，決定掃描代碼挑選器顯示哪些候選、真正掃描時的 instrument/locationCode
@@ -138,7 +143,7 @@ def build(ib_client: IBClient) -> Callable:
         "</style>"
     )
 
-    with ui.dialog() as dialog, ui.card().classes("w-[1320px] max-w-full max-h-[90vh] overflow-y-auto gap-2"):
+    with ui.column().classes("w-full max-w-[1320px] mx-auto gap-2"):
         ui.label("股票篩選器").classes("text-lg font-semibold")
         with ui.tabs().classes("w-full") as tabs:
             scan_tab = ui.tab("① 初篩選股")
@@ -160,30 +165,22 @@ def build(ib_client: IBClient) -> Callable:
                         ).classes("w-24 shrink-0")
                         add_filter_btn = ui.button("＋ 新增篩選條件").props("outline dense")
                         ai_filter_btn = ui.button("AI 條件建議").props("outline dense")
+                        filter_preset_btn = ui.button("篩選範本").props("outline dense")
                         scan_btn = ui.button("執行市場掃描").props("dense")
+                    ui.label("篩選欄位留 0 代表這一側不設限(例如市值只設下限、不設上限)").classes(
+                        "text-xs text-grey",
+                    )
                     filter_rows_container = ui.row().classes("w-full flex-wrap gap-2")
                     scan_status_label = ui.label("尚未執行")
 
                 with ui.column().classes("w-full gap-2 border rounded p-3 mt-2"):
-                    with ui.row().classes("items-center justify-between w-full"):
-                        ui.label("候選標的清單").classes("font-semibold")
-                        ui.label("勾選「納入」的標的才會被「加入自選」納入").classes("text-xs text-grey")
+                    ui.label("候選標的清單").classes("font-semibold")
                     with ui.row().classes("items-center gap-3 w-full text-xs text-grey"):
-                        ui.label("").classes("w-8 shrink-0")  # 對齊勾選框寬度
                         ui.label("代碼").classes("w-16 shrink-0")
                         ui.label("名稱").classes("w-48 shrink-0")
                         ui.label("產業").classes("w-28 shrink-0 text-center")
                         ui.label("類別").classes("w-32 shrink-0 text-center")
                     candidate_container = ui.column().classes("w-full gap-1 max-h-72 overflow-y-auto")
-                    with ui.row().classes("items-center gap-2"):
-                        manual_symbol_input = ui.input(
-                            placeholder="手動加入代碼(空白/逗號分隔)",
-                        ).classes("w-48 shrink")
-                        add_manual_btn = ui.button("新增到候選清單").props("dense")
-                        select_all_btn = ui.button("全選").props("outline dense")
-                        select_none_btn = ui.button("全不選").props("outline dense")
-                        clear_candidates_btn = ui.button("清空清單").props("outline dense")
-                        add_to_watchlist_btn = ui.button("加入自選").props("outline dense")
 
             # -------------------------------------------------------- 自選清單頁籤
             with ui.tab_panel(watchlist_tab):
@@ -194,9 +191,6 @@ def build(ib_client: IBClient) -> Callable:
                     new_watchlist_btn = ui.button("＋ 新增自選清單").props("outline dense")
                 watchlist_container = ui.column().classes("w-full gap-1")
 
-    # *** 不放「關閉」按鈕 ***：ui.dialog() 預設點旁邊背景/按 ESC 就會關
-    # 閉(persistent 才會關掉這個行為，這裡沒設)，跟下單面板/委託簿/成交
-    # 回報那幾個 modal 一致，不需要另外佔一顆按鈕。
 
     # ---------------------------------------------------------------------
     # 巢狀 dialog：新增篩選條件
@@ -216,6 +210,22 @@ def build(ib_client: IBClient) -> Callable:
         scan_code_picker_container = ui.column().classes("w-full gap-1")
         with ui.row():
             ui.button("取消", on_click=scan_code_dialog.close).props("flat")
+
+    # ---------------------------------------------------------------------
+    # 巢狀 dialog：篩選範本(把目前的商品類型/掃描代碼/篩選欄位範圍存成一
+    # 份範本，之後直接套用，不用每次重新設定；儲存/套用邏輯對照
+    # `filter_preset_store.py` 開頭的說明)
+    # ---------------------------------------------------------------------
+    with ui.dialog() as filter_preset_dialog, ui.card().classes("w-[420px] max-w-full max-h-[80vh] overflow-y-auto gap-2"):
+        ui.label("篩選範本").classes("text-lg font-semibold")
+        filter_preset_status = ui.label("").classes("text-xs text-grey")
+        filter_preset_list = ui.column().classes("w-full gap-1")
+        ui.label("另存新範本：").classes("text-xs text-grey mt-2")
+        with ui.row().classes("items-center gap-2 w-full"):
+            new_preset_inline_input = ui.input(placeholder="範本名稱").classes("flex-grow")
+            new_preset_inline_btn = ui.button("儲存目前設定").props("dense")
+        with ui.row():
+            ui.button("關閉", on_click=filter_preset_dialog.close).props("flat")
 
     # ---------------------------------------------------------------------
     # 巢狀 dialog：AI 條件建議
@@ -292,10 +302,11 @@ def build(ib_client: IBClient) -> Callable:
             ui.button("關閉", on_click=fundamentals_dialog.close).props("flat")
 
     # ---------------------------------------------------------------------
-    # 巢狀 dialog：加入自選(把候選清單裡勾選的標的加進一個自選清單)
+    # 巢狀 dialog：加入自選(候選清單每一列各自的「加入自選」按鈕觸發，把
+    # 這一檔標的加進使用者選定的一個自選清單)
     # ---------------------------------------------------------------------
     with ui.dialog() as add_to_watchlist_dialog, ui.card().classes("w-[380px] max-w-full gap-2"):
-        ui.label("加入自選清單").classes("text-lg font-semibold")
+        add_to_watchlist_title = ui.label("加入自選清單").classes("text-lg font-semibold")
         add_to_watchlist_status = ui.label("").classes("text-xs text-grey")
         add_to_watchlist_list = ui.column().classes("w-full gap-0 max-h-56 overflow-y-auto")
         ui.label("或新增一個清單：").classes("text-xs text-grey mt-2")
@@ -344,29 +355,39 @@ def build(ib_client: IBClient) -> Callable:
         decimals = 2 if filter_def.value_type == "double" else 0
         step = 0.01 if filter_def.value_type == "double" else 1
         label = filter_def.label_zh or filter_def.id
+        # 說明文字掛在整張卡片(row)上，不是只掛在小小的標籤文字上——原本
+        # 只有 label_el 有 tooltip，範圍很小使用者容易滑不到；內容除了
+        # scan_filters.json 原本的 tooltip_zh(這個欄位量的是什麼)，再補
+        # 上單位(IB 原始 XML 帶的 unit_zh，例如「口」「美元」)跟「留 0
+        # 不設限」的操作提示——後者是這裡的 UI 慣例(見
+        # `_filter_row_values()`)，不是 IB 文件內容，使用者常常不知道
+        # 「0~0」代表兩側都不限，不是「卡在 0」。
+        unit = filter_def.fields[0].unit_zh if filter_def.fields else ""
+        tooltip_parts = [filter_def.tooltip_zh] if filter_def.tooltip_zh else []
+        if unit:
+            tooltip_parts.append(f"單位：{unit}")
+        tooltip_parts.append("上限或下限留 0 代表這一側不設限")
+        tooltip_text = "；".join(tooltip_parts)
         with container:
-            with ui.column().classes("border rounded p-2 gap-1") as row:
-                with ui.row().classes("items-center justify-between w-full gap-2"):
-                    label_el = ui.label(label).classes("text-xs text-grey")
-                    ui.button(
-                        icon="close", on_click=lambda: _remove_filter_row(filter_def.id, rows_dict),
-                    ).props("flat dense round size=sm")
-                if filter_def.tooltip_zh:
-                    label_el.tooltip(filter_def.tooltip_zh)
+            with ui.row().classes("items-center gap-2 border rounded p-2") as row:
+                row.tooltip(tooltip_text)
+                ui.label(label).classes("text-xs text-grey shrink-0")
                 if filter_def.kind == "range":
-                    with ui.row().classes("items-center gap-1"):
-                        above_input = ui.number(
-                            value=above or 0, format=f"%.{decimals}f", step=step, min=0, max=_FILTER_VALUE_MAX,
-                        ).classes("w-20")
-                        ui.label("~")
-                        below_input = ui.number(
-                            value=below or 0, format=f"%.{decimals}f", step=step, min=0, max=_FILTER_VALUE_MAX,
-                        ).classes("w-20")
+                    above_input = ui.number(
+                        value=above or 0, format=f"%.{decimals}f", step=step, min=0, max=_FILTER_VALUE_MAX,
+                    ).classes("w-20")
+                    ui.label("~")
+                    below_input = ui.number(
+                        value=below or 0, format=f"%.{decimals}f", step=step, min=0, max=_FILTER_VALUE_MAX,
+                    ).classes("w-20")
                 else:
                     above_input = ui.number(
                         value=above or 0, format=f"%.{decimals}f", step=step, min=0, max=_FILTER_VALUE_MAX,
                     ).classes("w-24")
                     below_input = None
+                ui.button(
+                    icon="close", on_click=lambda: _remove_filter_row(filter_def.id, rows_dict),
+                ).props("flat dense round size=sm")
         rows_dict[filter_def.id] = {
             "filter_def": filter_def, "above": above_input, "below": below_input, "row": row,
         }
@@ -561,6 +582,98 @@ def build(ib_client: IBClient) -> Callable:
     instrument_select.on_value_change(_on_instrument_change)
 
     # =======================================================================
+    # 篩選範本(儲存/套用目前的商品類型/掃描代碼/篩選欄位範圍，取代每次都
+    # 要重新勾選/輸入一次)
+    # =======================================================================
+    def _current_filter_snapshot() -> list[dict]:
+        return [
+            {
+                "filter_id": filter_id,
+                "above": entry["above"].value or 0,
+                "below": (entry["below"].value or 0) if entry["below"] is not None else None,
+            }
+            for filter_id, entry in state["filter_rows"].items()
+        ]
+
+    def _apply_filter_preset(preset: dict) -> None:
+        # 先切商品類型(會連帶重新整理掃描代碼候選清單、清掉不合法的掃描
+        # 代碼，見 _on_instrument_change())，再套用範本存的掃描代碼——
+        # 範本存檔當下可能是另一個商品類型專用的代碼，這裡如果套用到不
+        # 支援的商品類型就跳過，維持「請選擇」，不硬套一個會被 IB 拒絕
+        # 的代碼。
+        instrument_select.value = preset.get("instrument", "STK")
+        scan_code = preset.get("scan_code")
+        if scan_code and scan_code in {st.code for st in _current_scan_type_catalog()}:
+            _set_scan_code(scan_code)
+        for filter_id in list(state["filter_rows"]):
+            _remove_filter_row(filter_id, state["filter_rows"])
+        for item in preset.get("filters", []):
+            filter_def = filter_by_id(item["filter_id"])
+            if filter_def is None:
+                continue  # 篩選欄位目錄改版、範本存的 id 已經找不到，跳過這一項
+            _add_filter_row(filter_def, item.get("above"), item.get("below"))
+
+    def _render_filter_preset_list() -> None:
+        filter_preset_list.clear()
+        presets = sorted(filter_preset_store.list_all(), key=lambda p: p["created_at"], reverse=True)
+        with filter_preset_list:
+            if not presets:
+                ui.label("尚無篩選範本，用下面「另存新範本」建立一個").classes("text-xs text-grey")
+            for p in presets:
+                with ui.row().classes("items-center gap-2 border-b py-1 w-full flex-wrap"):
+                    ui.label(p["name"]).classes("flex-grow truncate")
+
+                    def _apply(preset=p) -> None:
+                        _apply_filter_preset(preset)
+                        filter_preset_status.text = f"已套用「{preset['name']}」"
+                        filter_preset_dialog.close()
+
+                    def _overwrite(preset=p) -> None:
+                        filter_preset_store.update(
+                            preset["id"], state["instrument"], state["selected_scan_code"],
+                            _current_filter_snapshot(),
+                        )
+                        filter_preset_status.text = f"已用目前設定更新「{preset['name']}」"
+                        _render_filter_preset_list()
+
+                    async def _rename(preset=p) -> None:
+                        name = await _prompt_name("重新命名篩選範本", preset["name"])
+                        if not name:
+                            return
+                        filter_preset_store.rename(preset["id"], name)
+                        _render_filter_preset_list()
+
+                    async def _delete(preset=p) -> None:
+                        if not await _confirm(f"確定要刪除篩選範本「{preset['name']}」嗎？此動作無法復原。"):
+                            return
+                        filter_preset_store.delete(preset["id"])
+                        _render_filter_preset_list()
+
+                    ui.button("套用", on_click=_apply).props("flat dense")
+                    ui.button("更新為目前設定", on_click=_overwrite).props("flat dense")
+                    ui.button("重新命名", on_click=_rename).props("flat dense")
+                    ui.button("刪除", on_click=_delete).props("flat dense color=negative")
+
+    def _open_filter_preset_dialog() -> None:
+        filter_preset_status.text = ""
+        new_preset_inline_input.value = ""
+        _render_filter_preset_list()
+        filter_preset_dialog.open()
+
+    def _on_new_preset_inline() -> None:
+        name = (new_preset_inline_input.value or "").strip()
+        if not name:
+            return
+        filter_preset_store.create(name, state["instrument"], state["selected_scan_code"], _current_filter_snapshot())
+        filter_preset_status.text = f"已儲存「{name}」"
+        new_preset_inline_input.value = ""
+        _render_filter_preset_list()
+
+    filter_preset_btn.on_click(_open_filter_preset_dialog)
+    new_preset_inline_input.on("keydown.enter", lambda e: _on_new_preset_inline())
+    new_preset_inline_btn.on_click(_on_new_preset_inline)
+
+    # =======================================================================
     # 新增篩選條件對話框
     # =======================================================================
     def _render_add_filter_list(items: list[FilterDef]) -> None:
@@ -722,7 +835,6 @@ def build(ib_client: IBClient) -> Callable:
             # 這是實測踩到的對齊 bug，不是預防性寫法，兩邊都要用固定寬
             # 度才會對齊。
             with ui.row().classes("items-center gap-3 border-b py-1 w-full") as row:
-                checkbox = ui.checkbox(value=True).classes("w-8 shrink-0")
                 ui.label(cand.symbol).classes("w-16 shrink-0 font-medium")
                 name_label = ui.label(name_text).classes("w-48 shrink-0 text-xs truncate")
                 if cand.long_name:
@@ -735,14 +847,18 @@ def build(ib_client: IBClient) -> Callable:
                     category_label.tooltip(cand.category)
                 ui.space()
                 ui.button(
+                    "期權報價", on_click=lambda s=cand.symbol: open_quote_board(s),
+                ).props("flat dense")
+                ui.button(
                     "詳細", on_click=lambda s=cand.symbol: _open_fundamentals_dialog(s),
+                ).props("flat dense")
+                ui.button(
+                    "加入自選", on_click=lambda s=cand.symbol: _open_add_to_watchlist_dialog(s),
                 ).props("flat dense")
                 ui.button(
                     icon="close", on_click=lambda s=cand.symbol: _remove_candidate(s),
                 ).props("flat dense round size=sm")
-        state["candidates"].append({
-            "symbol": cand.symbol, "source": cand.source, "rank": cand.rank, "checkbox": checkbox, "row": row,
-        })
+        state["candidates"].append({"symbol": cand.symbol, "source": cand.source, "rank": cand.rank, "row": row})
 
     def _add_candidates(new_candidates: list[CandidateStock]) -> None:
         existing = {c["symbol"] for c in state["candidates"]}
@@ -762,35 +878,6 @@ def build(ib_client: IBClient) -> Callable:
                 c["row"].delete()
                 del state["candidates"][i]
                 break
-
-    def _on_clear_candidates() -> None:
-        candidate_container.clear()
-        state["candidates"].clear()
-
-    def _set_all_candidates_checked(value: bool) -> None:
-        for c in state["candidates"]:
-            c["checkbox"].value = value
-
-    def _checked_symbols() -> list[str]:
-        return [c["symbol"] for c in state["candidates"] if c["checkbox"].value]
-
-    async def _on_add_manual_symbols() -> None:
-        text = (manual_symbol_input.value or "").strip().upper()
-        if not text:
-            return
-        symbols = [s.strip() for s in text.replace(",", " ").split() if s.strip()]
-        new_candidates = [CandidateStock(symbol=s, source="manual") for s in symbols]
-        scan_status_label.text = "查詢中..."
-        await enrich_candidates(ib, new_candidates)
-        await _translate_industry_category(new_candidates)
-        _add_candidates(new_candidates)
-        manual_symbol_input.value = ""
-
-    manual_symbol_input.on("keydown.enter", lambda e: _on_add_manual_symbols())
-    add_manual_btn.on_click(_on_add_manual_symbols)
-    select_all_btn.on_click(lambda: _set_all_candidates_checked(True))
-    select_none_btn.on_click(lambda: _set_all_candidates_checked(False))
-    clear_candidates_btn.on_click(_on_clear_candidates)
 
     # =======================================================================
     # 查看詳細(yfinance 基本資料/財報/財報發布日/分析師評等)
@@ -999,8 +1086,10 @@ def build(ib_client: IBClient) -> Callable:
                 ui.label("查無分析師覆蓋資料(可能是 ETF 或小型股)").classes("text-sm text-grey")
 
     # =======================================================================
-    # 加入自選清單
+    # 加入自選清單(候選清單每一列各自的「加入自選」按鈕，一次只加一檔)
     # =======================================================================
+    add_to_watchlist_state = {"symbol": None}
+
     def _render_add_to_watchlist_list() -> None:
         add_to_watchlist_list.clear()
         watchlists = sorted(watchlist_store.list_all(), key=lambda w: w["created_at"], reverse=True)
@@ -1009,18 +1098,17 @@ def build(ib_client: IBClient) -> Callable:
                 ui.label("尚無自選清單，用下面新增一個").classes("text-xs text-grey")
             for w in watchlists:
                 def _pick(watchlist_id=w["id"], name=w["name"]) -> None:
-                    watchlist_store.add_symbols(watchlist_id, _checked_symbols())
-                    add_to_watchlist_status.text = f"已加入「{name}」"
+                    watchlist_store.add_symbols(watchlist_id, [add_to_watchlist_state["symbol"]])
+                    add_to_watchlist_status.text = f"已將 {add_to_watchlist_state['symbol']} 加入「{name}」"
                     add_to_watchlist_dialog.close()
 
                 ui.button(
                     f"{w['name']}({len(w['symbols'])} 檔)", on_click=_pick,
                 ).props("flat dense align=left").classes("w-full justify-start")
 
-    def _open_add_to_watchlist_dialog() -> None:
-        if not _checked_symbols():
-            scan_status_label.text = "候選清單裡沒有勾選任何標的"
-            return
+    def _open_add_to_watchlist_dialog(symbol: str) -> None:
+        add_to_watchlist_state["symbol"] = symbol
+        add_to_watchlist_title.text = f"加入自選清單：{symbol}"
         add_to_watchlist_status.text = ""
         new_watchlist_inline_input.value = ""
         _render_add_to_watchlist_list()
@@ -1030,11 +1118,11 @@ def build(ib_client: IBClient) -> Callable:
         name = (new_watchlist_inline_input.value or "").strip()
         if not name:
             return
-        watchlist_store.create(name, _checked_symbols())
-        add_to_watchlist_status.text = f"已加入「{name}」"
+        symbol = add_to_watchlist_state["symbol"]
+        watchlist_store.create(name, [symbol])
+        add_to_watchlist_status.text = f"已將 {symbol} 加入「{name}」"
         add_to_watchlist_dialog.close()
 
-    add_to_watchlist_btn.on_click(_open_add_to_watchlist_dialog)
     new_watchlist_inline_input.on("keydown.enter", lambda e: _on_new_watchlist_inline())
     new_watchlist_inline_btn.on_click(_on_new_watchlist_inline)
 
@@ -1210,9 +1298,15 @@ def build(ib_client: IBClient) -> Callable:
             _refresh_watchlist_table()
 
     tabs.on_value_change(_on_tab_change)
-
-    def _open_dialog() -> None:
-        _refresh_watchlist_table()
-        dialog.open()
-
-    return _open_dialog
+    # *** 一定要在這裡主動呼叫一次，不能只靠上面的 on_value_change ***：
+    # 股票篩選器改成主畫面之前，這裡是彈出視窗，`_open_dialog()` 每次開
+    # 啟都會呼叫 `_refresh_watchlist_table()`，靠這個「每次打開都重畫」
+    # 順便蓋掉了「切分頁本身」到底有沒有正常觸發 `_on_tab_change()` 這件
+    # 事——改成主畫面、`_open_dialog()` 整支砍掉之後，才發現切到②自選
+    # 清單分頁時 `_on_tab_change()` 其實沒有被呼叫到(watchlist_container
+    # 停在建立當下的空白狀態，連「尚無自選清單」都不會顯示，不是資料真
+    # 的是空的)。這裡不用等分頁事件，`build()` 一執行完就直接把
+    # watchlist_container 填好，之後任何一次新增/改名/刪除/加入自選都已
+    # 經各自呼叫 `_refresh_watchlist_table()` 保持同步，不需要依賴分頁
+    # 切換這個不可靠的觸發點。
+    _refresh_watchlist_table()

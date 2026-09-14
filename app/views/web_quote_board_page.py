@@ -26,13 +26,24 @@ qualify 標的股票 → `reqSecDefOptParamsAsync` 拿到期日/履約價清單 
 IBQuoteClient」概念一致，`IBClient`(IB 連線本身)才是真正跨頁面共用的單
 例，由 `main.py`(NiceGUI 進入點)建立一次、傳進來。
 
-`build()` 回傳 `(quote_client, get_contract)`：
+整個報價盤是一個置中 `ui.dialog()` modal(跟下單面板/委託簿/成交回報同
+一套互動模式)，不是常駐主畫面——股票篩選器改成主畫面之後(見
+`web_screener_widget.py` 開頭的說明)，這裡改成標題列按鈕「選擇權報價」
+跟候選清單每一列「期權報價」按鈕共用的彈出視窗。
+
+`build()` 回傳 `(quote_client, get_contract, open_dialog)`：
 - `quote_client` 自己建立的實例，下單面板要用它讀即時買賣價。
 - `get_contract(strike, is_call) -> Optional[Contract]`——對照舊版
   `main_window.py::_get_contract()`，讓下單面板可以查「目前報價盤顯示
   中的其他履約價」的合約物件(組價差單需要「這個履約價±寬度」那一腳，
   不是只有使用者雙擊的那個履約價)，查不到(這個到期日沒有這個履約價/
   根本沒訂閱顯示)回傳 `None`。
+- `open_dialog(symbol=None)`——打開這個 dialog；有帶 `symbol` 的話(股
+  票篩選器候選清單的「期權報價」按鈕會帶)順便填入標的代碼欄位、直接
+  觸發一次查詢，等同使用者自己輸入代碼按 Enter，不用開了 dialog 還要
+  再手動打一次代碼。是 `async def`，NiceGUI 的事件派發偵測到 handler
+  回傳 awaitable 會自動建立 Task，直接指定給 `on_click` 就好，不需要
+  額外用 `spawn()` 包一層。
 
 `build()` 也接受一個可選的 `on_leg_selected` callback——雙擊某一列的
 call/put 價格欄位時呼叫，把「這個履約價的 call/put 合約＋目前 bid/
@@ -50,6 +61,7 @@ from app.models.ib_client import IBClient
 from app.models.ib_quote_client import IBQuoteClient
 from app.models.option_utils import build_option, build_stock
 from app.services import black_scholes
+from app.views import web_technical_analysis_panel
 
 _DEFAULT_ROWS = 8
 
@@ -89,7 +101,8 @@ def build(ib_client: IBClient, on_leg_selected: Optional[Callable] = None):
         "contracts_by_strike": {},  # strike -> {"call": Contract, "put": Contract}，下單面板要用真正的合約物件
     }
 
-    with ui.column().classes("w-full max-w-5xl mx-auto gap-2 mt-4"):
+    with ui.dialog() as dialog, ui.card().classes("w-[1100px] max-w-full max-h-[90vh] overflow-y-auto gap-2"):
+        ui.label("選擇權報價").classes("text-lg font-semibold")
         with ui.row().classes("items-end gap-4"):
             symbol_input = ui.input("標的代碼(輸入後按 Enter)").classes("w-48")
             # 用 readonly 的 ui.input 而不是 ui.label 顯示現價——這樣才會
@@ -101,68 +114,85 @@ def build(ib_client: IBClient, on_leg_selected: Optional[Callable] = None):
             subscribe_btn = ui.button("查詢")
         status_label = ui.label("")
 
-        # AG Grid 的表頭是 flex 容器(.ag-header-cell-label)，一般的
-        # text-align 對它沒作用，要改 justify-content 才能讓標題文字置
-        # 中，這裡用 defaultColDef.headerClass="center-header" 掛上這個
-        # class，實際樣式用一段 <style> 補上去(NiceGUI 沒有對應這個的
-        # 現成參數)。
-        ui.add_head_html(
-            "<style>.center-header .ag-header-cell-label { justify-content: center; }</style>"
-        )
-        grid = ui.aggrid({
-            # *** 一定要給 getRowId，不然 applyTransaction() 的 update
-            # 沒辦法比對出「這是哪一列」，只能整批 rowData 換掉重畫(會閃
-            # 爍)***：":" 開頭的 key 是 NiceGUI 的慣例，值是一段 JS
-            # expression 字串，client 端(aggrid.js)會用它 new Function
-            # 組成真正的 JS callback，履約價在同一個表格裡不會重複，拿
-            # 來當 row id 剛好。
-            ":getRowId": "params => String(params.data.strike)",
-            # *** 欄寬用 sizeColumnsToFit()，不要靠 defaultColDef.flex
-            # ***：flex 理論上該有效，但實測(含 AG Grid 34 這個版本)在
-            # 這種巢狀欄位分組(children)+ tab/drawer 容器裡就是量不出正
-            # 確寬度，每欄卡死在 AG Grid 的預設寬 200px，9 欄合計比容器
-            # 寬多了，逼出欄位虛擬捲動，畫面上只看得到兩欄、標題也被截斷
-            # 成「成...」「De...」。改叫 `sizeColumnsToFit()`(AG Grid 從
-            # 第一版就有的 API，不依賴新版 Theming API 的
-            # autoSizeStrategy)最可靠：`onGridReady`(grid 第一次建好)跟
-            # `onGridSizeChanged`(容器大小改變，例如切換右側抽屜)都重新
-            # 呼叫一次，兩邊都是 ":" 開頭的 NiceGUI 慣例(JS expression
-            # 字串，client 端會 new Function 組成真正的 callback)。
-            ":onGridReady": "params => params.api.sizeColumnsToFit()",
-            ":onGridSizeChanged": "params => params.api.sizeColumnsToFit()",
-            # cellStyle 置中儲存格內容；headerClass 只負責掛一個 CSS
-            # class，真正讓「標題文字」置中還要靠下面 add_head_html 注入
-            # 的樣式(AG Grid 的表頭是 flex 容器，純 text-align 對它無
-            # 效，要改 justify-content)。
-            "defaultColDef": {"minWidth": 72, "cellStyle": {"textAlign": "center"}, "headerClass": "center-header"},
-            # 欄位順序/中文名稱對照舊版 main_window.py 的 COLUMNS 排法
-            # (由外到內：賣價/買價/成交價/Delta，履約價在正中間，Put 側
-            # 鏡像對稱)，買權/賣權用 AG Grid 的欄位分組(children)在上面
-            # 疊一層群組標題，跟舊版「買權(Call)／賣權(Put)」左右兩塊標
-            # 籤是同一個概念。
-            "columnDefs": [
-                {
-                    "headerName": "買權(Call)",
-                    "children": [
-                        {"headerName": "賣價", "field": "call_ask"},
-                        {"headerName": "買價", "field": "call_bid"},
-                        {"headerName": "成交價", "field": "call_last"},
-                        {"headerName": "Delta", "field": "call_delta"},
+        # 「T字報價」/「技術分析」兩個頁籤共用同一個標的(symbol_input 查
+        # 到的那一檔)，技術分析頁籤只需要標的股票的走勢圖，跟履約價/到期
+        # 日無關，所以放在查詢列跟頁籤切換的上層，兩個頁籤都看得到同一份
+        # 查詢結果。
+        with ui.tabs().classes("w-full") as page_tabs:
+            quote_tab = ui.tab("T字報價")
+            ta_tab = ui.tab("技術分析")
+        with ui.tab_panels(page_tabs, value=quote_tab).classes("w-full"):
+            with ui.tab_panel(quote_tab).classes("gap-2"):
+                # AG Grid 的表頭是 flex 容器(.ag-header-cell-label)，一
+                # 般的 text-align 對它沒作用，要改 justify-content 才能
+                # 讓標題文字置中，這裡用
+                # defaultColDef.headerClass="center-header" 掛上這個
+                # class，實際樣式用一段 <style> 補上去(NiceGUI 沒有對應
+                # 這個的現成參數)。
+                ui.add_head_html(
+                    "<style>.center-header .ag-header-cell-label { justify-content: center; }</style>"
+                )
+                grid = ui.aggrid({
+                    # *** 一定要給 getRowId，不然 applyTransaction() 的
+                    # update 沒辦法比對出「這是哪一列」，只能整批 rowData
+                    # 換掉重畫(會閃爍)***：":" 開頭的 key 是 NiceGUI 的
+                    # 慣例，值是一段 JS expression 字串，client 端
+                    # (aggrid.js)會用它 new Function 組成真正的 JS
+                    # callback，履約價在同一個表格裡不會重複，拿來當
+                    # row id 剛好。
+                    ":getRowId": "params => String(params.data.strike)",
+                    # *** 欄寬用 sizeColumnsToFit()，不要靠
+                    # defaultColDef.flex ***：flex 理論上該有效，但實測
+                    # (含 AG Grid 34 這個版本)在這種巢狀欄位分組
+                    # (children)+ tab/drawer 容器裡就是量不出正確寬度，
+                    # 每欄卡死在 AG Grid 的預設寬 200px，9 欄合計比容器
+                    # 寬多了，逼出欄位虛擬捲動，畫面上只看得到兩欄、標題
+                    # 也被截斷成「成...」「De...」。改叫
+                    # `sizeColumnsToFit()`(AG Grid 從第一版就有的 API，
+                    # 不依賴新版 Theming API 的 autoSizeStrategy)最可
+                    # 靠：`onGridReady`(grid 第一次建好)跟
+                    # `onGridSizeChanged`(容器大小改變，例如切換右側抽
+                    # 屜/切換頁籤)都重新呼叫一次，兩邊都是 ":" 開頭的
+                    # NiceGUI 慣例(JS expression 字串，client 端會 new
+                    # Function 組成真正的 callback)。
+                    ":onGridReady": "params => params.api.sizeColumnsToFit()",
+                    ":onGridSizeChanged": "params => params.api.sizeColumnsToFit()",
+                    # cellStyle 置中儲存格內容；headerClass 只負責掛一個
+                    # CSS class，真正讓「標題文字」置中還要靠下面
+                    # add_head_html 注入的樣式(AG Grid 的表頭是 flex 容
+                    # 器，純 text-align 對它無效，要改 justify-content)。
+                    "defaultColDef": {"minWidth": 72, "cellStyle": {"textAlign": "center"}, "headerClass": "center-header"},
+                    # 欄位順序/中文名稱對照舊版 main_window.py 的
+                    # COLUMNS 排法(由外到內：賣價/買價/成交價/Delta，履
+                    # 約價在正中間，Put 側鏡像對稱)，買權/賣權用 AG
+                    # Grid 的欄位分組(children)在上面疊一層群組標題，跟
+                    # 舊版「買權(Call)／賣權(Put)」左右兩塊標籤是同一個
+                    # 概念。
+                    "columnDefs": [
+                        {
+                            "headerName": "買權(Call)",
+                            "children": [
+                                {"headerName": "賣價", "field": "call_ask"},
+                                {"headerName": "買價", "field": "call_bid"},
+                                {"headerName": "成交價", "field": "call_last"},
+                                {"headerName": "Delta", "field": "call_delta"},
+                            ],
+                        },
+                        {"headerName": "履約價", "field": "strike", "cellClass": "font-bold"},
+                        {
+                            "headerName": "賣權(Put)",
+                            "children": [
+                                {"headerName": "Delta", "field": "put_delta"},
+                                {"headerName": "成交價", "field": "put_last"},
+                                {"headerName": "買價", "field": "put_bid"},
+                                {"headerName": "賣價", "field": "put_ask"},
+                            ],
+                        },
                     ],
-                },
-                {"headerName": "履約價", "field": "strike", "cellClass": "font-bold"},
-                {
-                    "headerName": "賣權(Put)",
-                    "children": [
-                        {"headerName": "Delta", "field": "put_delta"},
-                        {"headerName": "成交價", "field": "put_last"},
-                        {"headerName": "買價", "field": "put_bid"},
-                        {"headerName": "賣價", "field": "put_ask"},
-                    ],
-                },
-            ],
-            "rowData": [],
-        }).classes("w-full h-96")
+                    "rowData": [],
+                }).classes("w-full h-96")
+            with ui.tab_panel(ta_tab).classes("gap-2"):
+                ta_set_symbol = web_technical_analysis_panel.build(ib_client)
 
     def _row_for(strike: float) -> dict:
         return state["rows_by_strike"].setdefault(strike, {
@@ -298,6 +328,9 @@ def build(ib_client: IBClient, on_leg_selected: Optional[Callable] = None):
             # 一次 tick 才觸發，見 IBQuoteClient.prime_fallback() 的說明。
             quote_client.subscribe([stock])
             quote_client.prime_fallback(stock)
+            # 技術分析頁籤只看標的走勢，跟到期日/履約價無關，查到新標的
+            # 就一起刷新，不用等使用者自己切過去那個頁籤才觸發。
+            await ta_set_symbol(symbol, stock)
         finally:
             symbol_input.enable()
 
@@ -391,8 +424,14 @@ def build(ib_client: IBClient, on_leg_selected: Optional[Callable] = None):
             return None
         return contracts["call"] if is_call else contracts["put"]
 
+    async def open_dialog(symbol: Optional[str] = None) -> None:
+        dialog.open()
+        if symbol:
+            symbol_input.value = symbol.strip().upper()
+            await _query_symbol()
+
     symbol_input.on("keydown.enter", lambda _e: _query_symbol())
     subscribe_btn.on_click(_subscribe_current_expiry)
     grid.on("cellDoubleClicked", _on_cell_double_clicked)
 
-    return quote_client, _get_contract
+    return quote_client, _get_contract, open_dialog
