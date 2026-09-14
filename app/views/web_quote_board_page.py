@@ -40,13 +40,6 @@ ask＋strike_step」交給呼叫端(`main.py`)接到下單面板上，對照舊�
 `main_window.py::_on_cell_double_clicked()` 呼叫
 `order_entry_widget.set_context(...)` 那一段，參數順序/意義一比一對
 應。
-
-`build()` 回傳的第三個值 `select_symbol(symbol, expiry)` 是給
-`web_screener_widget.py` 用的——股票篩選器復篩結果表格雙擊一列已通過的
-標的時呼叫，直接重用這裡既有的查詢/訂閱流程(`_query_symbol()`+
-`_subscribe_current_expiry()`)，對照舊版
-`main_window.py::_on_screener_symbol_selected()`，不在篩選器那邊另外做
-一套訂閱邏輯。
 """
 import datetime
 from typing import Callable, Optional
@@ -398,17 +391,8 @@ def build(ib_client: IBClient, on_leg_selected: Optional[Callable] = None):
             return None
         return contracts["call"] if is_call else contracts["put"]
 
-    async def _select_symbol(symbol: str, expiry: str) -> None:
-        symbol_input.value = symbol
-        await _query_symbol()
-        if expiry not in expiry_select.options:
-            status_label.text = f"{symbol} 查無到期日 {expiry}"
-            return
-        expiry_select.value = expiry
-        await _subscribe_current_expiry()
-
     symbol_input.on("keydown.enter", lambda _e: _query_symbol())
     subscribe_btn.on_click(_subscribe_current_expiry)
     grid.on("cellDoubleClicked", _on_cell_double_clicked)
 
-    return quote_client, _get_contract, _select_symbol
+    return quote_client, _get_contract

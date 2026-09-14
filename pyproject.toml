@@ -16,4 +16,5 @@ dependencies = [
     "qasync>=0.28.0",
     "requests>=2.34.2",
     "setuptools>=84.0.0",
+    "yfinance>=1.7.0",
 ]

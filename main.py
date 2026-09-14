@@ -105,10 +105,7 @@ def _build_trading_screen(ib_client: IBClient, side_buttons: dict) -> None:
     彈出來，不是像舊版抽屜那樣常駐展開。四個 build() 依序呼叫，靠
     closure 互相接起來——報價盤雙擊某個履約價的 call/put 價格欄位時
     (`on_leg_selected`)，把資料轉交給下單面板的 `set_context()`(那支函
-    式本身也會自動把下單面板的視窗彈出來，不用使用者自己再按按鈕)；股
-    票篩選器復篩結果雙擊一列已通過的標的時，透過報價盤回傳的
-    `select_symbol` 直接查詢/訂閱該檔標的，見 web_screener_widget.py 開
-    頭的說明。"""
+    式本身也會自動把下單面板的視窗彈出來，不用使用者自己再按按鈕)。"""
     global _order_client, _order_book_manager
     if _order_book_manager is None:
         _order_client = IBOrderClient(ib_client)
@@ -124,10 +121,10 @@ def _build_trading_screen(ib_client: IBClient, side_buttons: dict) -> None:
         if set_context is not None:
             set_context(*args)
 
-    quote_client, get_contract, select_symbol = web_quote_board_page.build(ib_client, on_leg_selected=_on_leg_selected)
+    quote_client, get_contract = web_quote_board_page.build(ib_client, on_leg_selected=_on_leg_selected)
     set_context, open_order_entry = web_order_entry_widget.build(_order_book_manager, quote_client, get_contract)
     open_box, open_fill = web_order_book_widgets.build(_order_book_manager)
-    open_screener = web_screener_widget.build(ib_client, select_symbol=select_symbol)
+    open_screener = web_screener_widget.build(ib_client)
 
     for button, opener in (
         (side_buttons["order_entry"], open_order_entry),

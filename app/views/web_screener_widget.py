@@ -7,20 +7,29 @@ NiceGUI 版股票篩選器，取代 `app/views/screener_widget.py`(PyQt5 版)及
     - 整個篩選器是一個置中 `ui.dialog()` modal(跟下單面板/委託簿同一套
       互動模式)，`build()` 回傳 `open_dialog` 給 `main.py` 接到標題列自
       己的按鈕上。
-    - 三個階段(初篩/復篩/掃描紀錄)用 `ui.tabs()`/`ui.tab_panels()` 取代
-      舊版 `QTabWidget`。
-    - 「新增篩選條件」「選擇掃描代碼」「AI 條件建議」「掃描紀錄詳情」都
-      是巢狀 `ui.dialog()`，取代舊版四支獨立的 QDialog 檔案——這裡沒有
-      拆成好幾支檔案，NiceGUI 的 `build()` 本來就是閉包風格，硬拆檔案只
-      會讓一堆內部狀態要用參數傳來傳去，不會比較清楚。
-    - 候選清單/掃描紀錄的候選清單用手刻的 `ui.row()`(勾選框+移除鈕)，
-      不是 `ui.aggrid`——跟 `web_order_book_widgets.py` 同樣的理由：筆
-      數少、需要每列各自的勾選框/按鈕，AG Grid 的效能優勢用不到。復篩
-      結果表格則用 `ui.aggrid`(14 個數值欄位，跟報價盤一樣是密集表格資
-      料)。
+    - 兩個階段(初篩/自選清單)用 `ui.tabs()`/`ui.tab_panels()` 取代舊版
+      `QTabWidget`。
+    - 「新增篩選條件」「選擇掃描代碼」「AI 條件建議」「查看詳細」「加入
+      自選」「管理自選清單」都是巢狀 `ui.dialog()`，取代舊版四支獨立的
+      QDialog 檔案——這裡沒有拆成好幾支檔案，NiceGUI 的 `build()` 本來
+      就是閉包風格，硬拆檔案只會讓一堆內部狀態要用參數傳來傳去，不會比
+      較清楚。
+    - 候選清單/自選清單成分股用手刻的 `ui.row()`(勾選框+移除鈕)，不是
+      `ui.aggrid`——跟 `web_order_book_widgets.py` 同樣的理由：筆數少、
+      需要每列各自的勾選框/按鈕，AG Grid 的效能優勢用不到。
     - 條件列用 `ui.row().classes("flex-wrap")` 取代舊版
       `widget_helpers.py::FlowLayout`——CSS flexbox 本來就有自動換行，
       不需要另外刻一套版面演算法。
+
+*** 沒有「選擇權天期/流動性復篩」這個階段(舊版曾經有過②選擇權復篩頁
+籤，對每檔候選標的查選定天期/ATM履約價的買賣價差)***：初篩(IB 市場掃
+描器)已經有 OPTVOLUME(選擇權成交量，預設篩選條件之一)、也可以自己加
+IMPVOLAT(隱含波動率)當標的層級的粗篩，精確到「某個到期日、某個履約
+價」買賣價差多寬這個層級的複篩被判定用不上，只留初篩這一關。
+`app/models/screener.py::screen_one()`/`ScreenFilters` 本身沒有跟著
+刪——`app/views/screener_widget.py`(PyQt5 舊版)還在用，那支檔案是漸進
+式遷移過程中還在跑的舊路徑(見 CLAUDE.md 的路線圖說明)，不能因為這裡不
+用了就整支刪掉。
 
 *** 所有巢狀 dialog 都只在 `build()` 最外層建立一次(結構固定，不會被任
 何容器的 `clear()` 波及)，每次要開啟前才清空/重新填內容 ***：對照
@@ -45,20 +54,18 @@ from __future__ import annotations
 
 import asyncio
 import difflib
-from datetime import datetime
 from typing import Callable, Optional
 
 from nicegui import ui
 
+from app.models.fundamentals_client import fetch_fundamentals
 from app.models.ib_client import IBClient
 from app.models.openrouter_client import suggest_filters, suggest_scan_codes, translate_terms
 from app.models.scanner_catalog import (
     FilterDef, ScanTypeDef, filter_by_id, load_filter_catalog, load_scan_type_catalog, scan_type_by_code,
 )
-from app.models.screener import (
-    CandidateStock, ScanFilterValue, ScannerParams, ScreenFilters, enrich_candidates, run_scanner, screen_one,
-)
-from app.services import industry_translations, scan_history_store
+from app.models.screener import CandidateStock, ScanFilterValue, ScannerParams, enrich_candidates, run_scanner
+from app.services import industry_translations, watchlist_store
 from app.services.background_tasks import spawn
 
 # 篩選條件面板初次開啟時方便使用者的預設值，對照舊版 screener_widget.py 的
@@ -72,23 +79,6 @@ _MAX_SCAN_CODE_SUGGESTIONS = 15
 # 的上限，只是擋輸入框不要打出離譜的天文數字，跟舊版 scanner_filter_picker
 # 的 _SPIN_MAX 同一個數字。
 _FILTER_VALUE_MAX = 1_000_000_000.0
-
-_RESULT_COLUMN_DEFS = [
-    {"headerName": "代碼", "field": "symbol"},
-    {"headerName": "標的現價", "field": "underlying_price"},
-    {"headerName": "到期日", "field": "expiry"},
-    {"headerName": "距到期天數", "field": "dte"},
-    {"headerName": "履約價", "field": "strike"},
-    {"headerName": "C買價", "field": "call_bid"},
-    {"headerName": "C賣價", "field": "call_ask"},
-    {"headerName": "C價差%", "field": "call_spread_pct"},
-    {"headerName": "C近似IV", "field": "call_iv"},
-    {"headerName": "P買價", "field": "put_bid"},
-    {"headerName": "P賣價", "field": "put_ask"},
-    {"headerName": "P價差%", "field": "put_spread_pct"},
-    {"headerName": "P近似IV", "field": "put_iv"},
-    {"headerName": "狀態", "field": "status", "tooltipField": "status"},
-]
 
 
 def _pickable_filters(catalog: list[FilterDef], exclude_ids: set[str]) -> list[FilterDef]:
@@ -120,10 +110,7 @@ _INSTRUMENT_OPTIONS = {"STK": "股票", "ETF.EQ.US": "ETF"}
 _INSTRUMENT_LOCATION = {"STK": "STK.US.MAJOR", "ETF.EQ.US": "ETF.EQ.US"}
 
 
-def build(ib_client: IBClient, select_symbol: Optional[Callable] = None) -> Callable:
-    """`select_symbol`：復篩結果表格雙擊一列已通過的標的時呼叫(symbol,
-    expiry)，對照 `web_quote_board_page.py::build()` 回傳的第三個值——把
-    這檔標的帶去報價盤查看完整選擇權鏈，不在這裡重複做一套訂閱邏輯。"""
+def build(ib_client: IBClient) -> Callable:
     ib = ib_client.ib
     state = {
         "candidates": [],       # list[{"symbol","source","rank","checkbox","row"}]
@@ -131,7 +118,6 @@ def build(ib_client: IBClient, select_symbol: Optional[Callable] = None) -> Call
         "selected_scan_code": None,
         "instrument": "STK",    # "STK" 或 "ETF.EQ.US"，決定掃描代碼挑選器顯示哪些候選、真正掃描時的 instrument/locationCode
         "scan_busy": False,
-        "screen_busy": False,
     }
 
     # *** Quasar 的 QTabPanels 元件會自己量測「目前這個 tab 的內容高
@@ -156,8 +142,7 @@ def build(ib_client: IBClient, select_symbol: Optional[Callable] = None) -> Call
         ui.label("股票篩選器").classes("text-lg font-semibold")
         with ui.tabs().classes("w-full") as tabs:
             scan_tab = ui.tab("① 初篩選股")
-            screen_tab = ui.tab("② 選擇權復篩")
-            history_tab = ui.tab("③ 掃描紀錄")
+            watchlist_tab = ui.tab("② 自選清單")
         with ui.tab_panels(tabs, value=scan_tab).classes("w-full"):
             # -------------------------------------------------------- 初篩頁籤
             with ui.tab_panel(scan_tab):
@@ -182,7 +167,7 @@ def build(ib_client: IBClient, select_symbol: Optional[Callable] = None) -> Call
                 with ui.column().classes("w-full gap-2 border rounded p-3 mt-2"):
                     with ui.row().classes("items-center justify-between w-full"):
                         ui.label("候選標的清單").classes("font-semibold")
-                        ui.label("勾選「納入」的標的才會送進復篩").classes("text-xs text-grey")
+                        ui.label("勾選「納入」的標的才會被「加入自選」納入").classes("text-xs text-grey")
                     with ui.row().classes("items-center gap-3 w-full text-xs text-grey"):
                         ui.label("").classes("w-8 shrink-0")  # 對齊勾選框寬度
                         ui.label("代碼").classes("w-16 shrink-0")
@@ -198,47 +183,16 @@ def build(ib_client: IBClient, select_symbol: Optional[Callable] = None) -> Call
                         select_all_btn = ui.button("全選").props("outline dense")
                         select_none_btn = ui.button("全不選").props("outline dense")
                         clear_candidates_btn = ui.button("清空清單").props("outline dense")
+                        add_to_watchlist_btn = ui.button("加入自選").props("outline dense")
 
-            # -------------------------------------------------------- 復篩頁籤
-            with ui.tab_panel(screen_tab):
-                with ui.column().classes("w-full gap-2 border rounded p-3"):
-                    ui.label("選擇權天期/流動性條件").classes("font-semibold")
-                    with ui.row().classes("items-end gap-4"):
-                        min_dte_input = ui.number(
-                            "最小DTE", value=20, format="%d", min=0, max=720, suffix="天",
-                        ).classes("w-28")
-                        max_dte_input = ui.number(
-                            "最大DTE", value=45, format="%d", min=0, max=720, suffix="天",
-                        ).classes("w-28")
-                        max_spread_input = ui.number(
-                            "最大買賣價差(佔中價%)", value=15.0, format="%.1f", min=0.1, max=500.0,
-                            step=0.5, suffix="%",
-                        ).classes("w-44")
-                        min_iv_input = ui.number(
-                            "最小近似IV(0=不限)", value=0.0, format="%.1f", min=0, max=500.0,
-                            step=1.0, suffix="%",
-                        ).classes("w-44")
-                    screen_btn = ui.button("執行選擇權復篩")
-                    screen_status_label = ui.label("")
-
-                ui.add_head_html(
-                    "<style>.center-header .ag-header-cell-label { justify-content: center; }</style>"
-                )
-                result_grid = ui.aggrid({
-                    ":getRowId": "params => params.data.symbol",
-                    ":onGridReady": "params => params.api.sizeColumnsToFit()",
-                    ":onGridSizeChanged": "params => params.api.sizeColumnsToFit()",
-                    "defaultColDef": {"minWidth": 72, "cellStyle": {"textAlign": "center"}, "headerClass": "center-header"},
-                    "columnDefs": _RESULT_COLUMN_DEFS,
-                    "rowData": [],
-                }).classes("w-full h-96 mt-2")
-
-            # -------------------------------------------------------- 掃描紀錄頁籤
-            with ui.tab_panel(history_tab):
-                ui.label("點「檢視」把這筆紀錄的條件跟候選清單帶回①初篩選股，點「重新命名」改名稱").classes(
-                    "text-xs text-grey",
-                )
-                history_container = ui.column().classes("w-full gap-1")
+            # -------------------------------------------------------- 自選清單頁籤
+            with ui.tab_panel(watchlist_tab):
+                with ui.row().classes("items-center justify-between w-full"):
+                    ui.label("點「帶入①初篩選股」把成分股帶回候選清單，點「管理」增減成分股").classes(
+                        "text-xs text-grey",
+                    )
+                    new_watchlist_btn = ui.button("＋ 新增自選清單").props("outline dense")
+                watchlist_container = ui.column().classes("w-full gap-1")
 
     # *** 不放「關閉」按鈕 ***：ui.dialog() 預設點旁邊背景/按 ESC 就會關
     # 閉(persistent 才會關掉這個行為，這裡沒設)，跟下單面板/委託簿/成交
@@ -285,7 +239,7 @@ def build(ib_client: IBClient, select_symbol: Optional[Callable] = None) -> Call
         ai_apply_btn.disable()
 
     # ---------------------------------------------------------------------
-    # 巢狀 dialog：命名/重新命名(存掃描紀錄、改名稱共用同一個)
+    # 巢狀 dialog：命名/重新命名(新增自選清單、改名稱共用同一個)
     # ---------------------------------------------------------------------
     with ui.dialog() as name_prompt_dialog, ui.card():
         name_prompt_title = ui.label("")
@@ -293,6 +247,88 @@ def build(ib_client: IBClient, select_symbol: Optional[Callable] = None) -> Call
         with ui.row():
             ui.button("儲存", on_click=lambda: name_prompt_dialog.submit(name_prompt_input.value))
             ui.button("取消", on_click=lambda: name_prompt_dialog.submit(None)).props("flat")
+
+    # ---------------------------------------------------------------------
+    # 巢狀 dialog：查看詳細(yfinance 基本資料/財報/財報發布日/分析師評等)
+    # ---------------------------------------------------------------------
+    # *** 頁籤結構在這裡建一次，內容(fundamentals_*_body)每次開對話框才
+    # 清空重填 ***：跟外層股票篩選器本身的頁籤同一個道理，`build()` 最
+    # 外層那段全域 CSS(.q-tab-panels/.q-tab-panel 的 height:auto+
+    # overflow:visible !important)本來就是掛在整個頁面上，這裡的巢狀頁
+    # 籤不用再另外處理一次「Quasar QTabPanels 卡死高度」的問題。
+    with ui.dialog() as fundamentals_dialog, ui.card().classes("w-[920px] max-w-full max-h-[85vh] overflow-y-auto gap-2"):
+        fundamentals_title = ui.label("").classes("text-lg font-semibold")
+        fundamentals_status = ui.label("").classes("text-xs text-grey")
+        with ui.tabs().classes("w-full") as fundamentals_tabs:
+            fundamentals_basic_tab = ui.tab("基本資料")
+            fundamentals_income_tab = ui.tab("損益表")
+            fundamentals_balance_tab = ui.tab("資產負債表")
+            fundamentals_cashflow_tab = ui.tab("現金流量表")
+            fundamentals_equity_tab = ui.tab("股東權益變動")
+            fundamentals_analyst_tab = ui.tab("財報/分析師")
+        with ui.tab_panels(fundamentals_tabs, value=fundamentals_basic_tab).classes("w-full"):
+            with ui.tab_panel(fundamentals_basic_tab):
+                fundamentals_basic_body = ui.column().classes("w-full gap-1")
+            with ui.tab_panel(fundamentals_income_tab):
+                fundamentals_income_body = ui.column().classes("w-full gap-1")
+            with ui.tab_panel(fundamentals_balance_tab):
+                fundamentals_balance_body = ui.column().classes("w-full gap-1")
+            with ui.tab_panel(fundamentals_cashflow_tab):
+                fundamentals_cashflow_body = ui.column().classes("w-full gap-1")
+            with ui.tab_panel(fundamentals_equity_tab):
+                # 免責說明放在這裡(頁籤結構本身，只建一次)，不是放進下面
+                # 每次開對話框都會被 _render_period_table() clear() 掉重
+                # 建的 fundamentals_equity_body——這兩個字串不會因為查的
+                # 標的不同而改變，不需要每次重畫。
+                ui.label(
+                    "yfinance 沒有提供正式的股東權益變動表，以下用資產負債表的權益科目"
+                    "(當季期末餘額)+現金流量表的籌資活動(當季發生數)拼出的近似版本，"
+                    "僅供參考。",
+                ).classes("text-xs text-grey mb-1")
+                fundamentals_equity_body = ui.column().classes("w-full gap-1")
+            with ui.tab_panel(fundamentals_analyst_tab):
+                fundamentals_analyst_body = ui.column().classes("w-full gap-1")
+        with ui.row():
+            ui.button("關閉", on_click=fundamentals_dialog.close).props("flat")
+
+    # ---------------------------------------------------------------------
+    # 巢狀 dialog：加入自選(把候選清單裡勾選的標的加進一個自選清單)
+    # ---------------------------------------------------------------------
+    with ui.dialog() as add_to_watchlist_dialog, ui.card().classes("w-[380px] max-w-full gap-2"):
+        ui.label("加入自選清單").classes("text-lg font-semibold")
+        add_to_watchlist_status = ui.label("").classes("text-xs text-grey")
+        add_to_watchlist_list = ui.column().classes("w-full gap-0 max-h-56 overflow-y-auto")
+        ui.label("或新增一個清單：").classes("text-xs text-grey mt-2")
+        with ui.row().classes("items-center gap-2 w-full"):
+            new_watchlist_inline_input = ui.input(placeholder="新清單名稱").classes("flex-grow")
+            new_watchlist_inline_btn = ui.button("新增並加入").props("dense")
+        with ui.row():
+            ui.button("取消", on_click=add_to_watchlist_dialog.close).props("flat")
+
+    # ---------------------------------------------------------------------
+    # 巢狀 dialog：管理自選清單成分股
+    # ---------------------------------------------------------------------
+    with ui.dialog() as manage_watchlist_dialog, ui.card().classes("w-[480px] max-w-full max-h-[85vh] overflow-y-auto gap-2"):
+        manage_watchlist_title = ui.label("").classes("text-lg font-semibold")
+        manage_watchlist_container = ui.column().classes("w-full gap-1 max-h-72 overflow-y-auto")
+        with ui.row().classes("items-center gap-2 w-full"):
+            manage_watchlist_input = ui.input(placeholder="手動加入代碼(空白/逗號分隔)").classes("flex-grow")
+            manage_watchlist_add_btn = ui.button("新增").props("dense")
+        with ui.row():
+            manage_watchlist_close_btn = ui.button("關閉").props("flat")
+
+    # ---------------------------------------------------------------------
+    # 巢狀 dialog：通用確認(目前給刪除自選清單用)
+    # ---------------------------------------------------------------------
+    with ui.dialog() as confirm_dialog, ui.card():
+        confirm_message = ui.label("")
+        with ui.row():
+            ui.button("確定", on_click=lambda: confirm_dialog.submit(True))
+            ui.button("取消", on_click=lambda: confirm_dialog.submit(False)).props("flat")
+
+    async def _confirm(message: str) -> bool:
+        confirm_message.text = message
+        return bool(await confirm_dialog)
 
     # =======================================================================
     # 篩選條件列(初篩表單/AI 預覽共用)
@@ -699,6 +735,9 @@ def build(ib_client: IBClient, select_symbol: Optional[Callable] = None) -> Call
                     category_label.tooltip(cand.category)
                 ui.space()
                 ui.button(
+                    "詳細", on_click=lambda s=cand.symbol: _open_fundamentals_dialog(s),
+                ).props("flat dense")
+                ui.button(
                     icon="close", on_click=lambda s=cand.symbol: _remove_candidate(s),
                 ).props("flat dense round size=sm")
         state["candidates"].append({
@@ -754,7 +793,253 @@ def build(ib_client: IBClient, select_symbol: Optional[Callable] = None) -> Call
     clear_candidates_btn.on_click(_on_clear_candidates)
 
     # =======================================================================
-    # 命名對話框(存掃描紀錄/重新命名共用)
+    # 查看詳細(yfinance 基本資料/財報/財報發布日/分析師評等)
+    # =======================================================================
+    def _fmt_money(value: float | None) -> str:
+        if value is None:
+            return "-"
+        return f"${value:,.0f}"
+
+    def _fmt_millions(value: float | None) -> str:
+        if value is None:
+            return "-"
+        return f"{value / 1_000_000:,.0f}"
+
+    def _fmt_num(value: float | None, decimals: int = 2) -> str:
+        if value is None:
+            return "-"
+        return f"{value:.{decimals}f}"
+
+    def _fundamentals_field(label: str, value: str) -> None:
+        ui.label(label).classes("text-xs text-grey")
+        ui.label(value).classes("text-sm")
+
+    def _render_period_table(
+        container, columns: list[tuple[str, str, Callable]], periods: list, empty_message: str,
+    ) -> None:
+        """財報頁籤共用的「期間 x 數字欄」表格——columns 是
+        (表頭文字, 屬性名稱, 格式化函式) 的清單，periods 是
+        IncomeStatementPeriod/BalanceSheetPeriod/CashFlowPeriod/
+        EquityChangePeriod 的實例列表，每個都有 `.period` 屬性當第一欄。
+        *** 一定要 flex-nowrap + 外層 overflow-x-auto，不能讓欄位自動換
+        行 ***：欄位數多(損益表/資產負債表都到 11 欄)，固定寬度加起來
+        很容易比對話框窄，讓 flexbox 自動換行的話同一列會被拆成兩行，
+        數字對不到自己的欄位標題——跟 web_order_book_widgets.py::
+        box_container 同一個處理方式，寧可讓這塊內容自己橫向捲動。"""
+        container.clear()
+        with container:
+            if not periods:
+                ui.label(empty_message).classes("text-sm text-grey")
+                return
+            with ui.column().classes("w-full overflow-x-auto"):
+                with ui.row().classes("items-center gap-3 text-xs text-grey flex-nowrap"):
+                    ui.label("期間").classes("w-24 shrink-0 whitespace-nowrap")
+                    for label, _attr, _fmt in columns:
+                        ui.label(label).classes("w-28 shrink-0 text-right whitespace-nowrap")
+                for p in periods:
+                    with ui.row().classes("items-center gap-3 text-sm flex-nowrap border-b py-1"):
+                        ui.label(p.period).classes("w-24 shrink-0 whitespace-nowrap")
+                        for _label, attr, fmt in columns:
+                            ui.label(fmt(getattr(p, attr))).classes("w-28 shrink-0 text-right whitespace-nowrap")
+
+    _RECOMMENDATION_LABELS = {
+        "strong_buy": "強力買進", "buy": "買進", "hold": "持有",
+        "sell": "賣出", "strong_sell": "強力賣出", "underperform": "落後大盤", "none": "無評等",
+    }
+    _RATING_COUNT_LABELS = [
+        ("strongBuy", "強力買進"), ("buy", "買進"), ("hold", "持有"),
+        ("sell", "賣出"), ("strongSell", "強力賣出"),
+    ]
+
+    async def _open_fundamentals_dialog(symbol: str) -> None:
+        fundamentals_title.text = symbol
+        fundamentals_status.text = "查詢中..."
+        fundamentals_tabs.value = fundamentals_basic_tab
+        for body in (
+            fundamentals_basic_body, fundamentals_income_body, fundamentals_balance_body,
+            fundamentals_cashflow_body, fundamentals_equity_body, fundamentals_analyst_body,
+        ):
+            body.clear()
+        fundamentals_dialog.open()
+        snapshot = await fetch_fundamentals(symbol)
+        fundamentals_status.text = ""
+        if snapshot.error:
+            with fundamentals_basic_body:
+                ui.label(snapshot.error).classes("text-negative text-sm")
+            return
+
+        fundamentals_title.text = f"{symbol} — {snapshot.long_name}" if snapshot.long_name else symbol
+
+        # ---------------------------------------------------------- 基本資料
+        with fundamentals_basic_body:
+            ui.label("基本資料").classes("font-semibold")
+            with ui.grid(columns=2).classes("w-full gap-x-4 gap-y-1"):
+                _fundamentals_field("產業/類別", snapshot.sector or snapshot.category or "-")
+                _fundamentals_field("子類別", snapshot.industry or "-")
+                _fundamentals_field("交易所", snapshot.exchange or "-")
+                _fundamentals_field("市值/資產規模", _fmt_money(snapshot.market_cap))
+                _fundamentals_field("本益比(TTM)", _fmt_num(snapshot.pe_ratio))
+                _fundamentals_field("預估本益比", _fmt_num(snapshot.forward_pe))
+                _fundamentals_field(
+                    "殖利率", f"{snapshot.dividend_yield:.2f}%" if snapshot.dividend_yield is not None else "-",
+                )
+                _fundamentals_field("每股盈餘(TTM)", _fmt_num(snapshot.eps_ttm))
+                _fundamentals_field("52週高", _fmt_num(snapshot.week52_high))
+                _fundamentals_field("52週低", _fmt_num(snapshot.week52_low))
+                if snapshot.employees is not None:
+                    _fundamentals_field("員工數", f"{snapshot.employees:,}")
+                if snapshot.website:
+                    _fundamentals_field("網站", snapshot.website)
+            if snapshot.summary:
+                ui.label("公司簡介").classes("font-semibold mt-2")
+                ui.label(snapshot.summary).classes("text-xs text-grey")
+
+        # ---------------------------------------------------------- 損益表
+        _render_period_table(
+            fundamentals_income_body,
+            [
+                ("營收(百萬)", "revenue", _fmt_millions),
+                ("營業成本(百萬)", "cost_of_revenue", _fmt_millions),
+                ("毛利(百萬)", "gross_profit", _fmt_millions),
+                ("研發費用(百萬)", "rd_expense", _fmt_millions),
+                ("管銷費用(百萬)", "sga_expense", _fmt_millions),
+                ("營業利益(百萬)", "operating_income", _fmt_millions),
+                ("稅前淨利(百萬)", "pretax_income", _fmt_millions),
+                ("所得稅費用(百萬)", "tax_provision", _fmt_millions),
+                ("淨利(百萬)", "net_income", _fmt_millions),
+                ("基本EPS(美元)", "basic_eps", _fmt_num),
+                ("稀釋EPS(美元)", "diluted_eps", _fmt_num),
+            ],
+            snapshot.income_statements,
+            "查無損益表資料(可能是 ETF)",
+        )
+
+        # ---------------------------------------------------------- 資產負債表
+        _render_period_table(
+            fundamentals_balance_body,
+            [
+                ("總資產(百萬)", "total_assets", _fmt_millions),
+                ("流動資產(百萬)", "current_assets", _fmt_millions),
+                ("現金及約當現金(百萬)", "cash_and_equivalents", _fmt_millions),
+                ("總負債(百萬)", "total_liabilities", _fmt_millions),
+                ("流動負債(百萬)", "current_liabilities", _fmt_millions),
+                ("總負債金額(百萬)", "total_debt", _fmt_millions),
+                ("長期負債(百萬)", "long_term_debt", _fmt_millions),
+                ("股東權益(百萬)", "stockholders_equity", _fmt_millions),
+                ("保留盈餘(百萬)", "retained_earnings", _fmt_millions),
+                ("營運資金(百萬)", "working_capital", _fmt_millions),
+                ("負債比(%)", "debt_ratio", lambda v: _fmt_num(v, 1)),
+            ],
+            snapshot.balance_sheets,
+            "查無資產負債表資料(可能是 ETF)",
+        )
+
+        # ---------------------------------------------------------- 現金流量表
+        _render_period_table(
+            fundamentals_cashflow_body,
+            [
+                ("營業現金流(百萬)", "operating_cash_flow", _fmt_millions),
+                ("資本支出(百萬)", "capital_expenditure", _fmt_millions),
+                ("自由現金流(百萬)", "free_cash_flow", _fmt_millions),
+                ("投資現金流(百萬)", "investing_cash_flow", _fmt_millions),
+                ("籌資現金流(百萬)", "financing_cash_flow", _fmt_millions),
+                ("股利發放(百萬)", "dividends_paid", _fmt_millions),
+                ("股票回購(百萬)", "stock_repurchase", _fmt_millions),
+                ("現金淨變動(百萬)", "net_change_in_cash", _fmt_millions),
+            ],
+            snapshot.cash_flows,
+            "查無現金流量表資料(可能是 ETF)",
+        )
+
+        # ---------------------------------------------------------- 股東權益變動(近似版)
+        # 免責說明是頁籤本身的固定內容(見上面 tab_panel 建立處)，這裡只
+        # 重畫表格本身。
+        _render_period_table(
+            fundamentals_equity_body,
+            [
+                ("股東權益(百萬)", "stockholders_equity", _fmt_millions),
+                ("普通股股本(百萬)", "common_stock", _fmt_millions),
+                ("保留盈餘(百萬)", "retained_earnings", _fmt_millions),
+                ("股票回購(百萬)", "stock_repurchase", _fmt_millions),
+                ("股利發放(百萬)", "dividends_paid", _fmt_millions),
+                ("普通股發行淨額(百萬)", "stock_issuance", _fmt_millions),
+            ],
+            snapshot.equity_changes,
+            "查無資料(可能是 ETF)",
+        )
+
+        # ---------------------------------------------------------- 財報發布日/分析師
+        with fundamentals_analyst_body:
+            ui.label("財報發布日").classes("font-semibold")
+            ui.label(snapshot.next_earnings_date or "查無資料(可能是 ETF，或資料源未提供)").classes("text-sm")
+
+            ui.label("分析師目標價").classes("font-semibold mt-2")
+            if snapshot.analyst and (
+                snapshot.analyst.target_mean_price is not None or snapshot.analyst.number_of_analysts
+            ):
+                analyst = snapshot.analyst
+                with ui.grid(columns=2).classes("w-full gap-x-4 gap-y-1"):
+                    _fundamentals_field("平均目標價", _fmt_num(analyst.target_mean_price))
+                    _fundamentals_field("中位數目標價", _fmt_num(analyst.target_median_price))
+                    _fundamentals_field("最高目標價", _fmt_num(analyst.target_high_price))
+                    _fundamentals_field("最低目標價", _fmt_num(analyst.target_low_price))
+                    _fundamentals_field(
+                        "分析師人數", str(analyst.number_of_analysts) if analyst.number_of_analysts else "-",
+                    )
+                    _fundamentals_field(
+                        "綜合評等",
+                        _RECOMMENDATION_LABELS.get(analyst.recommendation_key, analyst.recommendation_key or "-"),
+                    )
+                if analyst.rating_counts:
+                    ui.label("評等分布(最近一期)").classes("font-semibold mt-2")
+                    with ui.row().classes("gap-4"):
+                        for key, zh in _RATING_COUNT_LABELS:
+                            ui.label(f"{zh}：{analyst.rating_counts.get(key, 0)}").classes("text-sm")
+            else:
+                ui.label("查無分析師覆蓋資料(可能是 ETF 或小型股)").classes("text-sm text-grey")
+
+    # =======================================================================
+    # 加入自選清單
+    # =======================================================================
+    def _render_add_to_watchlist_list() -> None:
+        add_to_watchlist_list.clear()
+        watchlists = sorted(watchlist_store.list_all(), key=lambda w: w["created_at"], reverse=True)
+        with add_to_watchlist_list:
+            if not watchlists:
+                ui.label("尚無自選清單，用下面新增一個").classes("text-xs text-grey")
+            for w in watchlists:
+                def _pick(watchlist_id=w["id"], name=w["name"]) -> None:
+                    watchlist_store.add_symbols(watchlist_id, _checked_symbols())
+                    add_to_watchlist_status.text = f"已加入「{name}」"
+                    add_to_watchlist_dialog.close()
+
+                ui.button(
+                    f"{w['name']}({len(w['symbols'])} 檔)", on_click=_pick,
+                ).props("flat dense align=left").classes("w-full justify-start")
+
+    def _open_add_to_watchlist_dialog() -> None:
+        if not _checked_symbols():
+            scan_status_label.text = "候選清單裡沒有勾選任何標的"
+            return
+        add_to_watchlist_status.text = ""
+        new_watchlist_inline_input.value = ""
+        _render_add_to_watchlist_list()
+        add_to_watchlist_dialog.open()
+
+    def _on_new_watchlist_inline() -> None:
+        name = (new_watchlist_inline_input.value or "").strip()
+        if not name:
+            return
+        watchlist_store.create(name, _checked_symbols())
+        add_to_watchlist_status.text = f"已加入「{name}」"
+        add_to_watchlist_dialog.close()
+
+    add_to_watchlist_btn.on_click(_open_add_to_watchlist_dialog)
+    new_watchlist_inline_input.on("keydown.enter", lambda e: _on_new_watchlist_inline())
+    new_watchlist_inline_btn.on_click(_on_new_watchlist_inline)
+
+    # =======================================================================
+    # 命名對話框(新增自選清單/重新命名共用)
     # =======================================================================
     async def _prompt_name(title: str, default: str) -> Optional[str]:
         name_prompt_title.text = title
@@ -766,14 +1051,6 @@ def build(ib_client: IBClient, select_symbol: Optional[Callable] = None) -> Call
     # =======================================================================
     # 初篩(市場掃描)
     # =======================================================================
-    async def _save_scan_history(scan_code: str, filters: list[ScanFilterValue], candidates: list[CandidateStock]) -> None:
-        default_name = f"{datetime.now().strftime('%Y-%m-%d %H:%M')} {_scan_code_label(scan_code)}"
-        name = await _prompt_name("為這次掃描命名", default_name)
-        if not name:
-            return
-        scan_history_store.save_run(name, scan_code, filters, candidates, instrument=state["instrument"])
-        _refresh_history_table()
-
     async def _on_run_scanner() -> None:
         # 一定要對照舊版 screener_widget.py::_on_run_scanner() 的說明
         # ——市場掃描這種要跑好幾秒的操作直接掛在 on_click 上就好，NiceGUI
@@ -806,7 +1083,6 @@ def build(ib_client: IBClient, select_symbol: Optional[Callable] = None) -> Call
                 return
             await _translate_industry_category(candidates)
             _add_candidates(candidates)
-            await _save_scan_history(scan_code, params.filters, candidates)
         finally:
             scan_btn.enable()
             state["scan_busy"] = False
@@ -814,182 +1090,129 @@ def build(ib_client: IBClient, select_symbol: Optional[Callable] = None) -> Call
     scan_btn.on_click(_on_run_scanner)
 
     # =======================================================================
-    # 復篩(選擇權天期/流動性)
+    # 自選清單
     # =======================================================================
-    def _fmt(value):
-        if value is None:
-            return ""
-        return round(value, 4) if isinstance(value, float) else value
-
-    def _result_row(result) -> dict:
-        expiry_label = f"{result.expiry[:4]}-{result.expiry[4:6]}-{result.expiry[6:]}" if result.expiry else ""
-        status = "通過" if result.passed else (f"未通過：{result.reason}" if result.reason else "未通過")
-        return {
-            "symbol": result.symbol,
-            "underlying_price": _fmt(result.underlying_price),
-            "expiry": expiry_label,
-            "dte": _fmt(result.dte),
-            "strike": _fmt(result.strike),
-            "call_bid": _fmt(result.call_bid),
-            "call_ask": _fmt(result.call_ask),
-            "call_spread_pct": _fmt(result.call_spread_pct),
-            "call_iv": f"{result.call_iv:.1%}" if result.call_iv is not None else "",
-            "put_bid": _fmt(result.put_bid),
-            "put_ask": _fmt(result.put_ask),
-            "put_spread_pct": _fmt(result.put_spread_pct),
-            "put_iv": f"{result.put_iv:.1%}" if result.put_iv is not None else "",
-            "status": status,
-            "_passed": result.passed,
-            "_expiry": result.expiry,
-        }
-
-    def _error_row(symbol: str, message: str) -> dict:
-        row = {field["field"]: "" for field in _RESULT_COLUMN_DEFS}
-        row["symbol"] = symbol
-        row["status"] = f"查詢失敗：{message}"
-        row["_passed"] = False
-        row["_expiry"] = None
-        return row
-
-    async def _on_run_screen() -> None:
-        if state["screen_busy"]:
-            return
-        symbols = _checked_symbols()
-        if not symbols:
-            screen_status_label.text = "候選清單裡沒有勾選任何標的"
-            return
-        state["screen_busy"] = True
-        screen_btn.disable()
-        rows: list[dict] = []
-        result_grid.options["rowData"] = rows
-        result_grid.update()
-        filters = ScreenFilters(
-            min_dte=int(min_dte_input.value or 0),
-            max_dte=int(max_dte_input.value or 0),
-            max_spread_pct=float(max_spread_input.value or 15.0),
-            min_iv=(float(min_iv_input.value or 0) / 100.0) if (min_iv_input.value or 0) > 0 else 0.0,
-        )
-        passed = 0
-        try:
-            for i, symbol in enumerate(symbols, start=1):
-                screen_status_label.text = f"復篩中 {i}/{len(symbols)}：{symbol}"
-                try:
-                    result = await screen_one(ib, symbol, filters)
-                except Exception as exc:  # noqa: BLE001
-                    rows.append(_error_row(symbol, str(exc)))
-                    result_grid.options["rowData"] = rows
-                    result_grid.update()
-                    continue
-                rows.append(_result_row(result))
-                result_grid.options["rowData"] = rows
-                result_grid.update()
-                if result.passed:
-                    passed += 1
-            screen_status_label.text = f"復篩完成，{len(symbols)} 檔中有 {passed} 檔通過"
-        finally:
-            screen_btn.enable()
-            state["screen_busy"] = False
-
-    screen_btn.on_click(_on_run_screen)
-
-    def _on_result_cell_double_clicked(e) -> None:
-        if select_symbol is None:
-            return
-        data = e.args.get("data", {})
-        if not data.get("_passed") or not data.get("_expiry"):
-            return
-        # 一定要用 spawn()：這個 handler 是 aggrid 原生事件(不是 NiceGUI
-        # 元件的 on_click)，回傳值不會被 events.py::handle_event() 自動
-        # 偵測+排程，直接 await select_symbol(...) 也不行(這裡不是 async
-        # 函式)，用 spawn() 保留參照。
-        spawn(select_symbol(data["symbol"], data["_expiry"]))
-
-    result_grid.on("cellDoubleClicked", _on_result_cell_double_clicked)
-
-    # =======================================================================
-    # 掃描紀錄
-    # =======================================================================
-    async def _load_run_into_scan_tab(run: dict) -> None:
-        """點「檢視」——不開另一個對話框，直接把這筆紀錄的掃描代碼/篩選
-        條件/候選清單(結果)整組還原進①初篩選股，等同「回到當時按下執行
-        市場掃描之後」的狀態，可以直接接著調整條件重新掃描，或直接跳去
-        ②選擇權復篩。跟 `_save_scan_history()` 存的是同一組三塊資料，這
-        裡對稱地就地復原，取代原本另開一個唯讀/半編輯 dialog 的做法。"""
-        instrument = run.get("instrument", "STK")
-        state["instrument"] = instrument
-        instrument_select.value = instrument
-        _scan_code_refresh()
-
-        scan_code = run.get("scan_code")
-        if scan_code:
-            _set_scan_code(scan_code)
-
-        for filter_id in list(state["filter_rows"]):
-            _remove_filter_row(filter_id, state["filter_rows"])
-        catalog = load_filter_catalog()
-        grouped: dict[str, dict] = {}
-        for f in run.get("filters", []):
-            filter_def = next((fd for fd in catalog if any(field.code == f["code"] for field in fd.fields)), None)
-            if filter_def is None:
-                continue
-            entry = grouped.setdefault(filter_def.id, {"filter_def": filter_def, "above": None, "below": None})
-            if filter_def.kind == "range" and filter_def.fields[1].code == f["code"]:
-                entry["below"] = f["value"]
-            else:
-                entry["above"] = f["value"]
-        for entry in grouped.values():
-            _add_filter_row(entry["filter_def"], entry["above"], entry["below"])
-
-        candidate_container.clear()
-        state["candidates"].clear()
-        candidates = [
-            CandidateStock(symbol=cand["symbol"], source=cand.get("source", "manual"), rank=cand.get("rank"))
-            for cand in run.get("candidates", [])
-        ]
+    async def _load_watchlist_into_scan_tab(watchlist: dict) -> None:
+        """點「帶入①初篩選股」——把這個自選清單的成分股加進目前的候選
+        清單(用跟手動輸入/市場掃描一樣的 `_add_candidates()` 去重合
+        併，不是整批取代)，切到①初篩選股頁籤方便直接接著調整條件、重
+        新掃描。自選清單不像舊版「掃描紀錄」綁定某一次的掃描代碼/篩選
+        條件，這裡只有成分股代碼可以帶，沒有條件可以還原。"""
+        symbols = watchlist.get("symbols", [])
         tabs.value = scan_tab
-        if candidates:
-            scan_status_label.text = f"載入掃描紀錄「{run['name']}」，查詢中..."
-            await enrich_candidates(ib, candidates)
-            await _translate_industry_category(candidates)
-        for cand in candidates:
-            _append_candidate_row(cand)
+        if not symbols:
+            return
+        candidates = [CandidateStock(symbol=s, source="manual") for s in symbols]
+        scan_status_label.text = f"載入自選清單「{watchlist['name']}」，查詢中..."
+        await enrich_candidates(ib, candidates)
+        await _translate_industry_category(candidates)
+        _add_candidates(candidates)
 
-        scan_status_label.text = f"已載入掃描紀錄「{run['name']}」，共 {len(state['candidates'])} 檔候選"
-
-    async def _on_rename_history_run(run: dict) -> None:
-        name = await _prompt_name("重新命名", run["name"])
+    async def _on_new_watchlist() -> None:
+        name = await _prompt_name("新增自選清單", "")
         if not name:
             return
-        scan_history_store.rename_run(run["id"], name)
-        _refresh_history_table()
+        watchlist_store.create(name)
+        _refresh_watchlist_table()
 
-    def _refresh_history_table() -> None:
-        runs = sorted(scan_history_store.load_all(), key=lambda r: r["created_at"], reverse=True)
-        history_container.clear()
-        with history_container:
-            if not runs:
-                ui.label("尚無掃描紀錄").classes("text-xs text-grey")
-            for run in runs:
-                scan_label = _scan_code_label(run["scan_code"])
+    async def _on_rename_watchlist(watchlist: dict) -> None:
+        name = await _prompt_name("重新命名自選清單", watchlist["name"])
+        if not name:
+            return
+        watchlist_store.rename(watchlist["id"], name)
+        _refresh_watchlist_table()
+
+    async def _on_delete_watchlist(watchlist: dict) -> None:
+        if not await _confirm(f"確定要刪除自選清單「{watchlist['name']}」嗎？此動作無法復原。"):
+            return
+        watchlist_store.delete(watchlist["id"])
+        _refresh_watchlist_table()
+
+    # ---------------------------------------------------------- 管理自選清單成分股
+    manage_watchlist_state = {"watchlist_id": None, "members": []}  # members: [{"symbol","row"}]
+
+    def _manage_append_row(symbol: str) -> None:
+        with manage_watchlist_container:
+            with ui.row().classes("items-center gap-3 border-b py-1 w-full") as row:
+                ui.label(symbol).classes("font-medium")
+                ui.space()
+                ui.button(
+                    icon="close", on_click=lambda s=symbol: _manage_remove_symbol(s),
+                ).props("flat dense round size=sm")
+        manage_watchlist_state["members"].append({"symbol": symbol, "row": row})
+
+    def _manage_remove_symbol(symbol: str) -> None:
+        watchlist_store.remove_symbol(manage_watchlist_state["watchlist_id"], symbol)
+        for i, entry in enumerate(manage_watchlist_state["members"]):
+            if entry["symbol"] == symbol:
+                entry["row"].delete()
+                del manage_watchlist_state["members"][i]
+                break
+
+    def _manage_add_manual() -> None:
+        text = (manage_watchlist_input.value or "").strip().upper()
+        if not text:
+            return
+        existing = {e["symbol"] for e in manage_watchlist_state["members"]}
+        new_symbols = [s for s in text.replace(",", " ").split() if s and s not in existing]
+        if new_symbols:
+            watchlist_store.add_symbols(manage_watchlist_state["watchlist_id"], new_symbols)
+            for s in new_symbols:
+                _manage_append_row(s)
+        manage_watchlist_input.value = ""
+
+    def _open_manage_watchlist_dialog(watchlist: dict) -> None:
+        manage_watchlist_state["watchlist_id"] = watchlist["id"]
+        manage_watchlist_state["members"] = []
+        manage_watchlist_title.text = f"管理自選清單：{watchlist['name']}"
+        manage_watchlist_container.clear()
+        manage_watchlist_input.value = ""
+        for s in watchlist.get("symbols", []):
+            _manage_append_row(s)
+        manage_watchlist_dialog.open()
+
+    def _close_manage_watchlist_dialog() -> None:
+        manage_watchlist_dialog.close()
+        _refresh_watchlist_table()
+
+    manage_watchlist_input.on("keydown.enter", lambda e: _manage_add_manual())
+    manage_watchlist_add_btn.on_click(_manage_add_manual)
+    manage_watchlist_close_btn.on_click(_close_manage_watchlist_dialog)
+
+    # ---------------------------------------------------------------- 清單列表
+    def _refresh_watchlist_table() -> None:
+        watchlists = sorted(watchlist_store.list_all(), key=lambda w: w["created_at"], reverse=True)
+        watchlist_container.clear()
+        with watchlist_container:
+            if not watchlists:
+                ui.label("尚無自選清單，按上面「＋ 新增自選清單」建立一個").classes("text-xs text-grey")
+            for w in watchlists:
                 with ui.row().classes("items-center gap-3 border-b py-1 w-full flex-nowrap"):
-                    ui.label(run["name"]).classes("w-48 shrink-0 font-medium truncate")
-                    ui.label(run["created_at"]).classes("w-36 shrink-0 text-xs text-grey")
-                    ui.label(scan_label).classes("w-32 shrink-0 text-xs text-grey truncate")
-                    ui.label(f"{len(run.get('candidates', []))} 檔").classes("w-16 shrink-0 text-xs text-grey")
+                    ui.label(w["name"]).classes("w-48 shrink-0 font-medium truncate")
+                    ui.label(w["created_at"]).classes("w-36 shrink-0 text-xs text-grey")
+                    ui.label(f"{len(w['symbols'])} 檔").classes("w-16 shrink-0 text-xs text-grey")
                     ui.space()
                     ui.button(
-                        "重新命名", on_click=lambda r=run: _on_rename_history_run(r),
+                        "帶入①初篩選股", on_click=lambda w=w: _load_watchlist_into_scan_tab(w),
                     ).props("flat dense")
-                    ui.button("檢視", on_click=lambda r=run: _load_run_into_scan_tab(r)).props("flat dense")
+                    ui.button("管理", on_click=lambda w=w: _open_manage_watchlist_dialog(w)).props("flat dense")
+                    ui.button(
+                        "重新命名", on_click=lambda w=w: _on_rename_watchlist(w),
+                    ).props("flat dense")
+                    ui.button(
+                        "刪除", on_click=lambda w=w: _on_delete_watchlist(w),
+                    ).props("flat dense color=negative")
+
+    new_watchlist_btn.on_click(_on_new_watchlist)
 
     def _on_tab_change() -> None:
-        if tabs.value == history_tab:
-            _refresh_history_table()
+        if tabs.value == watchlist_tab:
+            _refresh_watchlist_table()
 
     tabs.on_value_change(_on_tab_change)
 
     def _open_dialog() -> None:
-        _refresh_history_table()
+        _refresh_watchlist_table()
         dialog.open()
 
     return _open_dialog
