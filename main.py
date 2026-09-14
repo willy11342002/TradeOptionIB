@@ -261,7 +261,7 @@ async def index() -> None:
 
 
 if __name__ in {"__main__", "__mp_main__"}:
-    # *** reload=True 之前卡進無限重啟迴圈，根因跟防毒/OneDrive這類外部
+    # *** reload=True 曾經卡進無限重啟迴圈，根因跟防毒/OneDrive這類外部
     # 因素完全無關，是我們自己的 logging 設定跟 uvicorn reload 機制互咬
     # ***：讀了 .venv/Lib/site-packages/uvicorn/supervisors/
     # watchfilesreload.py 的原始碼才確認——uvicorn 底層的 watchfiles
@@ -275,5 +275,15 @@ if __name__ in {"__main__", "__mp_main__"}:
     # logger 全部導向一個受監控資料夾底下的檔案。已經在
     # app_logging.py::_silence_watchfiles_feedback_loop() 把
     # watchfiles 這個 logger 的等級拉到 WARNING，源頭直接掐斷，不影響
-    # uvicorn 實際判斷要不要重啟的邏輯，可以放心重新打開。
-    ui.run(title="Options TBoard (Web)", reload=True)
+    # uvicorn 實際判斷要不要重啟的邏輯，reload 模式可以放心使用。
+    #
+    # 預設關閉 reload(正常交易用途不需要、也少一個變動來源)，開發時想要
+    # autoreload 就加 --reload 參數啟動(對應 .claude/launch.json 的
+    # "nicegui-main-reload" configuration)。
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--reload", action="store_true")
+    args = parser.parse_args()
+
+    ui.run(title="Options TBoard (Web)", reload=args.reload)

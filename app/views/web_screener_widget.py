@@ -146,8 +146,8 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
     with ui.column().classes("w-full max-w-[1320px] mx-auto gap-2"):
         ui.label("股票篩選器").classes("text-lg font-semibold")
         with ui.tabs().classes("w-full") as tabs:
-            scan_tab = ui.tab("① 初篩選股")
-            watchlist_tab = ui.tab("② 自選清單")
+            scan_tab = ui.tab("初篩選股")
+            watchlist_tab = ui.tab("自選清單")
         with ui.tab_panels(tabs, value=scan_tab).classes("w-full"):
             # -------------------------------------------------------- 初篩頁籤
             with ui.tab_panel(scan_tab):
@@ -185,7 +185,7 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
             # -------------------------------------------------------- 自選清單頁籤
             with ui.tab_panel(watchlist_tab):
                 with ui.row().classes("items-center justify-between w-full"):
-                    ui.label("點「帶入①初篩選股」把成分股帶回候選清單，點「管理」增減成分股").classes(
+                    ui.label("點清單名稱展開成分股，點「管理」增減成分股").classes(
                         "text-xs text-grey",
                     )
                     new_watchlist_btn = ui.button("＋ 新增自選清單").props("outline dense")
@@ -1180,21 +1180,86 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
     # =======================================================================
     # 自選清單
     # =======================================================================
-    async def _load_watchlist_into_scan_tab(watchlist: dict) -> None:
-        """點「帶入①初篩選股」——把這個自選清單的成分股加進目前的候選
-        清單(用跟手動輸入/市場掃描一樣的 `_add_candidates()` 去重合
-        併，不是整批取代)，切到①初篩選股頁籤方便直接接著調整條件、重
-        新掃描。自選清單不像舊版「掃描紀錄」綁定某一次的掃描代碼/篩選
-        條件，這裡只有成分股代碼可以帶，沒有條件可以還原。"""
-        symbols = watchlist.get("symbols", [])
-        tabs.value = scan_tab
-        if not symbols:
+    # 點清單名稱展開/收合成分股表格——欄位/按鈕排版直接照抄「候選標的清
+    # 單」那一份(`_append_candidate_row()`)，讓使用者不用切頁籤就能用同
+    # 一套介面查期權報價/看詳細資料。watchlist_expand_state 記的是「這個
+    # 清單 id 有沒有已經查過、填過內容」，同一個清單收合再展開不用重查一
+    # 次 IB，但 `_refresh_watchlist_table()` 整批重建時會清空(舊的
+    # container 物件都被 clear() 砍掉了)，重新整理清單列表後全部從收合
+    # 狀態開始——這只是操作方便的暫存，不是需要跨重整保留的狀態。
+    watchlist_expand_state: dict[str, dict] = {}  # watchlist_id -> {"loaded": bool}
+
+    def _append_watchlist_symbol_row(container, watchlist_id: str, symbol: str) -> dict:
+        """先只用 symbol 把一列的骨架畫出來(名稱欄顯示「查詢中…」，產業/
+        類別留空)——期權報價/詳細/移除這三個按鈕只需要 symbol 就能動作，
+        不用等查完公司名稱/產業分類才能用。實際資料由
+        `_update_watchlist_symbol_row()` 補上，兩支函式故意切開，理由見
+        `_toggle_watchlist_expand()` 的說明。"""
+        with container:
+            with ui.row().classes("items-center gap-3 border-b py-1 w-full") as row:
+                ui.label(symbol).classes("w-16 shrink-0 font-medium")
+                name_label = ui.label("查詢中…").classes("w-48 shrink-0 text-xs truncate text-grey")
+                industry_label = ui.label("").classes("w-28 shrink-0 text-xs text-grey text-center truncate")
+                category_label = ui.label("").classes("w-32 shrink-0 text-xs text-grey text-center truncate")
+                ui.space()
+                ui.button(
+                    "期權報價", on_click=lambda s=symbol: open_quote_board(s),
+                ).props("flat dense")
+                ui.button(
+                    "詳細", on_click=lambda s=symbol: _open_fundamentals_dialog(s),
+                ).props("flat dense")
+                ui.button(
+                    icon="close",
+                    on_click=lambda s=symbol, r=row: _remove_watchlist_symbol(watchlist_id, s, r),
+                ).props("flat dense round size=sm")
+        return {"name_label": name_label, "industry_label": industry_label, "category_label": category_label}
+
+    def _update_watchlist_symbol_row(refs: dict, cand: CandidateStock) -> None:
+        refs["name_label"].text = cand.long_name or "-"
+        refs["name_label"].classes(remove="text-grey")
+        if cand.long_name:
+            refs["name_label"].tooltip(cand.long_name)
+        refs["industry_label"].text = cand.industry_zh or cand.industry or "-"
+        if cand.industry:
+            refs["industry_label"].tooltip(cand.industry)
+        refs["category_label"].text = cand.category_zh or cand.category or "-"
+        if cand.category:
+            refs["category_label"].tooltip(cand.category)
+
+    def _remove_watchlist_symbol(watchlist_id: str, symbol: str, row) -> None:
+        watchlist_store.remove_symbol(watchlist_id, symbol)
+        row.delete()
+
+    async def _toggle_watchlist_expand(watchlist: dict, container, chevron) -> None:
+        entry = watchlist_expand_state.setdefault(watchlist["id"], {"loaded": False})
+        container.visible = not container.visible
+        chevron.set_name("expand_less" if container.visible else "expand_more")
+        if not container.visible or entry["loaded"]:
             return
-        candidates = [CandidateStock(symbol=s, source="manual") for s in symbols]
-        scan_status_label.text = f"載入自選清單「{watchlist['name']}」，查詢中..."
-        await enrich_candidates(ib, candidates)
-        await _translate_industry_category(candidates)
-        _add_candidates(candidates)
+        entry["loaded"] = True
+        symbols = watchlist.get("symbols", [])
+        if not symbols:
+            with container:
+                ui.label("這個清單還沒有成分股，按「管理」加入").classes("text-xs text-grey py-1")
+            return
+        # *** 先把整份清單的列都畫出來，再各自查詢，不要等
+        # enrich_candidates() 整批查完才顯示 ***：`enrich_candidates()`
+        # 內部用 asyncio.gather() 平行送出所有請求，總耗時取決於最慢的
+        # 那一檔，20 檔的清單體感上就是「展開後卡住不動好幾秒才整批跳
+        # 出來」。這裡改成逐檔各自呼叫 `enrich_candidates(ib, [cand])`
+        # (單檔清單，效果等同直接查那一檔)，一樣全部平行送出去(用
+        # asyncio.gather() 包住每一檔的 _fetch_one())，維持「總耗時不隨
+        # 檔數線性增加」的效能特性，但改成哪一檔先查完就先更新哪一列，
+        # 使用者看到的是清單先展開、資料逐筆跳出來，不是整批一起卡住。
+        refs_by_symbol = {s: _append_watchlist_symbol_row(container, watchlist["id"], s) for s in symbols}
+
+        async def _fetch_one(symbol: str) -> None:
+            cand = CandidateStock(symbol=symbol, source="manual")
+            await enrich_candidates(ib, [cand])
+            await _translate_industry_category([cand])
+            _update_watchlist_symbol_row(refs_by_symbol[symbol], cand)
+
+        await asyncio.gather(*(_fetch_one(s) for s in symbols), return_exceptions=True)
 
     async def _on_new_watchlist() -> None:
         name = await _prompt_name("新增自選清單", "")
@@ -1271,18 +1336,18 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
     def _refresh_watchlist_table() -> None:
         watchlists = sorted(watchlist_store.list_all(), key=lambda w: w["created_at"], reverse=True)
         watchlist_container.clear()
+        watchlist_expand_state.clear()  # 舊的 container 物件都被 clear() 砍掉了，展開狀態一起歸零
         with watchlist_container:
             if not watchlists:
                 ui.label("尚無自選清單，按上面「＋ 新增自選清單」建立一個").classes("text-xs text-grey")
             for w in watchlists:
                 with ui.row().classes("items-center gap-3 border-b py-1 w-full flex-nowrap"):
-                    ui.label(w["name"]).classes("w-48 shrink-0 font-medium truncate")
-                    ui.label(w["created_at"]).classes("w-36 shrink-0 text-xs text-grey")
-                    ui.label(f"{len(w['symbols'])} 檔").classes("w-16 shrink-0 text-xs text-grey")
+                    chevron = ui.icon("expand_more").classes("cursor-pointer text-grey")
+                    with ui.row().classes("items-center gap-3 cursor-pointer flex-nowrap") as name_area:
+                        ui.label(w["name"]).classes("w-48 shrink-0 font-medium truncate")
+                        ui.label(w["created_at"]).classes("w-36 shrink-0 text-xs text-grey")
+                        ui.label(f"{len(w['symbols'])} 檔").classes("w-16 shrink-0 text-xs text-grey")
                     ui.space()
-                    ui.button(
-                        "帶入①初篩選股", on_click=lambda w=w: _load_watchlist_into_scan_tab(w),
-                    ).props("flat dense")
                     ui.button("管理", on_click=lambda w=w: _open_manage_watchlist_dialog(w)).props("flat dense")
                     ui.button(
                         "重新命名", on_click=lambda w=w: _on_rename_watchlist(w),
@@ -1290,11 +1355,22 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
                     ui.button(
                         "刪除", on_click=lambda w=w: _on_delete_watchlist(w),
                     ).props("flat dense color=negative")
+                expand_container = ui.column().classes("w-full gap-1 pl-8")
+                expand_container.visible = False
+                toggle = lambda w=w, c=expand_container, chev=chevron: _toggle_watchlist_expand(w, c, chev)
+                chevron.on("click", toggle)
+                name_area.on("click", toggle)
 
     new_watchlist_btn.on_click(_on_new_watchlist)
 
     def _on_tab_change() -> None:
-        if tabs.value == watchlist_tab:
+        # tabs.value 在使用者實際點頁籤切換之後，存的是頁籤的 name(字
+        # 串)，不是 ui.tab() 物件本身(NiceGUI 的 ValueElement 預設
+        # `_event_args_to_value()` 直接回傳 client 送來的原始字串，
+        # Tabs/TabPanels 沒有覆寫這個方法去轉回物件)，拿 watchlist_tab
+        # 這個物件直接比對永遠是 False——這是這個「切頁籤沒有觸發重畫」
+        # 症狀的真正原因，不是下面註解原本猜測的「事件沒被呼叫到」。
+        if tabs.value == watchlist_tab.props["name"]:
             _refresh_watchlist_table()
 
     tabs.on_value_change(_on_tab_change)

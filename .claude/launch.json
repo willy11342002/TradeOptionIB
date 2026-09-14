@@ -6,6 +6,12 @@
             "runtimeExecutable": ".venv/Scripts/python.exe",
             "runtimeArgs": ["main.py"],
             "port": 8080
+        },
+        {
+            "name": "nicegui-main-reload",
+            "runtimeExecutable": ".venv/Scripts/python.exe",
+            "runtimeArgs": ["main.py", "--reload"],
+            "port": 8080
         }
     ]
 }

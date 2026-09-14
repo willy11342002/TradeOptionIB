@@ -102,27 +102,30 @@ def build(ib_client: IBClient, on_leg_selected: Optional[Callable] = None):
     }
 
     with ui.dialog() as dialog, ui.card().classes("w-[1100px] max-w-full max-h-[90vh] overflow-y-auto gap-2"):
-        ui.label("選擇權報價").classes("text-lg font-semibold")
-        with ui.row().classes("items-end gap-4"):
-            symbol_input = ui.input("標的代碼(輸入後按 Enter)").classes("w-48")
-            # 用 readonly 的 ui.input 而不是 ui.label 顯示現價——這樣才會
-            # 跟其他欄位一樣「上面標籤＋下面底線框」的樣式跟高度，不會在
-            # 同一排裡看起來對不齊。
-            price_input = ui.input("現價").props("readonly").classes("w-24")
-            expiry_select = ui.select({}, label="到期日").classes("w-56")
-            rows_input = ui.number("上下各幾檔", value=_DEFAULT_ROWS, format="%d", min=1).classes("w-28")
-            subscribe_btn = ui.button("查詢")
-        status_label = ui.label("")
+        ui.label("期權報價").classes("text-lg font-semibold")
 
-        # 「T字報價」/「技術分析」兩個頁籤共用同一個標的(symbol_input 查
-        # 到的那一檔)，技術分析頁籤只需要標的股票的走勢圖，跟履約價/到期
-        # 日無關，所以放在查詢列跟頁籤切換的上層，兩個頁籤都看得到同一份
-        # 查詢結果。
+        # 「選擇權報價」/「技術分析」兩個頁籤共用同一個標的(symbol_input 查
+        # 到的那一檔)，但查詢列(標的代碼/到期日/上下各幾檔)本身只有「選擇
+        # 權報價」頁籤的 T 字報價表格用得到(履約價/到期日這些欄位)，技術
+        # 分析頁籤只是被動接收查到的標的(`ta_set_symbol()`，跟這排欄位的
+        # DOM 位置無關)，所以查詢列放進「選擇權報價」頁籤內，不是放在頁籤
+        # 切換的上層——使用者要換標的還是得切回這個頁籤，但畫面比較乾淨，
+        # 技術分析頁籤不會看到一排跟自己無關的欄位。
         with ui.tabs().classes("w-full") as page_tabs:
-            quote_tab = ui.tab("T字報價")
+            quote_tab = ui.tab("選擇權報價")
             ta_tab = ui.tab("技術分析")
         with ui.tab_panels(page_tabs, value=quote_tab).classes("w-full"):
             with ui.tab_panel(quote_tab).classes("gap-2"):
+                with ui.row().classes("items-end gap-4"):
+                    symbol_input = ui.input("標的代碼(輸入後按 Enter)").classes("w-48")
+                    # 用 readonly 的 ui.input 而不是 ui.label 顯示現價——
+                    # 這樣才會跟其他欄位一樣「上面標籤＋下面底線框」的樣
+                    # 式跟高度，不會在同一排裡看起來對不齊。
+                    price_input = ui.input("現價").props("readonly").classes("w-24")
+                    expiry_select = ui.select({}, label="到期日").classes("w-56")
+                    rows_input = ui.number("上下各幾檔", value=_DEFAULT_ROWS, format="%d", min=1).classes("w-28")
+                    subscribe_btn = ui.button("查詢")
+                status_label = ui.label("")
                 # AG Grid 的表頭是 flex 容器(.ag-header-cell-label)，一
                 # 般的 text-align 對它沒作用，要改 justify-content 才能
                 # 讓標題文字置中，這裡用
@@ -192,7 +195,21 @@ def build(ib_client: IBClient, on_leg_selected: Optional[Callable] = None):
                     "rowData": [],
                 }).classes("w-full h-96")
             with ui.tab_panel(ta_tab).classes("gap-2"):
-                ta_set_symbol = web_technical_analysis_panel.build(ib_client)
+                ta_set_symbol, ta_set_visible = web_technical_analysis_panel.build(ib_client)
+
+        # 技術分析頁籤裡的 Plotly 圖表一定要等頁籤真的切過來(容器有實際寬
+        # 高)才能第一次塞K線資料，見 `web_technical_analysis_panel.py::
+        # build()` 開頭的說明——這裡把頁籤切換事件轉給那支模組的
+        # set_visible()，讓它自己決定「使用者切過去時，要不要因為剛好有
+        # 一筆還沒畫的新標的資料，補畫一次」。
+        async def _on_page_tab_change(e) -> None:
+            # NiceGUI 的 Tabs/TabPanels 送出來的 e.value 是 Tab 的
+            # name(字串)，不是 Tab 物件本身(見
+            # nicegui/elements/tabs.py::Tabs._value_to_event_value())，
+            # 拿 e.value 直接比對 ta_tab 這個物件永遠是 False。
+            await ta_set_visible(e.value == ta_tab.props["name"])
+
+        page_tabs.on_value_change(_on_page_tab_change)
 
     def _row_for(strike: float) -> dict:
         return state["rows_by_strike"].setdefault(strike, {
