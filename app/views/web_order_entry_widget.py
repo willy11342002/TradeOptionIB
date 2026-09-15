@@ -34,13 +34,18 @@ from nicegui import ui
 from app.models.ib_quote_client import IBQuoteClient
 from app.models.option_utils import vertical_spread_legs
 from app.models.order_book import OrderBookManager
+from app.models.positions import PositionManager
+from app.views import web_payoff_chart_widget
 
 _TIF_CHOICES = ["DAY", "GTC", "IOC", "FOK"]
 # 寬度選項對照舊版 order_entry_widget.py 的 spread_points_combo。
 _WIDTH_OPTIONS = {1.0: "1", 2.5: "2.5", 5.0: "5", 10.0: "10", 25.0: "25", 50.0: "50"}
 
 
-def build(order_book_manager: OrderBookManager, quote_client: IBQuoteClient, get_contract: Callable) -> tuple:
+def build(
+    order_book_manager: OrderBookManager, quote_client: IBQuoteClient, get_contract: Callable,
+    position_manager: PositionManager, open_order_book: Callable,
+) -> tuple:
     state = {
         "call_contract": None,
         "put_contract": None,
@@ -80,6 +85,13 @@ def build(order_book_manager: OrderBookManager, quote_client: IBQuoteClient, get
                     spread_tif = ui.select(_TIF_CHOICES, value="DAY", label="委託條件").classes("w-24")
                     spread_submit_btn = ui.button("暫存到委託簿")
                 spread_status = ui.label("").classes("text-sm")
+
+        ui.separator()
+        # 到期損益圖(使用者要求)：跟委託簿裡那份是同一個 build()，畫的是
+        # 「目前部位+目前委託簿」，不是這個表單裡還沒送出的草稿——見
+        # web_payoff_chart_widget.py 開頭的說明。裸買賣/價差單兩個分頁共
+        # 用同一份，不用各自重建，放在 tab_panels 外面、兩個分頁都看得到。
+        web_payoff_chart_widget.build(position_manager, order_book_manager)
 
     def _autofill_outright_price() -> None:
         contract = state["outright_contract"]
@@ -168,13 +180,22 @@ def build(order_book_manager: OrderBookManager, quote_client: IBQuoteClient, get
         spread_price.value = 0.0
         _autofill_duplex_price()
 
+    def _on_staged() -> None:
+        # *** 暫存成功後自動關掉下單面板、跳去委託簿 ***(使用者要求)：
+        # 不用使用者自己再按一次委託簿按鈕，也不用在這裡另外顯示「已暫
+        # 存」的文字——直接跳過去，委託簿裡那份到期損益圖(跟這裡是同一
+        # 份 web_payoff_chart_widget.build())本來就會即時反映剛剛暫存的
+        # 這一筆，比留在這個表單上顯示一行文字更直接。
+        dialog.close()
+        open_order_book()
+
     def _on_stage_outright() -> None:
         contract = state["outright_contract"]
         if contract is None:
             out_status.text = "請先雙擊報價盤的價格欄位選擇商品"
             return
         order_book_manager.stage_outright(contract, out_side.value, out_price.value, out_qty.value, out_tif.value)
-        out_status.text = "已暫存到委託簿(還沒送出，去委託簿按「送出」)"
+        _on_staged()
 
     def _on_stage_duplex() -> None:
         legs = _resolve_duplex_legs()
@@ -186,7 +207,7 @@ def build(order_book_manager: OrderBookManager, quote_client: IBQuoteClient, get
             leg1, buy1, leg2, buy2, spread_price.value, spread_qty.value,
             tif=spread_tif.value, net_buyer=spread_side.value,
         )
-        spread_status.text = "已暫存到委託簿(還沒送出，去委託簿按「送出」)"
+        _on_staged()
 
     out_side.on_value_change(lambda _e: _on_outright_side_change())
     spread_right.on_value_change(lambda _e: _on_duplex_params_change())

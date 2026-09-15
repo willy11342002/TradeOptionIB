@@ -24,6 +24,8 @@ from nicegui import ui
 from app.models.order_book import (
     OrderBookManager, STATUS_STAGED, STATUS_LIVE, STATUS_FILLED, STATUS_REJECTED, STATUS_CANCELLED,
 )
+from app.models.positions import PositionManager
+from app.views import web_payoff_chart_widget
 
 _STATUS_LABELS = {
     STATUS_STAGED: "待送出",
@@ -50,7 +52,7 @@ def _right_text(record) -> str:
     return ""
 
 
-def build(order_book_manager: OrderBookManager) -> tuple:
+def build(order_book_manager: OrderBookManager, position_manager: PositionManager) -> tuple:
     # *** 一定要記住這個分頁的 client，_refresh() 重畫整批列的時候要
     # 用 `with client:` 包起來，不能省 ***：委託狀態變化(送出成交/被交
     # 易所取消)是從 ib_async 的事件回呼觸發的，不是使用者在這個分頁上
@@ -75,6 +77,11 @@ def build(order_book_manager: OrderBookManager) -> tuple:
     with ui.dialog() as box_dialog, ui.card().classes("w-fit max-w-[95vw] gap-2"):
         ui.label("委託簿").classes("text-lg font-semibold")
         box_status = ui.label("").classes("text-sm text-negative")
+        # 到期損益圖(使用者要求)：目前部位+委託簿裡所有待成交委託一起算
+        # 進去，見 web_payoff_chart_widget.py 開頭的說明——跟 Qt 版同一套
+        # app/services/payoff.py 數學，這裡只是換成 Plotly 畫。
+        web_payoff_chart_widget.build(position_manager, order_book_manager)
+        ui.separator()
         box_container = ui.column().classes("w-full gap-1 overflow-x-auto")
 
     with ui.dialog() as fill_dialog, ui.card().classes("w-fit max-w-[95vw] gap-2"):

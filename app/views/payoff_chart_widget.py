@@ -28,11 +28,13 @@ from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget, QLabel
 INFO_AREA_STRETCH = 30
 CHART_AREA_STRETCH = 70
 
-from app.models.order_book import OrderBookManager, TERMINAL_STATUSES
+from app.models.order_book import OrderBookManager
 from app.models.positions import PositionManager
 from app.services.payoff import (
-    PayoffLeg, combined_payoff, find_breakevens, payoff_extremes, price_axis_range,
+    combined_payoff, find_breakevens, payoff_extremes, price_axis_range,
 )
+from app.services.payoff import pending_legs as get_pending_legs
+from app.services.payoff import position_legs as get_position_legs
 
 POSITION_CURVE_COLOR = "#1a5fb4"
 PENDING_CURVE_COLOR = "#e5a50a"
@@ -47,65 +49,6 @@ COLOR_PROFIT = "#3ecf6e"
 COLOR_LOSS = "#e05050"
 
 SAMPLE_POINTS = 400
-
-
-def _leg_multiplier(leg) -> float:
-    try:
-        return float(getattr(leg, "multiplier", None) or 100)
-    except (TypeError, ValueError):
-        return 100.0
-
-
-def _position_legs(manager: PositionManager):
-    """帳戶裡除了選擇權，也可能有股票這類非選擇權部位(IB 的 ib.positions()
-    不會幫你濾掉，什麼都會回傳)——到期損益圖的數學只對選擇權有意義，股票
-    部位的 right 是空字串，不能硬塞進 PayoffLeg(會在 payoff.py 直接炸
-    掉)，這裡先濾掉，不是漏改。"""
-    legs = []
-    for position in manager.positions:
-        for leg, buy, premium in position.payoff_legs():
-            if leg.right not in ("C", "P"):
-                continue
-            legs.append(PayoffLeg(
-                strike=leg.strike, call_put=leg.right, buy=buy,
-                qty=position.qty, premium=premium, multiplier=_leg_multiplier(leg),
-            ))
-    return legs
-
-
-def _pending_legs(order_book_manager: OrderBookManager):
-    """*** record.price 是複式單的「淨價」(net price)，不是每一腳各自的
-    權利金 (見 order_book.py::stage_duplex() 的 net_price 參數說明)。
-    之前這裡誤把 record.price 當成兩腳「各自」的權利金去算，兩腳的
-    -price/+price 剛好互相抵消，等於完全沒把淨權利金/收付方向算進損益，
-    畫出來的最大虧損/最大獲利都是錯的(缺淨權利金那一截)。***
-
-    正確作法：兩腳先各自用履約價算「純內含價值」(premium 都先當 0)，淨
-    價只記一次、記在「buy 跟 record.net_buyer 相同的第一腳」上，其餘腳一
-    律記 0——裸買賣只有一腳，一定符合，直接吃到全部淨價；一般價差(兩腳
-    方向相反)剛好只有一腳符合，效果等於「兩腳純內含價值價差 ± 淨權利
-    金」，才是正確的價差損益(net_buyer 付淨價就是減，net_buyer 收淨價就
-    是加)。用「第一腳」而不是「每一腳各自比對」是為了防呆：萬一兩腳方
-    向剛好相同(理論上複式單不會這樣下，但沒有程式碼強制擋)，也不會兩腳
-    都符合、把淨價重複記兩次。"""
-    legs = []
-    for record in order_book_manager.records:
-        if record.status in TERMINAL_STATUSES:
-            continue
-        price_assigned = False
-        for leg in record.legs:
-            if leg.right is None or leg.strike is None:
-                continue  # 沒有履約價/買賣權資訊的腳，理論上不會發生，防呆跳過
-            if not price_assigned and leg.buy == record.net_buyer:
-                premium = record.price
-                price_assigned = True
-            else:
-                premium = 0.0
-            legs.append(PayoffLeg(
-                strike=leg.strike, call_put=leg.right, buy=leg.buy,
-                qty=record.qty, premium=premium, multiplier=_leg_multiplier(leg),
-            ))
-    return legs
 
 
 class PayoffChartWidget(QWidget):
@@ -193,8 +136,8 @@ class PayoffChartWidget(QWidget):
             self.breakeven_label.setText(f"損平點：{points}")
 
     def _redraw(self) -> None:
-        position_legs = _position_legs(self._position_manager)
-        pending_legs = _pending_legs(self._order_book_manager)
+        position_legs = get_position_legs(self._position_manager)
+        pending_legs = get_pending_legs(self._order_book_manager)
         all_legs = position_legs + pending_legs
         effective_legs = all_legs if pending_legs else position_legs
 

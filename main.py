@@ -1,9 +1,11 @@
 """
 NiceGUI 版進入點，取代過程還沒完成——目前做到「連線→股票篩選器(主畫
 面)→選擇權報價盤/下單面板/委託簿/成交回報(標題列按鈕彈出的置中
-modal)」這條路徑，其餘功能(部位/損益圖/自動平倉/AI 助手)還在
-`pyqt.py`(PyQt5+qasync 舊版桌面 app，遷移完成後會整支刪除)那邊，見
-CLAUDE.md 的路線圖說明。
+modal)」這條路徑，下單面板/委託簿裡各自嵌了一份到期損益圖
+(`web_payoff_chart_widget.py`，重用 Qt 版同一套 `app/services/
+payoff.py` 數學)，但完整的「部位」頁面(分組管理/現價浮動損益/自動平
+倉)、AI 助手還在 `pyqt.py`(PyQt5+qasync 舊版桌面 app，遷移完成後會整支
+刪除)那邊，見 CLAUDE.md 的路線圖說明。
 
 跟 `pyqt.py` 最大的不同：這裡沒有 qasync/QApplication 那套組合，NiceGUI
 架在 FastAPI/uvicorn 上，本來就是純 asyncio，不需要「Qt 事件迴圈兼
@@ -53,6 +55,7 @@ from app import paths  # noqa: E402
 from app.models.ib_client import IBClient  # noqa: E402
 from app.models.ib_order_client import IBOrderClient  # noqa: E402
 from app.models.order_book import OrderBookManager  # noqa: E402
+from app.models.positions import PositionManager  # noqa: E402
 from app.services import ib_prefs, web_theme  # noqa: E402
 from app.views import (  # noqa: E402
     web_order_book_widgets, web_order_entry_widget, web_quote_board_page, web_screener_widget,
@@ -80,6 +83,19 @@ _ib_client: IBClient | None = None
 # 立一次。
 _order_client: IBOrderClient | None = None
 _order_book_manager: OrderBookManager | None = None
+# *** PositionManager 也要是 process 級單例，理由跟 IBOrderClient 一樣
+# 更嚴格 ***：建構子會掛 `self._ib.positionEvent += self._on_position_
+# event`，這個訂閱沒有解除機制，每次重新整理網頁都重新 `PositionManager
+# (...)` 的話，舊分頁留下的訂閱會一直疊加。*** 唯一的已知落差 ***：它
+# 建構時吃的 `quote_client` 來自第一次成功連線當下那個 `web_quote_board_
+# page.build()`，之後每次重新整理頁面 `web_quote_board_page.build()` 都
+# 會建一個新的 IBQuoteClient(那支本來就設計成可以放心重建，見它自己的
+# 說明)，但這個已經建好的 PositionManager 單例不會跟著換——目前只有損
+# 益圖(web_payoff_chart_widget.py)在用它，損益圖只吃部位的履約價/均
+# 價、不吃即時報價，這個落差不影響損益圖；只有在之後真的要做「即時報
+# 價驅動的部位浮動損益」時才需要處理，先不在這裡預先解決一個目前沒有呼
+# 叫路徑的問題。
+_position_manager: PositionManager | None = None
 
 # *** 模擬(paper)/正式(live) 環境切換用——預設模擬，比較安全 ***：沒有
 # 連線表單了(host/clientId 固定吃環境變數，見 index() 開頭)，port 完全
@@ -129,7 +145,7 @@ def _build_trading_screen(ib_client: IBClient, side_buttons: dict) -> None:
     - 股票篩選器候選清單每一列的「期權報價」按鈕呼叫報價盤的
       `open_quote_board(symbol)`，彈出報價盤並自動帶入這檔標的、直接查
       詢一次。"""
-    global _order_client, _order_book_manager
+    global _order_client, _order_book_manager, _position_manager
     if _order_book_manager is None:
         _order_client = IBOrderClient(ib_client)
         _order_book_manager = OrderBookManager(_order_client)
@@ -147,8 +163,16 @@ def _build_trading_screen(ib_client: IBClient, side_buttons: dict) -> None:
     quote_client, get_contract, open_quote_board = web_quote_board_page.build(
         ib_client, on_leg_selected=_on_leg_selected,
     )
-    set_context, open_order_entry = web_order_entry_widget.build(_order_book_manager, quote_client, get_contract)
-    open_box, open_fill = web_order_book_widgets.build(_order_book_manager)
+    if _position_manager is None:
+        _position_manager = PositionManager(ib_client, _order_book_manager, quote_client)
+    # *** 委託簿要先建好，下單面板才能拿到 open_box 傳進去 ***：暫存到
+    # 委託簿之後要自動關掉下單面板、跳去委託簿(使用者要求)，下單面板的
+    # build() 需要接一個「開委託簿」的 callback——委託簿本身不依賴下單
+    # 面板的任何東西，對調兩者的建構順序沒有副作用。
+    open_box, open_fill = web_order_book_widgets.build(_order_book_manager, _position_manager)
+    set_context, open_order_entry = web_order_entry_widget.build(
+        _order_book_manager, quote_client, get_contract, _position_manager, open_box,
+    )
     web_screener_widget.build(ib_client, open_quote_board)
 
     for button, opener in (
@@ -163,18 +187,20 @@ def _build_trading_screen(ib_client: IBClient, side_buttons: dict) -> None:
 
 def _toggle_environment() -> None:
     """右上角模擬/正式切換按鈕——沒有另外做「原地重連」的邏輯，直接斷線
-    +清空三個 process 級單例(_ib_client/_order_client/_order_book_manager)
-    +整頁重新整理，讓 index() 開頭那段「_ib_client 是否已連線」的判斷式
-    重新走一次全新的連線流程(port 由新的 _simulation 值決定)。委託簿/
-    委託 client 這些物件的建構子/初始化邏輯只在「全新連線」這個時機點
-    寫過一次，切環境本來就等同於斷線重連，沒有必要為了原地切換另外寫一
-    套「清空重建」的邏輯，多一套邏輯多一種可能兜不起來的風險。"""
-    global _ib_client, _order_client, _order_book_manager, _simulation
+    +清空四個 process 級單例(_ib_client/_order_client/_order_book_manager/
+    _position_manager)+整頁重新整理，讓 index() 開頭那段「_ib_client 是
+    否已連線」的判斷式重新走一次全新的連線流程(port 由新的 _simulation
+    值決定)。委託簿/委託 client/部位這些物件的建構子/初始化邏輯只在「全
+    新連線」這個時機點寫過一次，切環境本來就等同於斷線重連，沒有必要為
+    了原地切換另外寫一套「清空重建」的邏輯，多一套邏輯多一種可能兜不起
+    來的風險。"""
+    global _ib_client, _order_client, _order_book_manager, _position_manager, _simulation
     if _ib_client is not None:
         _ib_client.disconnect()
     _ib_client = None
     _order_client = None
     _order_book_manager = None
+    _position_manager = None
     _simulation = not _simulation
     ui.navigate.reload()
 
