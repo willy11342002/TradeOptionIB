@@ -14,6 +14,24 @@
 Y軸不能用滑鼠/滾輪縮放，可視範圍內的最高最低價由程式自動算好、動態塞
 滿Y軸，使用者只能縮放/拖曳X軸。
 
+*** 拖曳＝平移(`dragmode="pan"`)，不是框選縮放 ***(使用者要求)：滑鼠
+拖曳直接把目前可視範圍整段往左右移動(同寬度)，不會跳出選取框；要縮放
+改用滑鼠滾輪(`config.scrollZoom`，跟 dragmode 無關，兩者互不衝突)。「畫
+斜線」按鈕暫時切到 `dragmode="drawline"`，畫完/取消畫線一律切回 "pan"
+(不是舊版的 "zoom")，見 `_on_relayout()`/`_on_clear_clicked()`。
+
+*** K棒視窗化 + 捲動到邊緣自動載入更多 ***：本機快取(`historical_bars_
+store`)存的是查到的「全部」K棒，但一次把幾千~幾萬根K棒全部塞進 Plotly
+畫面會卡(使用者原始回報)，所以實際畫上 Plotly 的只有最近 `_WINDOW_SIZE`
+根(`state["bars"]`，`state["all_bars"]` 才是本機快取的完整內容)。使用者
+拖曳(平移)到目前顯示視窗最舊那一端附近時，`_maybe_load_more()` 會自動
+接上更舊的資料：本機快取裡還有(`window_start > 0`)就直接從
+`state["all_bars"]` 往前切，不用打任何 API；本機快取已經頂到底了才進一
+步用 IB `reqHistoricalDataAsync` 往更早查一段、併入本機快取存檔。這段自
+動載入用 `chart.figure` 局部改資料+明釘 `xaxis.range` 的方式重繪(`_push_
+chart(reset_view=False)`)，不整個重建 figure，才不會把使用者正在平移
+的畫面打斷跳走。
+
 畫圖用 `ui.plotly`(NiceGUI 內建元件，直接傳一個 dict figure 就能動，不
 需要額外安裝 `plotly` 這個 pip 套件——`ui.plotly` 只有在收到
 `plotly.graph_objects.Figure` 物件時才會用到那個套件，純 dict 走另一條
@@ -105,6 +123,16 @@ _INTRADAY_TIMEFRAMES = {"1min", "5mins", "30mins"}
 # 來之後，各加一點留白，圖形才不會頂到子圖邊緣，跟舊版 pyqtgraph 圖表的
 # Y_PADDING_RATIO 是同一個概念(數字不同沒關係，這裡是全新實作)。
 _Y_PADDING_RATIO = 0.1
+
+# 一次畫上 Plotly 的K棒數上限(不是本機快取上限，快取繼續存全部歷史，見
+# module docstring「K棒視窗化」那段)——資料量一多，瀏覽器端 Plotly 要處
+# 理的蠟燭圖/hover/spike 一起變多，畫面就會卡，這裡先用一個固定值換取簡
+# 單，之後真的還是太卡/太保守再依實測調整。
+_WINDOW_SIZE = 1500
+# 使用者平移到距離目前顯示視窗最舊那一端還剩幾根K棒，就觸發自動載入更多
+# ——太小(例如 1)使用者會先看到明顯的「畫面空一截」才補資料，太大則會
+# 常常還沒真的滑到底就提早觸發，50 是憑經驗抓的緩衝值。
+_EDGE_LOAD_MARGIN = 50
 
 # 漲跌配色跟 `app/services/web_theme.py` 的 _POSITIVE/_NEGATIVE 用同一組
 # 顏色(綠漲紅跌，跟 T 字報價表格一致)——那兩個是那支模組裡的私有前綴變
@@ -289,7 +317,11 @@ def _empty_figure(timeframe_key: str) -> dict:
                 **axis_common, "fixedrange": True, "autorange": False,
                 "domain": _VOLUME_DOMAIN, "anchor": "x2", "showticklabels": False, "showspikes": False,
             },
-            "dragmode": "zoom",  # Y 軸鎖死的情況下，框選縮放實質上只會動到 X 軸
+            # dragmode="pan"：拖曳直接平移可視範圍(同寬度左右移動)，不
+            # 是框選縮放(使用者要求，見 module docstring)。Y 軸鎖死的情
+            # 況下，平移實質上只會動到 X 軸；要縮放改用滑鼠滾輪
+            # (config.scrollZoom)。
+            "dragmode": "pan",
             # hovermode 用 "x" 不要用 "closest"：後者要滑鼠夠靠近某根K
             # 棒本體(蠟燭圖的實際繪製範圍)才會觸發，游標停在空白處(例如
             # 遠高於當天最高價的地方)完全沒反應；"x" 是「先找最近的日
@@ -393,7 +425,15 @@ def build(ib_client: IBClient):
     報價」頁籤，只記一個 `dirty` 旗標，真正的資料查詢/畫圖延到使用者切
     到「技術分析」頁籤那一刻(`set_visible(True)`)才做。"""
     state = {
-        "symbol": None, "contract": None, "timeframe": _DEFAULT_TIMEFRAME, "bars": [],
+        "symbol": None, "contract": None, "timeframe": _DEFAULT_TIMEFRAME,
+        # all_bars：本機快取的完整內容(可能好幾千~好幾萬根)；bars：目前
+        # 實際畫上 Plotly 的視窗(all_bars[window_start:]，見
+        # `_WINDOW_SIZE` 的說明)。view_range 記目前 X 軸可視範圍(Plotly
+        # relayout 事件回傳的原始值，不是算過的 timestamp)，`_maybe_
+        # load_more()` 補資料重繪時要靠這個把畫面釘在使用者平移到的位
+        # 置，不能重繪完畫面彈回「顯示全部」。
+        "all_bars": [], "bars": [], "window_start": 0, "view_range": (None, None),
+        "loading_more": False, "exhausted": False,
         "visible": False, "dirty": False, "idle_text": "",
     }
 
@@ -477,7 +517,7 @@ def build(ib_client: IBClient):
         })
         _sync_hline_handles()  # yaxis.range 變了，把手的像素位置要跟著重算
 
-    def _on_relayout(e) -> None:
+    async def _on_relayout(e) -> None:
         args = e.args or {}
         if "shapes" in args:
             # 畫新線(「畫斜線」按鈕的 drawline 拖出一條)、用 eraseshape
@@ -485,12 +525,12 @@ def build(ib_client: IBClient):
             # 推送的完整 shapes 陣列，Plotly 都會帶出完整陣列。橫線不會
             # 從這裡「新增」(直接由 _on_draw_hline_clicked() 構造好、整
             # 批推送，不經過 drawline)，所以這裡只要處理「新增了一條線
-            # (斜線)就把 dragmode 切回 zoom」——drawline 模式下沒辦法
-            # 拖曳調整既有線段的端點，見「畫斜線」按鈕的說明。
+            # (斜線)就把 dragmode 切回預設的 pan」——drawline 模式下沒
+            # 辦法拖曳調整既有線段的端點，見「畫斜線」按鈕的說明。
             shapes = args["shapes"]
             prev_shapes = chart_drawing_store.load(state["symbol"])
             if len(shapes) > len(prev_shapes):
-                chart.run_plot_method("relayout", {"dragmode": "zoom"})
+                chart.run_plot_method("relayout", {"dragmode": "pan"})
             chart_drawing_store.save(state["symbol"], shapes)
             # 同步一份到 Python 端的 chart.figure 快取——
             # `_on_clear_clicked()` 清除畫線時要靠這個快取抓到目前完整
@@ -516,6 +556,7 @@ def build(ib_client: IBClient):
             chart.figure["layout"]["shapes"] = shapes
             return
         if args.get("xaxis.autorange"):
+            state["view_range"] = (None, None)
             _rescale_y(None, None)
             return
         x0 = args.get("xaxis.range[0]")
@@ -525,7 +566,9 @@ def build(ib_client: IBClient):
             if isinstance(rng, list) and len(rng) == 2:
                 x0, x1 = rng
         if x0 is not None or x1 is not None:
+            state["view_range"] = (x0, x1)
             _rescale_y(x0, x1)
+            await _maybe_load_more(x0)
 
     # 自訂把手拖曳中(`window.__hlineDragging` 為 true)的時候，
     # `_HLINE_JS::onMove()` 會一路呼叫 `Plotly.relayout()` 來即時搬動橫
@@ -600,6 +643,52 @@ def build(ib_client: IBClient):
     )
     chart.on("plotly_unhover", _on_unhover, js_handler="() => emit({})")
 
+    def _push_chart(reset_view: bool) -> None:
+        """把 `state["bars"]`(目前顯示視窗)的內容畫上 Plotly。
+        `reset_view=True`(全新查詢/切換週期/切換標的)整個重建 figure，
+        週期一換 rangebreaks 也要跟著換，重建最單純，順便把視野歸零到
+        最新一段；`reset_view=False`(`_maybe_load_more()` 補到更舊的資
+        料時用)只在既有 figure 上換資料，並把 X 軸範圍明釘回
+        `state["view_range"]`——使用者正在平移到視窗邊緣才會觸發這個分
+        支，畫面絕對不能被這次補資料打斷跳走。"""
+        timeframe = state["timeframe"]
+        label = _TIMEFRAME_BY_KEY[timeframe][0]
+        if reset_view:
+            fig = _empty_figure(timeframe)
+            fig["layout"]["shapes"] = chart_drawing_store.load(state["symbol"])
+        else:
+            fig = chart.figure
+            x0, x1 = state["view_range"]
+            if x0 is not None and x1 is not None:
+                # 兩端都有值才能塞給 Plotly 的 xaxis.range(它要的是完整
+                # 的 [x0, x1] 區間，缺一端沒辦法用)——只有一端有值的極端
+                # 情況(理論上 Plotly relayout 事件可能只帶一半)乾脆不釘
+                # 死範圍，讓它照目前既有的 range 顯示就好。
+                fig["layout"]["xaxis"]["range"] = [x0, x1]
+                fig["layout"]["xaxis"]["autorange"] = False
+        fig["data"][0].update({
+            "x": [b["x"] for b in state["bars"]],
+            "open": [b["open"] for b in state["bars"]],
+            "high": [b["high"] for b in state["bars"]],
+            "low": [b["low"] for b in state["bars"]],
+            "close": [b["close"] for b in state["bars"]],
+        })
+        fig["data"][1].update({
+            "x": [b["x"] for b in state["bars"]],
+            "y": [b["volume"] for b in state["bars"]],
+            "marker": {"color": [_VOLUME_UP if b["close"] >= b["open"] else _VOLUME_DOWN for b in state["bars"]]},
+        })
+        chart.update_figure(fig)
+        if reset_view:
+            _rescale_y(None, None)  # 內部已經會呼叫 _sync_hline_handles()
+            # 預設(滑鼠沒有停在圖上)顯示最新一根K棒的開高低收/成交量，
+            # 滑鼠移到某根K棒上會被 _on_hover() 蓋成那一根的資料，移開
+            # 再由 _on_unhover() 換回這一行。
+            state["idle_text"] = _format_bar_line(state["symbol"], label, state["bars"][-1])
+            status_label.text = state["idle_text"]
+        else:
+            _rescale_y(x0, x1)
+
     async def _refresh() -> None:
         contract = state["contract"]
         if contract is None:
@@ -640,34 +729,92 @@ def build(ib_client: IBClient):
                 })
         merged = historical_bars_store.merge(cached, fresh)
         if not merged:
+            state["all_bars"] = []
             state["bars"] = []
             status_label.text = f"{state['symbol']} 查無 {label} 資料"
             return
         if fresh:
             historical_bars_store.save(con_id, timeframe, merged)
+
+        state["all_bars"] = merged
+        state["window_start"] = max(0, len(merged) - _WINDOW_SIZE)
+        state["bars"] = merged[state["window_start"]:]
+        state["exhausted"] = False
+        state["loading_more"] = False
+        state["view_range"] = (None, None)
+        _push_chart(reset_view=True)
+
+    async def _load_more_from_ib() -> None:
+        """本機快取(`state["all_bars"]`)已經頂到目前顯示視窗的最前面，
+        往 IB 再查一段更早的資料——`endDateTime` 設成本機快取目前最舊那
+        根K棒，`durationStr` 沿用該週期的初次回補值(`_TIMEFRAMES`)往回
+        查一段同樣寬度。查不到/查到的資料併入後數量沒有增加(代表 IB 這
+        次回傳的都跟本機重複)，就當作真的到 IB 資料盡頭，記
+        `exhausted` 旗標，之後同一個標的/週期不用再白費力氣重試。"""
+        contract = state["contract"]
+        all_bars = state["all_bars"]
+        if contract is None or not all_bars:
+            return
+        timeframe = state["timeframe"]
+        _, bar_size, backfill_duration, _ = _TIMEFRAME_BY_KEY[timeframe]
+        con_id = contract.conId
+        try:
+            end = datetime.datetime.fromisoformat(all_bars[0]["x"])
+        except ValueError:
+            state["exhausted"] = True
+            return
+        try:
+            bars = await ib_client.ib.reqHistoricalDataAsync(
+                contract, endDateTime=end, durationStr=backfill_duration,
+                barSizeSetting=bar_size, whatToShow="TRADES", useRTH=True,
+            )
+        except Exception:
+            state["exhausted"] = True
+            return
+        fresh = []
+        for b in bars:
+            x = b.date.isoformat()
+            fresh.append({
+                "x": x, "ts": _parse_ts(x),
+                "open": b.open, "high": b.high, "low": b.low, "close": b.close, "volume": b.volume,
+            })
+        merged = historical_bars_store.merge(all_bars, fresh)
+        if len(merged) <= len(all_bars):
+            state["exhausted"] = True
+            return
+        historical_bars_store.save(con_id, timeframe, merged)
+        state["all_bars"] = merged
+        state["window_start"] = 0
         state["bars"] = merged
 
-        fig = _empty_figure(timeframe)  # 換週期時間隔(rangebreaks)也要跟著換，整張圖重建最單純
-        fig["data"][0].update({
-            "x": [b["x"] for b in state["bars"]],
-            "open": [b["open"] for b in state["bars"]],
-            "high": [b["high"] for b in state["bars"]],
-            "low": [b["low"] for b in state["bars"]],
-            "close": [b["close"] for b in state["bars"]],
-        })
-        fig["data"][1].update({
-            "x": [b["x"] for b in state["bars"]],
-            "y": [b["volume"] for b in state["bars"]],
-            "marker": {"color": [_VOLUME_UP if b["close"] >= b["open"] else _VOLUME_DOWN for b in state["bars"]]},
-        })
-        fig["layout"]["shapes"] = chart_drawing_store.load(state["symbol"])
-        chart.update_figure(fig)
-        _rescale_y(None, None)  # 內部已經會呼叫 _sync_hline_handles()
-        # 預設(滑鼠沒有停在圖上)顯示最新一根K棒的開高低收/成交量，滑鼠移
-        # 到某根K棒上會被 _on_hover() 蓋成那一根的資料，移開再由
-        # _on_unhover() 換回這一行。
-        state["idle_text"] = _format_bar_line(state["symbol"], label, state["bars"][-1])
-        status_label.text = state["idle_text"]
+    async def _maybe_load_more(x0) -> None:
+        """使用者平移到接近目前顯示視窗最舊那一端時，自動把更舊的K棒接
+        上去，見 module docstring「K棒視窗化」那段的說明。`loading_more`
+        擋掉同一時間重複觸發(使用者平移一次可能連續收到好幾個
+        relayout 事件)，`exhausted` 擋掉已經確認打到 IB 資料盡頭之後的
+        無謂重試。"""
+        if state["loading_more"] or state["exhausted"] or not state["bars"]:
+            return
+        ts0 = _parse_ts(x0)
+        if ts0 is None:
+            return
+        margin_idx = min(_EDGE_LOAD_MARGIN, len(state["bars"]) - 1)
+        edge_ts = state["bars"][margin_idx]["ts"]
+        if edge_ts is not None and ts0 > edge_ts:
+            return  # 離目前視窗最舊那端還有距離，不用載入
+        state["loading_more"] = True
+        try:
+            if state["window_start"] > 0:
+                # 本機快取裡還有更舊的資料還沒塞進畫面，直接從
+                # state["all_bars"] 往前切，不用打任何 API。
+                new_start = max(0, state["window_start"] - _WINDOW_SIZE)
+                state["window_start"] = new_start
+                state["bars"] = state["all_bars"][new_start:]
+            else:
+                await _load_more_from_ib()
+            _push_chart(reset_view=False)
+        finally:
+            state["loading_more"] = False
 
     async def _on_timeframe_change(e) -> None:
         state["timeframe"] = e.value
@@ -679,7 +826,7 @@ def build(ib_client: IBClient):
         chart_drawing_store.save(state["symbol"], [])
         fig = chart.figure
         fig["layout"]["shapes"] = []
-        fig["layout"]["dragmode"] = "zoom"
+        fig["layout"]["dragmode"] = "pan"
         chart.update_figure(fig)
         _sync_hline_handles()
         status_label.text = state["idle_text"]
