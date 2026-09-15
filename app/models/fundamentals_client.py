@@ -12,13 +12,22 @@ app/services/background_tasks.py::run_blocking() 丟到背景執行緒呼叫，
 理由——這裡是 NiceGUI(單一 asyncio 事件迴圈)，同步 I/O 直接呼叫會卡住整
 個事件迴圈，所有使用者(這是本機單人工具，但道理一樣)的畫面都要等這一
 次查詢做完才會有反應。
+
+*** 一天只打一次 API，同一天內重複查詢直接讀本機 ***(使用者要求)：
+`fetch_fundamentals()` 先查 `app/services/fundamentals_store.py` 的本機
+快取，快取存在且查詢日期是今天就直接回傳，不用等網路；沒有快取或快取是
+之前某一天查的才真的打 yfinance，查到之後(且沒有 `error`)存回本機快取
+蓋掉舊的一份。查詢失敗(`error` 有值)故意不存快取——網路抖動這種暫時性
+失敗不該卡住整天，讓使用者下次查詢還有機會重打成功。
 """
 from __future__ import annotations
 
+import dataclasses
 import math
 from dataclasses import dataclass, field
 from typing import Optional
 
+from app.services import fundamentals_store
 from app.services.background_tasks import run_blocking
 
 # 只抓最近幾季，「查看詳細」是給使用者快速掃過近況用，不是完整財報分析
@@ -309,9 +318,36 @@ def _fetch_sync(symbol: str) -> FundamentalsSnapshot:
     return snapshot
 
 
+def _dict_to_snapshot(data: dict) -> FundamentalsSnapshot:
+    """把 `fundamentals_store.load()` 讀回的原始 dict 重建成
+    `FundamentalsSnapshot`——純量欄位跟 dataclass 的建構參數名稱本來就一
+    一對應，直接 `**kwargs` 展開；巢狀的期間清單/`AnalystInfo` 另外組回
+    對應的 dataclass 實例，`dataclasses.asdict()` 存檔時已經把它們攤平
+    成 dict/list of dict，讀回來要手動轉回去。"""
+    kwargs = dict(data)
+    kwargs["income_statements"] = [IncomeStatementPeriod(**p) for p in data.get("income_statements") or []]
+    kwargs["balance_sheets"] = [BalanceSheetPeriod(**p) for p in data.get("balance_sheets") or []]
+    kwargs["cash_flows"] = [CashFlowPeriod(**p) for p in data.get("cash_flows") or []]
+    kwargs["equity_changes"] = [EquityChangePeriod(**p) for p in data.get("equity_changes") or []]
+    kwargs["analyst"] = AnalystInfo(**data["analyst"]) if data.get("analyst") else None
+    return FundamentalsSnapshot(**kwargs)
+
+
 async def fetch_fundamentals(symbol: str) -> FundamentalsSnapshot:
     """`error` 有值代表整份查詢失敗(查無代碼/yfinance 拋例外)；`error`
     是 None 但個別欄位/整張表缺漏是正常情況(ETF 沒有損益表、免費資料源
     偶爾缺項、沒有分析師覆蓋)，呼叫端(web_screener_widget.py)自己決定
-    顯示成「查無資料」，不是錯誤。"""
-    return await run_blocking(_fetch_sync, symbol)
+    顯示成「查無資料」，不是錯誤。
+
+    先查本機快取(見 module docstring)，今天查過就直接回傳；沒有才真的打
+    API，成功才存回快取。"""
+    cached = fundamentals_store.load(symbol)
+    if cached is not None:
+        try:
+            return _dict_to_snapshot(cached)
+        except Exception:  # noqa: BLE001
+            pass  # 快取格式壞掉(例如改版後欄位對不上)就當沒有，退回打 API
+    snapshot = await run_blocking(_fetch_sync, symbol)
+    if not snapshot.error:
+        fundamentals_store.save(symbol, dataclasses.asdict(snapshot))
+    return snapshot
