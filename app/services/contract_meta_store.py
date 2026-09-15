@@ -43,9 +43,15 @@ def _save_all(data: dict) -> None:
 
 def load(con_id: int) -> Optional[dict]:
     """查詢日期不是今天、沒有這個 conId 的紀錄、或解析失敗都回傳
-    `None`，呼叫端一律當「沒有可用的本機快取」處理，退回打 IB。"""
+    `None`，呼叫端一律當「沒有可用的本機快取」處理，退回打 IB。
+
+    *** 缺 `products` 欄位的紀錄也當成快取失效 ***：這個欄位是後來才加
+    的，加之前存進去的舊紀錄(`date` 仍是今天，不會被上面的日期檢查濾
+    掉)沒有這個 key，`enrich_candidates()` 用 `cached.get("products") or
+    []` 讀，永遠拿到空清單，導致「支援商品」欄位在快取過期(隔天)前一
+    路顯示空白——不是查詢失敗，是快取裡根本沒存過這項資料。"""
     record = _load_all().get(str(con_id))
-    if record is None or record.get("date") != _today():
+    if record is None or record.get("date") != _today() or "products" not in record:
         return None
     return record
 
