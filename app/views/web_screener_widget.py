@@ -146,9 +146,9 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
     with ui.column().classes("w-full max-w-[1320px] mx-auto gap-2"):
         ui.label("股票篩選器").classes("text-lg font-semibold")
         with ui.tabs().classes("w-full") as tabs:
-            scan_tab = ui.tab("初篩選股")
             watchlist_tab = ui.tab("自選清單")
-        with ui.tab_panels(tabs, value=scan_tab).classes("w-full"):
+            scan_tab = ui.tab("市場掃描")
+        with ui.tab_panels(tabs, value=watchlist_tab).classes("w-full"):
             # -------------------------------------------------------- 初篩頁籤
             with ui.tab_panel(scan_tab):
                 with ui.column().classes("w-full gap-2 border rounded p-3"):
