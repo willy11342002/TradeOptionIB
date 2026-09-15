@@ -1290,6 +1290,33 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
 
         await asyncio.gather(*(_fetch_one(s) for s in symbols), return_exceptions=True)
 
+    async def _auto_expand_first(watchlist: dict, container, chevron) -> None:
+        """`_refresh_watchlist_table()` 預設展開第一個清單用——一定要先
+        `await client.connected()` 卡住，等這個頁面的 websocket 真的握手
+        完成才能開始查/寫回畫面。
+
+        *** 根本原因(查了 nicegui/element.py 原始碼才確認，不是猜測)
+        ***：`build()` 剛執行完的當下，瀏覽器可能還在走 NiceGUI 的連線
+        程序(HTTP 先拿到頁面 HTML，JS 再另外開 websocket 建立真正的
+        client，中間這段空檔 `ui.context.client` 對應的 client 物件可能
+        還沒 `has_socket_connection`，甚至因為一次握手重試被整個換掉)。
+        `_toggle_watchlist_expand()` 裡 `_update_watchlist_symbol_row()`
+        呼叫的 `label.text = ...` 底層(`nicegui/binding.py`
+        `BindableProperty.__set__` → `TextElement._handle_text_change()`
+        → `Element.update()`)在送出更新前會呼叫
+        `Element._is_safe_to_interact()`，這個檢查只要目前的 client 是
+        `None`/`is_deleted`(不是元素本身被刪除，是「這個瀏覽器連線」被
+        判定作廢)就整個靜默略過、不送出任何東西，也不丟例外——這正是
+        使用者實測回報的「產業/類別/支援商品都是空的」的真正成因：
+        `enrich_candidates()`/`_translate_industry_category()` 查到的資
+        料本身完全正確(用暫時的 debug log 直接證實過)，只是 fetch 跑到
+        一半(平行查 20 檔，總共要一兩秒)這段期間，client 剛好處於「還
+        沒真正連上/被換掉」的狀態，寫回動作被吞掉，畫面就停在建立當下
+        的空白骨架。點按鈕手動展開不會踩到這個問題，因為使用者點下去的
+        當下 client 早就穩定連線好了。"""
+        await ui.context.client.connected()
+        await _toggle_watchlist_expand(watchlist, container, chevron)
+
     async def _on_new_watchlist() -> None:
         name = await _prompt_name("新增自選清單", "")
         if not name:
@@ -1398,7 +1425,7 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
             # 是直接呼叫，不是事件 handler)，跟 AI 建議 debounce 那個計
             # 時器同一個理由，要用 `spawn()` 保留 Task 的強參照，不能單
             # 純呼叫一個 async 函式沒人 await 就不管它。
-            spawn(_toggle_watchlist_expand(*first_expand))
+            spawn(_auto_expand_first(*first_expand))
 
     new_watchlist_btn.on_click(_on_new_watchlist)
 
