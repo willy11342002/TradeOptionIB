@@ -1214,12 +1214,24 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
 
     def _append_watchlist_symbol_row(container, watchlist_id: str, symbol: str) -> dict:
         """先只用 symbol 把一列的骨架畫出來(名稱欄顯示「查詢中…」，產業/
-        類別/支援商品留空)——期權報價/詳細/移除這三個按鈕只需要 symbol
-        就能動作，不用等查完公司名稱/產業分類才能用。實際資料由
+        類別/支援商品留空)——詳細/移除這兩個按鈕只需要 symbol 就能動
+        作，不用等查完公司名稱/產業分類才能用。實際資料由
         `_update_watchlist_symbol_row()` 補上，兩支函式故意切開，理由見
-        `_toggle_watchlist_expand()` 的說明。"""
+        `_toggle_watchlist_expand()` 的說明。
+
+        *** 沒有獨立的「期權報價」按鈕，整列(除了「詳細」/移除按鈕)點
+        了都直接進期權報價頁 ***(使用者要求)：row 本身掛 `on("click",
+        ...)`，「詳細」跟移除這兩個按鈕另外各自掛
+        `on("click.stop", lambda: None)`——`.stop` 是 Vue 事件修飾字，
+        `helpers.event_type_to_camel_case()` 特意把第一個 `.` 之後的部
+        分原封不動保留給前端(不會被轉成 camelCase)，讓瀏覽器在觸發按
+        鈕自己的 click handler 之前先呼叫 `stopPropagation()`，事件才不
+        會冒泡到外層 row 的 click handler，兩個按鈕才能維持原本各自的
+        動作，不會被 row 的點擊蓋過去。"""
         with container:
-            with ui.row().classes("items-center gap-3 border-b py-1 w-full") as row:
+            with ui.row().classes(
+                "items-center gap-3 border-b py-1 w-full cursor-pointer hover:bg-white/5 transition-colors",
+            ).on("click", lambda s=symbol: open_quote_board(s)) as row:
                 ui.label(symbol).classes("w-16 shrink-0 font-medium")
                 name_label = ui.label("查詢中…").classes("w-48 shrink-0 text-xs truncate text-grey")
                 industry_label = ui.label("").classes("w-28 shrink-0 text-xs text-grey text-center truncate")
@@ -1227,15 +1239,12 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
                 products_label = ui.label("").classes("w-28 shrink-0 text-xs text-grey text-center truncate")
                 ui.space()
                 ui.button(
-                    "期權報價", on_click=lambda s=symbol: open_quote_board(s),
-                ).props("flat dense")
-                ui.button(
                     "詳細", on_click=lambda s=symbol: _open_fundamentals_dialog(s),
-                ).props("flat dense")
+                ).props("flat dense").on("click.stop", lambda: None)
                 ui.button(
                     icon="close",
                     on_click=lambda s=symbol, r=row: _remove_watchlist_symbol(watchlist_id, s, r),
-                ).props("flat dense round size=sm")
+                ).props("flat dense round size=sm").on("click.stop", lambda: None)
         return {
             "name_label": name_label, "industry_label": industry_label,
             "category_label": category_label, "products_label": products_label,
