@@ -29,7 +29,7 @@ from typing import Optional
 from ib_async import IB, ScannerSubscription, Stock, TagValue
 
 from app.models.option_utils import build_option
-from app.services import black_scholes
+from app.services import black_scholes, contract_meta_store
 
 # 跟 main_window.py 用同一個近似無風險利率、同一套 Black-Scholes 反推邏輯。
 RISK_FREE_RATE = 0.04
@@ -174,7 +174,13 @@ async def enrich_candidates(ib: IB, candidates: list[CandidateStock]) -> None:
     字串)先批次 qualify 一次，查無此標的(conId 停在 0，對照
     ib_client.py 開頭的說明)就跳過。查詢失敗或查無資料的候選，三個欄位
     維持 None，呼叫端自己決定顯示成空白，不當成整批失敗(`gather(...,
-    return_exceptions=True)`，單一候選查詢例外不影響其他候選)。"""
+    return_exceptions=True)`，單一候選查詢例外不影響其他候選)。
+
+    *** 先查本機快取(`app/services/contract_meta_store.py`)，同一天查過
+    的 conId 直接填欄位、不用再打一次 reqContractDetailsAsync() ***(使
+    用者要求)：自選清單展開這種一次平行查十幾二十檔的場景最有感，qualify
+    (拿 conId)還是要做，但這步本來就快，真正慢的是逐檔 IB round-trip 的
+    reqContractDetailsAsync()，快取命中就完全省掉。"""
     missing = [c for c in candidates if c.contract is None]
     if missing:
         stocks = {c.symbol: Stock(c.symbol, "SMART", "USD") for c in missing}
@@ -190,20 +196,38 @@ async def enrich_candidates(ib: IB, candidates: list[CandidateStock]) -> None:
     targets = [c for c in candidates if c.contract is not None]
     if not targets:
         return
+
+    to_query = []
+    for cand in targets:
+        cached = contract_meta_store.load(cand.contract.conId)
+        if cached is not None:
+            cand.long_name = cached.get("long_name")
+            cand.industry = cached.get("industry")
+            cand.category = cached.get("category")
+        else:
+            to_query.append(cand)
+    if not to_query:
+        return
+
     try:
         results = await asyncio.wait_for(
-            asyncio.gather(*(ib.reqContractDetailsAsync(c.contract) for c in targets), return_exceptions=True),
+            asyncio.gather(*(ib.reqContractDetailsAsync(c.contract) for c in to_query), return_exceptions=True),
             ENRICH_TIMEOUT_SEC,
         )
     except asyncio.TimeoutError:
         return
-    for cand, result in zip(targets, results):
+    fresh: dict[int, dict] = {}
+    for cand, result in zip(to_query, results):
         if isinstance(result, BaseException) or not result:
             continue
         details = result[0]
         cand.long_name = details.longName or None
         cand.industry = details.industry or None
         cand.category = details.category or None
+        fresh[cand.contract.conId] = {
+            "long_name": cand.long_name, "industry": cand.industry, "category": cand.category,
+        }
+    contract_meta_store.save_many(fresh)
 
 
 def _pick_expiry(expirations, min_dte: int, max_dte: int) -> Optional[str]:
