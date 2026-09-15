@@ -1402,6 +1402,11 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
 
     new_watchlist_btn.on_click(_on_new_watchlist)
 
+    # 記錄目前(已知)的頁籤值，初始值設成建構時給的預設頁籤
+    # (`ui.tab_panels(tabs, value=watchlist_tab)`)——`_on_tab_change()`
+    # 靠這個判斷「這次事件是不是真的換了頁籤」，見下面的說明。
+    _last_tab_name = {"value": watchlist_tab.props["name"]}
+
     def _on_tab_change() -> None:
         # tabs.value 在使用者實際點頁籤切換之後，存的是頁籤的 name(字
         # 串)，不是 ui.tab() 物件本身(NiceGUI 的 ValueElement 預設
@@ -1409,6 +1414,22 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
         # Tabs/TabPanels 沒有覆寫這個方法去轉回物件)，拿 watchlist_tab
         # 這個物件直接比對永遠是 False——這是這個「切頁籤沒有觸發重畫」
         # 症狀的真正原因，不是下面註解原本猜測的「事件沒被呼叫到」。
+        #
+        # *** 一定要先過濾掉「值沒有真的改變」的事件 ***：自從預設頁籤
+        # 改成 watchlist_tab 之後，Quasar 的 q-tabs 元件在前端掛載完成
+        # 時會回報一次「目前值」給後端，觸發一次跟真正點擊切換一模一樣
+        # 的 value_change 事件——這次事件的 tabs.value 剛好也是
+        # watchlist_tab，會被下面的判斷式接住，跟著 build() 結尾那個無
+        # 條件呼叫的 `_refresh_watchlist_table()` 疊在一起連續觸發兩
+        # 次。兩次都會重新展開第一個清單、各自平行查一輪 IB，第一輪查
+        # 完要寫回的 label 物件已經被第二輪的 `watchlist_container.
+        # clear()` 砍掉、變成寫進畫面上看不到的孤兒元件——這是使用者實
+        # 測回報「產業/類別/支援商品都是空的」的真正原因(名稱看起來有
+        # 值是因為兩輪本來就查到一樣的資料，只是被清空的那輪運氣好比較
+        # 晚才寫回去，順序每次不保證)，不是查詢或欄位對齊的問題。
+        if tabs.value == _last_tab_name["value"]:
+            return
+        _last_tab_name["value"] = tabs.value
         if tabs.value == watchlist_tab.props["name"]:
             _refresh_watchlist_table()
 
