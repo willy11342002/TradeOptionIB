@@ -1290,16 +1290,26 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
 
         await asyncio.gather(*(_fetch_one(s) for s in symbols), return_exceptions=True)
 
-    async def _auto_expand_first(watchlist: dict, container, chevron) -> None:
+    async def _auto_expand_first(client, watchlist: dict, container, chevron) -> None:
         """`_refresh_watchlist_table()` 預設展開第一個清單用——一定要先
         `await client.connected()` 卡住，等這個頁面的 websocket 真的握手
         完成才能開始查/寫回畫面。
 
-        *** 根本原因(查了 nicegui/element.py 原始碼才確認，不是猜測)
-        ***：`build()` 剛執行完的當下，瀏覽器可能還在走 NiceGUI 的連線
-        程序(HTTP 先拿到頁面 HTML，JS 再另外開 websocket 建立真正的
-        client，中間這段空檔 `ui.context.client` 對應的 client 物件可能
-        還沒 `has_socket_connection`，甚至因為一次握手重試被整個換掉)。
+        *** `client` 一定要由呼叫端(`_refresh_watchlist_table()`)在還沒
+        `spawn()` 之前，用 `ui.context.client` 先取出來、當參數傳進來，
+        不能在這支函式內部才呼叫 `ui.context.client` ***：`ui.context.
+        client` 靠的是「目前這個 task 的 slot stack」，只在 NiceGUI 自
+        己管理的請求/事件處理流程裡才有效——`spawn()`(`asyncio.
+        ensure_future()`)另外開的 Task 一開始 slot stack 是空的，實測
+        直接在這支函式裡呼叫 `ui.context.client` 會撞
+        `RuntimeError: The current slot cannot be determined because the
+        slot stack for this task is empty.`，不是猜測。
+
+        *** 為什麼要卡住等 client 連線(查了 nicegui/element.py 原始碼才
+        確認，不是猜測) ***：`build()` 剛執行完的當下，瀏覽器可能還在
+        走 NiceGUI 的連線程序(HTTP 先拿到頁面 HTML，JS 再另外開
+        websocket 建立真正的 client，中間這段空檔 client 可能還沒
+        `has_socket_connection`，甚至因為一次握手重試被整個換掉)。
         `_toggle_watchlist_expand()` 裡 `_update_watchlist_symbol_row()`
         呼叫的 `label.text = ...` 底層(`nicegui/binding.py`
         `BindableProperty.__set__` → `TextElement._handle_text_change()`
@@ -1314,7 +1324,7 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
         沒真正連上/被換掉」的狀態，寫回動作被吞掉，畫面就停在建立當下
         的空白骨架。點按鈕手動展開不會踩到這個問題，因為使用者點下去的
         當下 client 早就穩定連線好了。"""
-        await ui.context.client.connected()
+        await client.connected()
         await _toggle_watchlist_expand(watchlist, container, chevron)
 
     async def _on_new_watchlist() -> None:
@@ -1425,7 +1435,12 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
             # 是直接呼叫，不是事件 handler)，跟 AI 建議 debounce 那個計
             # 時器同一個理由，要用 `spawn()` 保留 Task 的強參照，不能單
             # 純呼叫一個 async 函式沒人 await 就不管它。
-            spawn(_auto_expand_first(*first_expand))
+            #
+            # *** ui.context.client 一定要在這裡(還在 _refresh_watchlist_
+            # table() 的同步呼叫堆疊裡)先取出來，不能等進了 spawn() 的
+            # Task 才取 ***：見 _auto_expand_first() 開頭的說明，那裡取
+            # 會撞 RuntimeError(slot stack 是空的)。
+            spawn(_auto_expand_first(ui.context.client, *first_expand))
 
     new_watchlist_btn.on_click(_on_new_watchlist)
 
