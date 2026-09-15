@@ -22,7 +22,7 @@ import datetime
 from nicegui import ui
 
 from app.models.order_book import (
-    OrderBookManager, STATUS_STAGED, STATUS_LIVE, STATUS_FILLED, STATUS_REJECTED,
+    OrderBookManager, STATUS_STAGED, STATUS_LIVE, STATUS_FILLED, STATUS_REJECTED, STATUS_CANCELLED,
 )
 
 _STATUS_LABELS = {
@@ -138,7 +138,19 @@ def build(order_book_manager: OrderBookManager) -> tuple:
                     ui.button(
                         "刪單", on_click=lambda r=record: order_book_manager.cancel(r.id),
                     ).props("dense outline")
-                # rejected/cancelled：不給操作，純顯示，跟舊版一致
+                elif record.status in (STATUS_REJECTED, STATUS_CANCELLED):
+                    # *** 這裡呼叫的是 OrderBookManager.delete()，不是
+                    # discard_staged() ***：discard_staged() 只認
+                    # STATUS_STAGED，對這兩種終態什麼都不會做(見它的
+                    # 判斷式)。delete() 才是通用版——對已經是終態的紀錄，
+                    # 不會再去呼叫 IB cancelOrder()(那段判斷式只在
+                    # STATUS_LIVE 時才動作)，單純把這筆從
+                    # `_records`/本機保存檔案移掉，不然失敗/取消的委託
+                    # 沒有任何管道可以從畫面上清掉，會一直卡在委託簿裡
+                    # (使用者原始回報)。
+                    ui.button(
+                        "刪除", on_click=lambda r=record: order_book_manager.delete(r.id),
+                    ).props("dense outline")
 
     def _fill_row(record) -> None:
         with ui.row().classes("flex-nowrap items-center gap-4 border-b py-1"):
