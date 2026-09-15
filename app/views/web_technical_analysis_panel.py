@@ -68,21 +68,36 @@ from typing import Optional
 from nicegui import ui
 
 from app.models.ib_client import IBClient
-from app.services import chart_drawing_store, theme
+from app.models import yfinance_history_client
+from app.services import chart_drawing_store, historical_bars_store, theme
 
-# (key, 顯示名稱, IB barSizeSetting, IB durationStr)——durationStr 是憑
-# 經驗抓的保守值(IB 對每種 barSize 能一次要多長的歷史資料有配額限制，太
-# 貪心會直接被拒絕)，不是查表得出的精確上限，先求「查得到」，之後真的
-# 卡到配額再依實測調整。
+# (key, 顯示名稱, IB barSizeSetting, 初次回補 durationStr, 增量更新
+# durationStr)——查過 IB 官方文件(historical_limitations.html)確認：
+# barSize >= "1 min" 的單次請求 duration 硬性上限已經取消，只剩「一次請
+# 求盡量只回傳幾千根K棒」的軟性建議，跟 pacing 限制(同一 contract 2秒內
+# 不能發6次以上請求、15秒內不能重複同樣的請求)。
+#
+# 初次回補(本機 `historical_bars_store` 還沒有快取)用下面這個大幅放寬、
+# 但仍落在「幾千根K棒」guideline 內的 duration 抓一次；之後每次查到的K
+# 棒都併入本機快取(`historical_bars_store.merge()`)，增量更新只需要抓
+# 「快取之後新增的這一小段」。分K/日K的最小合法 duration 是 "1 D"(等於
+# 照使用者要求「都抓一天」)；週K/月K不能配 "1 D"——IB 的 duration/
+# barSize 對應規則裡，"1 D" 只支援到 "1 day" 這個粒度的 barSize，硬配會
+# 直接查不到資料，只能退回官方表裡對應 barSize 允許的最小 duration
+# ("1 W"/"1 M")，不是真的每次都抓一整週/一整月的資料，只是 IB 不允許比
+# 這更短的組合。
 _TIMEFRAMES = [
-    ("1min", "1分K", "1 min", "2 D"),
-    ("5mins", "5分K", "5 mins", "5 D"),
-    ("30mins", "30分K", "30 mins", "1 M"),
-    ("1day", "日線", "1 day", "2 Y"),
-    ("1week", "週線", "1 week", "10 Y"),
-    ("1month", "月線", "1 month", "20 Y"),
+    ("1min", "1分K", "1 min", "10 D", "1 D"),
+    ("5mins", "5分K", "5 mins", "3 M", "1 D"),
+    ("30mins", "30分K", "30 mins", "1 Y", "1 D"),
+    ("1day", "日線", "1 day", "30 Y", "1 D"),
+    ("1week", "週線", "1 week", "30 Y", "1 W"),
+    ("1month", "月線", "1 month", "50 Y", "1 M"),
 ]
-_TIMEFRAME_BY_KEY = {key: (label, bar_size, duration) for key, label, bar_size, duration in _TIMEFRAMES}
+_TIMEFRAME_BY_KEY = {
+    key: (label, bar_size, backfill_duration, incremental_duration)
+    for key, label, bar_size, backfill_duration, incremental_duration in _TIMEFRAMES
+}
 _DEFAULT_TIMEFRAME = "1day"
 _INTRADAY_TIMEFRAMES = {"1min", "5mins", "30mins"}
 
@@ -394,7 +409,7 @@ def build(ib_client: IBClient):
     with ui.column().classes("w-full gap-2"):
         with ui.row().classes("items-center gap-2"):
             timeframe_select = ui.select(
-                {key: label for key, label, _, _ in _TIMEFRAMES},
+                {key: label for key, label, _, _, _ in _TIMEFRAMES},
                 value=_DEFAULT_TIMEFRAME, label="週期",
             ).classes("w-32")
             ui.button("重新整理", icon="refresh", on_click=lambda: _refresh())
@@ -590,27 +605,47 @@ def build(ib_client: IBClient):
         if contract is None:
             return
         timeframe = state["timeframe"]
-        label, bar_size, duration = _TIMEFRAME_BY_KEY[timeframe]
+        label, bar_size, backfill_duration, incremental_duration = _TIMEFRAME_BY_KEY[timeframe]
+        con_id = contract.conId
+        cached = historical_bars_store.load(con_id, timeframe)
         status_label.text = f"查詢 {state['symbol']} {label} 中..."
-        try:
-            bars = await ib_client.ib.reqHistoricalDataAsync(
-                contract, endDateTime="", durationStr=duration,
-                barSizeSetting=bar_size, whatToShow="TRADES", useRTH=True,
-            )
-        except Exception as exc:
-            status_label.text = f"查詢 {label} 失敗：{exc}"
-            return
-        if not bars:
+
+        fresh = []
+        if not cached:
+            # 第一次查這個標的/週期(本機還沒有快取)：日K/週K/月K優先用
+            # yfinance 抓 Yahoo 存的完整歷史(period="max"，一次請求就是
+            # 真正的「最長」)，查失敗/查無資料(含分K——這個函式對分K
+            # timeframe 直接回傳空清單)才落到下面用 IB 的大 duration 回
+            # 補，見 `yfinance_history_client.py` 的說明。
+            fresh = await yfinance_history_client.fetch_max_history(state["symbol"], timeframe)
+
+        if not fresh:
+            # 已經有快取只抓「新增的這一小段」；沒有快取但 yfinance 沒查
+            # 到資料，退回放寬過的大 duration 整段回補，見 `_TIMEFRAMES`
+            # 開頭的說明。
+            duration = incremental_duration if cached else backfill_duration
+            try:
+                bars = await ib_client.ib.reqHistoricalDataAsync(
+                    contract, endDateTime="", durationStr=duration,
+                    barSizeSetting=bar_size, whatToShow="TRADES", useRTH=True,
+                )
+            except Exception as exc:
+                status_label.text = f"查詢 {label} 失敗：{exc}"
+                return
+            for b in bars:
+                x = b.date.isoformat()
+                fresh.append({
+                    "x": x, "ts": _parse_ts(x),
+                    "open": b.open, "high": b.high, "low": b.low, "close": b.close, "volume": b.volume,
+                })
+        merged = historical_bars_store.merge(cached, fresh)
+        if not merged:
             state["bars"] = []
             status_label.text = f"{state['symbol']} 查無 {label} 資料"
             return
-        state["bars"] = []
-        for b in bars:
-            x = b.date.isoformat()
-            state["bars"].append({
-                "x": x, "ts": _parse_ts(x),
-                "open": b.open, "high": b.high, "low": b.low, "close": b.close, "volume": b.volume,
-            })
+        if fresh:
+            historical_bars_store.save(con_id, timeframe, merged)
+        state["bars"] = merged
 
         fig = _empty_figure(timeframe)  # 換週期時間隔(rangebreaks)也要跟著換，整張圖重建最單純
         fig["data"][0].update({
