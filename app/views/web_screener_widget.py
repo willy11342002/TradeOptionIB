@@ -180,6 +180,7 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
                         ui.label("名稱").classes("w-48 shrink-0")
                         ui.label("產業").classes("w-28 shrink-0 text-center")
                         ui.label("類別").classes("w-32 shrink-0 text-center")
+                        ui.label("支援商品").classes("w-28 shrink-0 text-center")
                     candidate_container = ui.column().classes("w-full gap-1 max-h-72 overflow-y-auto")
 
             # -------------------------------------------------------- 自選清單頁籤
@@ -812,15 +813,23 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
             if cand.category:
                 cand.category_zh = cached.get(cand.category)
 
+    def _products_text(products: list[str]) -> str:
+        """"支援商品"欄的顯示文字——`cand.products` 固定是
+        `["期貨","月選","週選"]` 的子集(順序已經照這個固定順序排好，見
+        `app/models/screener.py::_fetch_contract_meta()`)，用頓號連接；
+        查不到/三種都沒有顯示 "-"，跟其他欄位缺值的顯示方式一致。"""
+        return "、".join(products) if products else "-"
+
     def _append_candidate_row(cand: CandidateStock) -> None:
-        # *** 顯示名稱/產業/類別，不顯示現價/漲跌幅 ***：使用者明確不要
-        # 即時報價這種會變動的市場資料，改顯示由 app/models/screener.py
-        # ::enrich_candidates() 查 reqContractDetailsAsync() 補上的靜態
-        # 分類資訊，一眼看出「這是哪個產業/類別的標的」。查不到(ETF 通
-        # 常沒有 industry/category，一般股票偶爾查詢失敗)的候選這幾欄留
-        # 空，不是失敗，見該函式的說明。產業/類別優先顯示中文翻譯(見
-        # _translate_industry_category())，沒翻譯到才退回英文原文；名
-        # 稱(公司/ETF 全名)不翻譯，維持 IB 原文。
+        # *** 顯示名稱/產業/類別/支援商品，不顯示現價/漲跌幅 ***：使用者
+        # 明確不要即時報價這種會變動的市場資料，改顯示由
+        # app/models/screener.py::enrich_candidates() 查
+        # reqContractDetailsAsync()/reqSecDefOptParamsAsync() 補上的靜態
+        # 分類資訊，一眼看出「這是哪個產業/類別的標的、支援哪些衍生商
+        # 品」。查不到(ETF 通常沒有 industry/category，一般股票偶爾查詢
+        # 失敗)的候選這幾欄留空，不是失敗，見該函式的說明。產業/類別優
+        # 先顯示中文翻譯(見 _translate_industry_category())，沒翻譯到才
+        # 退回英文原文；名稱(公司/ETF 全名)不翻譯，維持 IB 原文。
         name_text = cand.long_name or "-"
         industry_text = cand.industry_zh or cand.industry or "-"
         category_text = cand.category_zh or cand.category or "-"
@@ -845,6 +854,7 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
                 category_label = ui.label(category_text).classes("w-32 shrink-0 text-xs text-grey text-center truncate")
                 if cand.category:
                     category_label.tooltip(cand.category)
+                ui.label(_products_text(cand.products)).classes("w-28 shrink-0 text-xs text-grey text-center truncate")
                 ui.space()
                 ui.button(
                     "期權報價", on_click=lambda s=cand.symbol: open_quote_board(s),
@@ -1189,10 +1199,23 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
     # 狀態開始——這只是操作方便的暫存，不是需要跨重整保留的狀態。
     watchlist_expand_state: dict[str, dict] = {}  # watchlist_id -> {"loaded": bool}
 
+    def _append_watchlist_header_row(container) -> None:
+        """展開清單的欄位表頭——跟「候選標的清單」那份用同一組固定寬度
+        (見 _append_candidate_row() 開頭的說明)，這樣才能對齊；沒有這排
+        表頭使用者看不出「代碼旁邊那一長串空白到底是產業還是類別」(使用
+        者原始回報)。"""
+        with container:
+            with ui.row().classes("items-center gap-3 w-full text-xs text-grey"):
+                ui.label("代碼").classes("w-16 shrink-0")
+                ui.label("名稱").classes("w-48 shrink-0")
+                ui.label("產業").classes("w-28 shrink-0 text-center")
+                ui.label("類別").classes("w-32 shrink-0 text-center")
+                ui.label("支援商品").classes("w-28 shrink-0 text-center")
+
     def _append_watchlist_symbol_row(container, watchlist_id: str, symbol: str) -> dict:
         """先只用 symbol 把一列的骨架畫出來(名稱欄顯示「查詢中…」，產業/
-        類別留空)——期權報價/詳細/移除這三個按鈕只需要 symbol 就能動作，
-        不用等查完公司名稱/產業分類才能用。實際資料由
+        類別/支援商品留空)——期權報價/詳細/移除這三個按鈕只需要 symbol
+        就能動作，不用等查完公司名稱/產業分類才能用。實際資料由
         `_update_watchlist_symbol_row()` 補上，兩支函式故意切開，理由見
         `_toggle_watchlist_expand()` 的說明。"""
         with container:
@@ -1201,6 +1224,7 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
                 name_label = ui.label("查詢中…").classes("w-48 shrink-0 text-xs truncate text-grey")
                 industry_label = ui.label("").classes("w-28 shrink-0 text-xs text-grey text-center truncate")
                 category_label = ui.label("").classes("w-32 shrink-0 text-xs text-grey text-center truncate")
+                products_label = ui.label("").classes("w-28 shrink-0 text-xs text-grey text-center truncate")
                 ui.space()
                 ui.button(
                     "期權報價", on_click=lambda s=symbol: open_quote_board(s),
@@ -1212,7 +1236,10 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
                     icon="close",
                     on_click=lambda s=symbol, r=row: _remove_watchlist_symbol(watchlist_id, s, r),
                 ).props("flat dense round size=sm")
-        return {"name_label": name_label, "industry_label": industry_label, "category_label": category_label}
+        return {
+            "name_label": name_label, "industry_label": industry_label,
+            "category_label": category_label, "products_label": products_label,
+        }
 
     def _update_watchlist_symbol_row(refs: dict, cand: CandidateStock) -> None:
         refs["name_label"].text = cand.long_name or "-"
@@ -1225,6 +1252,7 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
         refs["category_label"].text = cand.category_zh or cand.category or "-"
         if cand.category:
             refs["category_label"].tooltip(cand.category)
+        refs["products_label"].text = _products_text(cand.products)
 
     def _remove_watchlist_symbol(watchlist_id: str, symbol: str, row) -> None:
         watchlist_store.remove_symbol(watchlist_id, symbol)
@@ -1251,6 +1279,7 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
         # asyncio.gather() 包住每一檔的 _fetch_one())，維持「總耗時不隨
         # 檔數線性增加」的效能特性，但改成哪一檔先查完就先更新哪一列，
         # 使用者看到的是清單先展開、資料逐筆跳出來，不是整批一起卡住。
+        _append_watchlist_header_row(container)
         refs_by_symbol = {s: _append_watchlist_symbol_row(container, watchlist["id"], s) for s in symbols}
 
         async def _fetch_one(symbol: str) -> None:

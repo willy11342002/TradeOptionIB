@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
-from ib_async import IB, ScannerSubscription, Stock, TagValue
+from ib_async import IB, Future, ScannerSubscription, Stock, TagValue
 
 from app.models.option_utils import build_option
 from app.services import black_scholes, contract_meta_store
@@ -81,6 +81,9 @@ class CandidateStock:
     # 上，查不到翻譯就維持 None，呼叫端自己決定退回顯示英文原文。
     industry_zh: Optional[str] = None
     category_zh: Optional[str] = None
+    # 這檔標的支援的衍生商品，固定用 ["期貨", "月選", "週選"] 這個順序
+    # (有才列，沒有就不列)，見 enrich_candidates() 的說明。
+    products: list[str] = field(default_factory=list)
     # 快照用的合約物件——掃描結果本身就帶(contractDetails.contract)，手
     # 動輸入的要先 qualify 才有；只在這個 process 內部抓快照用，不存進
     # scan_history_store(那邊只存 symbol/source/rank，contract 物件不能
@@ -155,32 +158,94 @@ async def run_scanner(ib: IB, params: ScannerParams) -> list[CandidateStock]:
     return candidates
 
 
+def _third_friday(year: int, month: int) -> int:
+    """該年月「第三個星期五」是幾號——標準月選的到期規則。"""
+    first_friday = 1 + (4 - datetime(year, month, 1).weekday()) % 7  # weekday() 4 = 星期五
+    return first_friday + 14
+
+
+def _is_monthly_expiry(exp: str) -> bool:
+    """"YYYYMMDD" 格式的到期日字串是不是當月第三個星期五——是的話算月
+    選，不是的話算週選(不細分季選/其他非標準到期日，先求「查得到、分得
+    出兩類」，不需要太複雜)。"""
+    try:
+        d = datetime.strptime(exp, "%Y%m%d").date()
+    except ValueError:
+        return False
+    return d.weekday() == 4 and d.day == _third_friday(d.year, d.month)
+
+
+async def _fetch_contract_meta(ib: IB, cand: CandidateStock) -> bool:
+    """幫單一候選查名稱/產業/類別(reqContractDetailsAsync)+ 週選/月選
+    (reqSecDefOptParamsAsync，取跟 SMART 選擇權報價頁籤
+    `web_quote_board_page.py::_do_subscribe_core()` 同一套「exchange ==
+    SMART 且 tradingClass == symbol」篩法，避免混進非標準交易所/類別的
+    到期日)+ 期貨(reqContractDetailsAsync(Future(...))，不帶到期月份/交
+    易所，IB 對這種「欠缺條件」的合約查詢會回傳所有找得到的匹配合約，一
+    般美股沒有對應的個股期貨，回傳空清單是常態，不是查詢失敗)三種資料，
+    三個平行送出、各自獨立處理例外。回傳這次 reqContractDetailsAsync()
+    (名稱/產業/類別)有沒有成功——呼叫端只在這個成功時才存快取，避免週
+    選/月選/期貨這幾項因為暫時性失敗被誤存成「真的沒有」，卡住一整天沒
+    辦法重試。"""
+    details, chains, futures = await asyncio.gather(
+        ib.reqContractDetailsAsync(cand.contract),
+        ib.reqSecDefOptParamsAsync(cand.contract.symbol, "", cand.contract.secType, cand.contract.conId),
+        ib.reqContractDetailsAsync(Future(symbol=cand.contract.symbol, currency="USD")),
+        return_exceptions=True,
+    )
+    if isinstance(details, BaseException) or not details:
+        return False
+    info = details[0]
+    cand.long_name = info.longName or None
+    cand.industry = info.industry or None
+    cand.category = info.category or None
+
+    expirations: set[str] = set()
+    if not isinstance(chains, BaseException):
+        chain = next(
+            (c for c in chains if c.exchange == "SMART" and c.tradingClass == cand.contract.symbol), None,
+        )
+        if chain is not None:
+            expirations = set(chain.expirations)
+    products = []
+    if not isinstance(futures, BaseException) and futures:
+        products.append("期貨")
+    if any(_is_monthly_expiry(exp) for exp in expirations):
+        products.append("月選")
+    if any(not _is_monthly_expiry(exp) for exp in expirations):
+        products.append("週選")
+    cand.products = products
+    return True
+
+
 async def enrich_candidates(ib: IB, candidates: list[CandidateStock]) -> None:
-    """幫候選清單裡的每一筆補一次公司/ETF 名稱、產業、類別，就地修改傳
-    進來的 CandidateStock。*** 用 reqContractDetailsAsync()，不是報價快
-    照(reqTickersAsync) ***：使用者明確不要現價/漲跌幅這種即時市場資
-    料，這幾個是靜態的合約中繼資料，不佔市場資料線路，也不會因為帳戶沒
-    開通某個市場的即時報價而抓不到。
+    """幫候選清單裡的每一筆補一次公司/ETF 名稱、產業、類別、支援的衍生
+    商品(期貨/月選/週選)，就地修改傳進來的 CandidateStock，細節見
+    `_fetch_contract_meta()`。*** 用 reqContractDetailsAsync()/
+    reqSecDefOptParamsAsync()，不是報價快照(reqTickersAsync) ***：使用
+    者明確不要現價/漲跌幅這種即時市場資料，這幾個是靜態的合約中繼資
+    料，不佔市場資料線路，也不會因為帳戶沒開通某個市場的即時報價而抓不
+    到。
 
     *** 一定要用 asyncio.gather() 平行送出去，不要 for 迴圈逐檔 await
-    ***：reqContractDetailsAsync() 跟 reqTickersAsync 不同，一次只能查
-    一檔合約(IB API 沒有提供批次介面)，如果逐檔依序 await，總耗時會隨
-    候選數線性增加(50 檔=50 次序列等待，體感會很慢)；改成一次把所有
-    Awaitable 排進 gather()，總耗時取決於最慢的那一次，跟候選數幾乎無
-    關(實測 20 檔 STK 掃描全部平行查完約 3.8 秒)。
+    ***：這幾個 IB API 一次只能查一檔合約(沒有批次介面)，如果逐檔依序
+    await，總耗時會隨候選數線性增加(50 檔=50 次序列等待，體感會很
+    慢)；改成一次把所有 Awaitable 排進 gather()，總耗時取決於最慢的那一
+    次，跟候選數幾乎無關(實測 20 檔 STK 掃描全部平行查完約 3.8 秒；現在
+    每檔多查兩種資料，實測耗時會拉長，但仍跟候選數幾乎無關)。
 
     已經有 contract 的(市場掃描結果本來就帶 contractDetails.contract)直
     接查；沒有的(使用者手動輸入的代碼、或從歷史紀錄復原、只有 symbol
     字串)先批次 qualify 一次，查無此標的(conId 停在 0，對照
-    ib_client.py 開頭的說明)就跳過。查詢失敗或查無資料的候選，三個欄位
-    維持 None，呼叫端自己決定顯示成空白，不當成整批失敗(`gather(...,
+    ib_client.py 開頭的說明)就跳過。查詢失敗或查無資料的候選，欄位維持
+    預設值，呼叫端自己決定顯示成空白，不當成整批失敗(`gather(...,
     return_exceptions=True)`，單一候選查詢例外不影響其他候選)。
 
     *** 先查本機快取(`app/services/contract_meta_store.py`)，同一天查過
-    的 conId 直接填欄位、不用再打一次 reqContractDetailsAsync() ***(使
-    用者要求)：自選清單展開這種一次平行查十幾二十檔的場景最有感，qualify
-    (拿 conId)還是要做，但這步本來就快，真正慢的是逐檔 IB round-trip 的
-    reqContractDetailsAsync()，快取命中就完全省掉。"""
+    的 conId 直接填欄位、不用再打一次 IB ***(使用者要求)：自選清單展開
+    這種一次平行查十幾二十檔的場景最有感，qualify(拿 conId)還是要做，
+    但這步本來就快，真正慢的是逐檔 IB round-trip，快取命中就完全省
+    掉。"""
     missing = [c for c in candidates if c.contract is None]
     if missing:
         stocks = {c.symbol: Stock(c.symbol, "SMART", "USD") for c in missing}
@@ -204,6 +269,7 @@ async def enrich_candidates(ib: IB, candidates: list[CandidateStock]) -> None:
             cand.long_name = cached.get("long_name")
             cand.industry = cached.get("industry")
             cand.category = cached.get("category")
+            cand.products = cached.get("products") or []
         else:
             to_query.append(cand)
     if not to_query:
@@ -211,22 +277,18 @@ async def enrich_candidates(ib: IB, candidates: list[CandidateStock]) -> None:
 
     try:
         results = await asyncio.wait_for(
-            asyncio.gather(*(ib.reqContractDetailsAsync(c.contract) for c in to_query), return_exceptions=True),
+            asyncio.gather(*(_fetch_contract_meta(ib, c) for c in to_query), return_exceptions=True),
             ENRICH_TIMEOUT_SEC,
         )
     except asyncio.TimeoutError:
         return
-    fresh: dict[int, dict] = {}
-    for cand, result in zip(to_query, results):
-        if isinstance(result, BaseException) or not result:
-            continue
-        details = result[0]
-        cand.long_name = details.longName or None
-        cand.industry = details.industry or None
-        cand.category = details.category or None
-        fresh[cand.contract.conId] = {
-            "long_name": cand.long_name, "industry": cand.industry, "category": cand.category,
+    fresh: dict[int, dict] = {
+        cand.contract.conId: {
+            "long_name": cand.long_name, "industry": cand.industry,
+            "category": cand.category, "products": cand.products,
         }
+        for cand, ok in zip(to_query, results) if ok is True
+    }
     contract_meta_store.save_many(fresh)
 
 
