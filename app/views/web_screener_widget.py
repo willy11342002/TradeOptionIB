@@ -1286,14 +1286,48 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
             cand = CandidateStock(symbol=symbol, source="manual")
             await enrich_candidates(ib, [cand])
             await _translate_industry_category([cand])
-            _update_watchlist_symbol_row(refs_by_symbol[symbol], cand)
+            # *** 一定要 `with container:` 才能呼叫
+            # `_update_watchlist_symbol_row()` ***：那支函式裡的
+            # `.tooltip(...)` 呼叫底層會建立一個新的 `Tooltip` element
+            # (`nicegui/element.py::Element.tooltip()` → `Tooltip(text)`
+            # → `Element.__init__()`)，而建立任何新 element 都需要
+            # `context.client`(= 目前這個 asyncio task 的 slot stack最
+            # 上層)——`_append_watchlist_header_row()`/`_append_
+            # watchlist_symbol_row()` 都有明確 `with container:` 所以沒
+            # 事，但這裡(`_fetch_one` 內部，await 完 enrich_candidates/
+            # 翻譯之後)完全沒有包，正常靠使用者點擊觸發時 NiceGUI 的事件
+            # 派發機制會自動維持有效的 slot stack 所以不會出事，但透過
+            # `_auto_expand_first()` 的 `spawn()` 背景 Task 執行到這裡
+            # 時 slot stack 是空的，`.tooltip()` 會直接丟
+            # RuntimeError(跟 `_auto_expand_first()` 開頭處理
+            # `ui.context.client` 的問題完全同一個成因)——而這裡外層是
+            # `asyncio.gather(..., return_exceptions=True)`，例外被整個
+            # 吞掉，不會顯示在畫面、也不會噴到 `spawn()` 的例外處理器，
+            # 這才是使用者實測回報「產業/類別/支援商品都是空的」的真正
+            # 成因：名稱那行(`.text=`/`.classes()`)是純屬性賦值不需要
+            # slot stack，會先成功，緊接著的
+            # `refs["name_label"].tooltip(...)` 才是真正炸掉的那一行，
+            # industry/category/products 因為排在它後面，永遠執行不到。
+            # `with container:` 用 container 自己存的 client 參照重新把
+            # slot stack 建起來，跟目前是不是背景 Task 無關，兩條路徑都
+            # 適用。
+            with container:
+                _update_watchlist_symbol_row(refs_by_symbol[symbol], cand)
 
         await asyncio.gather(*(_fetch_one(s) for s in symbols), return_exceptions=True)
 
     async def _auto_expand_first(client, watchlist: dict, container, chevron) -> None:
-        """`_refresh_watchlist_table()` 預設展開第一個清單用——一定要先
-        `await client.connected()` 卡住，等這個頁面的 websocket 真的握手
-        完成才能開始查/寫回畫面。
+        """`_refresh_watchlist_table()` 預設展開第一個清單用。
+
+        *** 真正的根因是 `_fetch_one()` 裡`with container:` 那段解決的
+        slot stack 問題(見那裡的說明)，不是這裡的 `client.connected()`
+        ***：一開始誤以為是「client 還沒握手完成」，加了這個等待，跑起
+        來完全沒用，之後才用 debug log 一路追到 `_update_watchlist_
+        symbol_row()` 的 `.tooltip()` 呼叫才是真正炸掉、被
+        `asyncio.gather(..., return_exceptions=True)` 靜默吞掉例外的地
+        方，`client.connected()` 其實沒有解決那個問題。保留這行是因為它
+        本身沒有副作用、額外多一層「client 真的連上才開始查」的保險，
+        不是這個 bug 的真正解法，避免之後又被誤會成「這行才是關鍵」。
 
         *** `client` 一定要由呼叫端(`_refresh_watchlist_table()`)在還沒
         `spawn()` 之前，用 `ui.context.client` 先取出來、當參數傳進來，
@@ -1303,27 +1337,9 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
         ensure_future()`)另外開的 Task 一開始 slot stack 是空的，實測
         直接在這支函式裡呼叫 `ui.context.client` 會撞
         `RuntimeError: The current slot cannot be determined because the
-        slot stack for this task is empty.`，不是猜測。
-
-        *** 為什麼要卡住等 client 連線(查了 nicegui/element.py 原始碼才
-        確認，不是猜測) ***：`build()` 剛執行完的當下，瀏覽器可能還在
-        走 NiceGUI 的連線程序(HTTP 先拿到頁面 HTML，JS 再另外開
-        websocket 建立真正的 client，中間這段空檔 client 可能還沒
-        `has_socket_connection`，甚至因為一次握手重試被整個換掉)。
-        `_toggle_watchlist_expand()` 裡 `_update_watchlist_symbol_row()`
-        呼叫的 `label.text = ...` 底層(`nicegui/binding.py`
-        `BindableProperty.__set__` → `TextElement._handle_text_change()`
-        → `Element.update()`)在送出更新前會呼叫
-        `Element._is_safe_to_interact()`，這個檢查只要目前的 client 是
-        `None`/`is_deleted`(不是元素本身被刪除，是「這個瀏覽器連線」被
-        判定作廢)就整個靜默略過、不送出任何東西，也不丟例外——這正是
-        使用者實測回報的「產業/類別/支援商品都是空的」的真正成因：
-        `enrich_candidates()`/`_translate_industry_category()` 查到的資
-        料本身完全正確(用暫時的 debug log 直接證實過)，只是 fetch 跑到
-        一半(平行查 20 檔，總共要一兩秒)這段期間，client 剛好處於「還
-        沒真正連上/被換掉」的狀態，寫回動作被吞掉，畫面就停在建立當下
-        的空白骨架。點按鈕手動展開不會踩到這個問題，因為使用者點下去的
-        當下 client 早就穩定連線好了。"""
+        slot stack for this task is empty.`，跟 `_fetch_one()` 那個
+        `.tooltip()` 的問題根源完全一樣(建立任何 NiceGUI element 都要
+        `context.client`)。"""
         await client.connected()
         await _toggle_watchlist_expand(watchlist, container, chevron)
 
