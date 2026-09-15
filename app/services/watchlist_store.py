@@ -39,7 +39,9 @@ def _save_all(data: dict) -> None:
 
 
 def list_all() -> list[dict]:
-    """回傳所有自選清單，沒有特別排序(呼叫端要自己依 created_at 排)。"""
+    """回傳所有自選清單，順序就是使用者看到、可以用 `move()` 調整的顯示
+    順序(串列本身的順序即顯示順序，不用另外存一個 order 欄位)——呼叫端
+    不用再自己依 created_at 排。"""
     return _load_all()["watchlists"]
 
 
@@ -50,10 +52,12 @@ def get(watchlist_id: str) -> Optional[dict]:
 def create(name: str, symbols: Optional[list[str]] = None) -> str:
     """建立一個新的自選清單，回傳新清單的 id。symbols 可以在建立當下就
     帶入(例如「加入自選」選了『新增清單』的情境)，也可以留空之後再慢慢
-    加。"""
+    加。*** 插到最前面，不是 append 到最後 ***：`list_all()` 的順序就是
+    顯示順序(見該函式說明)，插最前面才能維持原本「新清單顯示在最上
+    面」的習慣，之後使用者可以再用 `move()` 調整。"""
     data = _load_all()
     watchlist_id = uuid.uuid4().hex
-    data["watchlists"].append({
+    data["watchlists"].insert(0, {
         "id": watchlist_id,
         "name": name,
         "created_at": datetime.now().isoformat(timespec="seconds"),
@@ -61,6 +65,22 @@ def create(name: str, symbols: Optional[list[str]] = None) -> str:
     })
     _save_all(data)
     return watchlist_id
+
+
+def move(watchlist_id: str, direction: str) -> None:
+    """把一個自選清單在顯示順序裡往上("up")或往下("down")移一格(跟相
+    鄰那個交換位置)——已經在最上/最下面就什麼都不做，呼叫端(UI)自己
+    負責在那種情況下把按鈕停用，這裡只是防呆。"""
+    data = _load_all()
+    watchlists = data["watchlists"]
+    idx = next((i for i, w in enumerate(watchlists) if w["id"] == watchlist_id), None)
+    if idx is None:
+        return
+    target = idx - 1 if direction == "up" else idx + 1
+    if target < 0 or target >= len(watchlists):
+        return
+    watchlists[idx], watchlists[target] = watchlists[target], watchlists[idx]
+    _save_all(data)
 
 
 def rename(watchlist_id: str, new_name: str) -> None:

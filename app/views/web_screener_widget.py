@@ -1423,17 +1423,33 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
     manage_watchlist_add_btn.on_click(_manage_add_manual)
     manage_watchlist_close_btn.on_click(_close_manage_watchlist_dialog)
 
+    def _on_move_watchlist(watchlist_id: str, direction: str) -> None:
+        watchlist_store.move(watchlist_id, direction)
+        _refresh_watchlist_table()
+
     # ---------------------------------------------------------------- 清單列表
     def _refresh_watchlist_table() -> None:
-        watchlists = sorted(watchlist_store.list_all(), key=lambda w: w["created_at"], reverse=True)
+        # *** 順序直接用 watchlist_store.list_all() 回傳的順序，不要再
+        # sorted(..., key=created_at) ***：改順序功能(使用者要求)靠
+        # watchlist_store.move() 交換底層 json 串列裡的位置，顯示順序要
+        # 跟著那個順序走，這裡如果還照 created_at 重新排序，剛移動完馬
+        # 上就會被排回原本的順序，使用者會覺得「按了沒反應」。
+        watchlists = watchlist_store.list_all()
         watchlist_container.clear()
         watchlist_expand_state.clear()  # 舊的 container 物件都被 clear() 砍掉了，展開狀態一起歸零
         first_expand = None  # (watchlist, expand_container, chevron)——畫完整份清單才知道哪個是第一個
         with watchlist_container:
             if not watchlists:
                 ui.label("尚無自選清單，按上面「＋ 新增自選清單」建立一個").classes("text-xs text-grey")
-            for w in watchlists:
+            for i, w in enumerate(watchlists):
                 with ui.row().classes("items-center gap-3 border-b py-1 w-full flex-nowrap"):
+                    with ui.column().classes("gap-0"):
+                        ui.button(
+                            icon="arrow_upward", on_click=lambda w=w: _on_move_watchlist(w["id"], "up"),
+                        ).props("flat dense round size=sm").set_enabled(i > 0)
+                        ui.button(
+                            icon="arrow_downward", on_click=lambda w=w: _on_move_watchlist(w["id"], "down"),
+                        ).props("flat dense round size=sm").set_enabled(i < len(watchlists) - 1)
                     chevron = ui.icon("expand_more").classes("cursor-pointer text-grey")
                     with ui.row().classes("items-center gap-3 cursor-pointer flex-nowrap") as name_area:
                         ui.label(w["name"]).classes("w-48 shrink-0 font-medium truncate")
