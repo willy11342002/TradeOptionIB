@@ -1337,6 +1337,7 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
         watchlists = sorted(watchlist_store.list_all(), key=lambda w: w["created_at"], reverse=True)
         watchlist_container.clear()
         watchlist_expand_state.clear()  # 舊的 container 物件都被 clear() 砍掉了，展開狀態一起歸零
+        first_expand = None  # (watchlist, expand_container, chevron)——畫完整份清單才知道哪個是第一個
         with watchlist_container:
             if not watchlists:
                 ui.label("尚無自選清單，按上面「＋ 新增自選清單」建立一個").classes("text-xs text-grey")
@@ -1360,6 +1361,15 @@ def build(ib_client: IBClient, open_quote_board: Callable) -> None:
                 toggle = lambda w=w, c=expand_container, chev=chevron: _toggle_watchlist_expand(w, c, chev)
                 chevron.on("click", toggle)
                 name_area.on("click", toggle)
+                if first_expand is None:
+                    first_expand = (w, expand_container, chevron)
+        if first_expand is not None:
+            # 預設展開第一個清單(使用者要求)——這裡不是掛在 NiceGUI 事件
+            # 上觸發的(`build()` 執行完直接呼叫、新增/改名/刪除清單後也
+            # 是直接呼叫，不是事件 handler)，跟 AI 建議 debounce 那個計
+            # 時器同一個理由，要用 `spawn()` 保留 Task 的強參照，不能單
+            # 純呼叫一個 async 函式沒人 await 就不管它。
+            spawn(_toggle_watchlist_expand(*first_expand))
 
     new_watchlist_btn.on_click(_on_new_watchlist)
 
