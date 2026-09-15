@@ -64,15 +64,20 @@ def build(order_book_manager: OrderBookManager) -> tuple:
     # 的，只是沒推過去而已。
     client = ui.context.client
 
-    with ui.dialog() as box_dialog, ui.card().classes("w-[900px] max-w-full gap-2"):
+    # *** 卡片寬度用 w-fit，不要再固定 w-[900px] ***(使用者要求)：複式單
+    # 那排(商品/買權賣權/方向/價格/口數/委託條件/狀態/動作)欄位加起來常
+    # 常比 900px 窄，固定寬度浪費空間；反過來欄位多、商品描述長的時候又
+    # 會超過 900px，還是得靠 box_container 的 overflow-x-auto 橫向捲
+    # 動、使用者得額外拉一次捲軸才看得到最後的操作按鈕(這則回報的真正
+    # 起因)。w-fit 讓卡片直接長到「剛好放得下目前這批列」的寬度，
+    # max-w-[95vw] 只在真的超過螢幕寬度時才啟動 overflow-x-auto 這個備
+    # 案，不是常態。
+    with ui.dialog() as box_dialog, ui.card().classes("w-fit max-w-[95vw] gap-2"):
         ui.label("委託簿").classes("text-lg font-semibold")
         box_status = ui.label("").classes("text-sm text-negative")
-        # overflow-x-auto：每一列(商品/買權賣權/方向/價格/口數/委託條
-        # 件/狀態/動作)固定寬度加起來可能比這個 modal 寬，寧可讓這塊內
-        # 容自己橫向捲動，不要把整個視窗擠寬或硬把文字截斷看不全。
         box_container = ui.column().classes("w-full gap-1 overflow-x-auto")
 
-    with ui.dialog() as fill_dialog, ui.card().classes("w-[900px] max-w-full gap-2"):
+    with ui.dialog() as fill_dialog, ui.card().classes("w-fit max-w-[95vw] gap-2"):
         ui.label("成交回報").classes("text-lg font-semibold")
         fill_container = ui.column().classes("w-full gap-1 overflow-x-auto")
 
