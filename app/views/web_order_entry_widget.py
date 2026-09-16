@@ -26,16 +26,24 @@ NiceGUI 版下單面板，取代 `app/views/order_entry_widget.py`
 (`main.py`)接到標題列自己的按鈕上；`set_context` 除了原本更新表單內容
 之外，也會自動 `dialog.open()`，雙擊報價盤選商品時直接跳出視窗，不用
 使用者自己再按一次按鈕。
+
+*** 帳戶權益(`web_equity_widget.py`)放在這個 dialog 右欄，不是獨立分頁
+/按鈕 ***(使用者要求跟下單放一起)：左欄是原本的分頁表單+損益圖，右欄
+常駐顯示權益表格，兩欄並排，不是往下疊——卡片因此改寬(`w-[900px]`)。
+main.py 那顆開這個 dialog 的標題列按鈕文字也要跟著從「下單面板」改
+名，反映這裡現在同時放了下單跟權益。
 """
 from typing import Callable, Optional
 
 from nicegui import ui
 
+from app.models.ib_client import IBClient
 from app.models.ib_quote_client import IBQuoteClient
 from app.models.option_utils import vertical_spread_legs
 from app.models.order_book import OrderBookManager
 from app.models.positions import PositionManager
-from app.views import web_payoff_chart_widget
+from app.services.payoff import PayoffLeg
+from app.views import web_equity_widget, web_payoff_chart_widget
 
 _TIF_CHOICES = ["DAY", "GTC", "IOC", "FOK"]
 # 寬度選項對照舊版 order_entry_widget.py 的 spread_points_combo。
@@ -44,7 +52,7 @@ _WIDTH_OPTIONS = {1.0: "1", 2.5: "2.5", 5.0: "5", 10.0: "10", 25.0: "25", 50.0: 
 
 def build(
     order_book_manager: OrderBookManager, quote_client: IBQuoteClient, get_contract: Callable,
-    position_manager: PositionManager, open_order_book: Callable,
+    position_manager: PositionManager, open_order_book: Callable, ib_client: IBClient,
 ) -> tuple:
     state = {
         "call_contract": None,
@@ -58,40 +66,45 @@ def build(
         data = quote_client.get_cached(str(contract.conId)) or {}
         return data.get("bid"), data.get("ask")
 
-    with ui.dialog() as dialog, ui.card().classes("w-[560px] max-w-full gap-2"):
-        title_label = ui.label("下單面板(雙擊報價盤的價格欄位選擇商品)").classes("text-lg font-semibold")
+    # *** 卡片改寬螢幕(原本是單欄、往下疊到很長)，帳戶權益放右欄、跟左欄
+    # 的表單+損益圖並排 ***(使用者要求)：`items-start` 讓右欄的權益表格
+    # 不會被左欄較高的內容拉著垂直置中。
+    with ui.dialog() as dialog, ui.card().classes("w-[900px] max-w-full gap-2"):
+        with ui.row().classes("w-full gap-4 no-wrap items-start"):
+            with ui.column().classes("gap-2 flex-1 min-w-0") as left_col:
+                title_label = ui.label("下單面板(雙擊報價盤的價格欄位選擇商品)").classes("text-lg font-semibold")
 
-        with ui.tabs().classes("w-full") as tabs:
-            outright_tab = ui.tab("裸買賣")
-            duplex_tab = ui.tab("價差單")
+                with ui.tabs().classes("w-full") as tabs:
+                    outright_tab = ui.tab("裸買賣")
+                    duplex_tab = ui.tab("價差單")
 
-        with ui.tab_panels(tabs, value=outright_tab).classes("w-full"):
-            with ui.tab_panel(outright_tab):
-                with ui.row().classes("items-end gap-4"):
-                    out_side = ui.select({True: "買進", False: "賣出"}, value=True, label="方向").classes("w-24")
-                    out_price = ui.number("價格", value=0.0, format="%.2f", step=0.05, min=0.01).classes("w-28")
-                    out_qty = ui.number("口數", value=1, format="%d", min=1).classes("w-24")
-                    out_tif = ui.select(_TIF_CHOICES, value="DAY", label="委託條件").classes("w-24")
-                    out_submit_btn = ui.button("暫存到委託簿")
-                out_status = ui.label("").classes("text-sm")
+                with ui.tab_panels(tabs, value=outright_tab).classes("w-full"):
+                    with ui.tab_panel(outright_tab):
+                        with ui.row().classes("items-end gap-4"):
+                            out_side = ui.select({True: "買進", False: "賣出"}, value=True, label="方向").classes("w-24")
+                            out_price = ui.number("價格", value=0.0, format="%.2f", step=0.05, min=0.01).classes("w-28")
+                            out_qty = ui.number("口數", value=1, format="%d", min=1).classes("w-24")
+                            out_tif = ui.select(_TIF_CHOICES, value="DAY", label="委託條件").classes("w-24")
+                            out_submit_btn = ui.button("暫存到委託簿")
+                        out_status = ui.label("").classes("text-sm")
 
-            with ui.tab_panel(duplex_tab):
-                with ui.row().classes("items-end gap-4"):
-                    spread_right = ui.select({"C": "買權", "P": "賣權"}, value="C", label="買權/賣權").classes("w-24")
-                    spread_side = ui.select({True: "買方", False: "賣方"}, value=True, label="方向").classes("w-24")
-                    spread_width = ui.select(_WIDTH_OPTIONS, value=1.0, label="寬度").classes("w-24")
-                    spread_price = ui.number("淨價格", value=0.0, format="%.2f", step=0.05, min=0.01).classes("w-28")
-                    spread_qty = ui.number("口數", value=1, format="%d", min=1).classes("w-24")
-                    spread_tif = ui.select(_TIF_CHOICES, value="DAY", label="委託條件").classes("w-24")
-                    spread_submit_btn = ui.button("暫存到委託簿")
-                spread_status = ui.label("").classes("text-sm")
+                    with ui.tab_panel(duplex_tab):
+                        with ui.row().classes("items-end gap-4"):
+                            spread_right = ui.select(
+                                {"C": "買權", "P": "賣權"}, value="C", label="買權/賣權",
+                            ).classes("w-24")
+                            spread_side = ui.select({True: "買方", False: "賣方"}, value=True, label="方向").classes("w-24")
+                            spread_width = ui.select(_WIDTH_OPTIONS, value=1.0, label="寬度").classes("w-24")
+                            spread_price = ui.number(
+                                "淨價格", value=0.0, format="%.2f", step=0.05, min=0.01,
+                            ).classes("w-28")
+                            spread_qty = ui.number("口數", value=1, format="%d", min=1).classes("w-24")
+                            spread_tif = ui.select(_TIF_CHOICES, value="DAY", label="委託條件").classes("w-24")
+                            spread_submit_btn = ui.button("暫存到委託簿")
+                        spread_status = ui.label("").classes("text-sm")
 
-        ui.separator()
-        # 到期損益圖(使用者要求)：跟委託簿裡那份是同一個 build()，畫的是
-        # 「目前部位+目前委託簿」，不是這個表單裡還沒送出的草稿——見
-        # web_payoff_chart_widget.py 開頭的說明。裸買賣/價差單兩個分頁共
-        # 用同一份，不用各自重建，放在 tab_panels 外面、兩個分頁都看得到。
-        web_payoff_chart_widget.build(position_manager, order_book_manager)
+            ui.separator().props("vertical")
+            web_equity_widget.build(ib_client)
 
     def _autofill_outright_price() -> None:
         contract = state["outright_contract"]
@@ -133,6 +146,56 @@ def build(
             return None
         return (low_contract, low_action == "BUY"), (high_contract, high_action == "BUY")
 
+    def _draft_payoff_legs() -> list:
+        """給 web_payoff_chart_widget.build() 的 draft_legs_provider：回
+        傳「目前作用中分頁、表單上還沒暫存」的那筆草稿，換算成
+        PayoffLeg 清單(使用者要求邊調價格/口數邊看損益圖，不用先暫存到
+        委託簿才看得到)。價格或口數還沒填(0/空)就回傳空清單，不要拿 0
+        當權利金硬畫一條假的線。"""
+        if tabs.value == outright_tab:
+            contract = state["outright_contract"]
+            if contract is None or not out_price.value or not out_qty.value:
+                return []
+            return [PayoffLeg(
+                strike=contract.strike, call_put=contract.right, buy=out_side.value,
+                qty=int(out_qty.value), premium=out_price.value,
+                multiplier=float(getattr(contract, "multiplier", None) or 100),
+            )]
+
+        legs = _resolve_duplex_legs()
+        if legs is None or not spread_price.value or not spread_qty.value:
+            return []
+        (leg1, buy1), (leg2, buy2) = legs
+        net_buyer = spread_side.value
+        draft = []
+        price_assigned = False
+        for contract, buy in ((leg1, buy1), (leg2, buy2)):
+            if not price_assigned and buy == net_buyer:
+                premium = spread_price.value
+                price_assigned = True
+            else:
+                premium = 0.0
+            draft.append(PayoffLeg(
+                strike=contract.strike, call_put=contract.right, buy=buy,
+                qty=int(spread_qty.value), premium=premium,
+                multiplier=float(getattr(contract, "multiplier", None) or 100),
+            ))
+        return draft
+
+    with left_col:
+        ui.separator()
+        # 到期損益圖(使用者要求「編輯中這筆也要顯示在損益圖上」)：跟委託
+        # 簿裡那份共用同一個 web_payoff_chart_widget.build()，多傳
+        # draft_legs_provider=_draft_payoff_legs 把目前分頁表單裡還沒暫存
+        # 的草稿併進「含下單匣」那條虛線——語意上草稿本來就是「假設這筆
+        # 也送出去」的一部分，不用另外畫第三條線。裸買賣/價差單兩個分頁
+        # 共用同一個 provider，內部靠 tabs.value 判斷目前是哪一頁。放在
+        # left_col(不是 card)——帳戶權益在右欄，跟左欄的表單/損益圖是
+        # 平行的兩欄，不是損益圖之後接著往下疊的第三塊。
+        _, _refresh_payoff = web_payoff_chart_widget.build(
+            position_manager, order_book_manager, draft_legs_provider=_draft_payoff_legs,
+        )
+
     def _autofill_duplex_price() -> None:
         legs = _resolve_duplex_legs()
         if legs is None:
@@ -170,15 +233,18 @@ def build(
         spread_status.text = ""
         _autofill_outright_price()
         _autofill_duplex_price()
+        _refresh_payoff()
         dialog.open()
 
     def _on_outright_side_change() -> None:
         out_price.value = 0.0
         _autofill_outright_price()
+        _refresh_payoff()
 
     def _on_duplex_params_change() -> None:
         spread_price.value = 0.0
         _autofill_duplex_price()
+        _refresh_payoff()
 
     def _on_staged() -> None:
         # *** 暫存成功後自動關掉下單面板、跳去委託簿 ***(使用者要求)：
@@ -213,6 +279,13 @@ def build(
     spread_right.on_value_change(lambda _e: _on_duplex_params_change())
     spread_side.on_value_change(lambda _e: _on_duplex_params_change())
     spread_width.on_value_change(lambda _e: _on_duplex_params_change())
+    # 價格/口數/分頁本身不會重算 autofill(那兩個是「使用者手動改的值」，
+    # 不能被自動填價蓋掉)，但損益圖要跟著即時重畫。
+    out_price.on_value_change(lambda _e: _refresh_payoff())
+    out_qty.on_value_change(lambda _e: _refresh_payoff())
+    spread_price.on_value_change(lambda _e: _refresh_payoff())
+    spread_qty.on_value_change(lambda _e: _refresh_payoff())
+    tabs.on_value_change(lambda _e: _refresh_payoff())
     out_submit_btn.on_click(_on_stage_outright)
     spread_submit_btn.on_click(_on_stage_duplex)
 

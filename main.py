@@ -1,11 +1,14 @@
 """
 NiceGUI 版進入點，取代過程還沒完成——目前做到「連線→股票篩選器(主畫
-面)→選擇權報價盤/下單面板/委託簿/成交回報(標題列按鈕彈出的置中
-modal)」這條路徑，下單面板/委託簿裡各自嵌了一份到期損益圖
+面)→選擇權報價盤/下單面板(含帳戶權益)/委託簿/部位(標題列按鈕彈出的
+置中 modal)」這條路徑，成交的委託留在委託簿裡看，沒有另外一個「成交回
+報」視窗(使用者要求簡化，見 web_order_book_widgets.py 開頭的說明)。下
+單面板/委託簿裡各自嵌了一份到期損益圖
 (`web_payoff_chart_widget.py`，重用 Qt 版同一套 `app/services/
-payoff.py` 數學)，但完整的「部位」頁面(分組管理/現價浮動損益/自動平
-倉)、AI 助手還在 `pyqt.py`(PyQt5+qasync 舊版桌面 app，遷移完成後會整支
-刪除)那邊，見 CLAUDE.md 的路線圖說明。
+payoff.py` 數學)。部位(`web_position_widgets.py`)目前只搬了分組顯示/
+現價浮動損益/分組管理，自動平倉(停利/停損規則引擎)、AI 助手還在
+`pyqt.py`(PyQt5+qasync 舊版桌面 app，遷移完成後會整支刪除)那邊，見
+CLAUDE.md 的路線圖說明。
 
 跟 `pyqt.py` 最大的不同：這裡沒有 qasync/QApplication 那套組合，NiceGUI
 架在 FastAPI/uvicorn 上，本來就是純 asyncio，不需要「Qt 事件迴圈兼
@@ -58,7 +61,7 @@ from app.models.order_book import OrderBookManager  # noqa: E402
 from app.models.positions import PositionManager  # noqa: E402
 from app.services import ib_prefs, web_theme  # noqa: E402
 from app.views import (  # noqa: E402
-    web_order_book_widgets, web_order_entry_widget, web_quote_board_page, web_screener_widget,
+    web_order_book_widgets, web_order_entry_widget, web_position_widgets, web_quote_board_page, web_screener_widget,
 )
 
 # *** IB 連線(IBClient)要存成 process 級的全域狀態，不能只放在
@@ -135,9 +138,9 @@ app.on_startup(_on_startup)
 def _build_trading_screen(ib_client: IBClient, side_buttons: dict) -> None:
     """組出整個交易畫面：股票篩選器放主畫面(`web_screener_widget.build()`
     直接把內容組進目前這個容器，不是彈出的 modal)，下單面板／委託簿／
-    成交回報／選擇權報價都是各自獨立、置中顯示的 modal(`ui.dialog()`)，
+    部位／選擇權報價都是各自獨立、置中顯示的 modal(`ui.dialog()`)，
     標題列上各有一顆按鈕(`side_buttons`，由 index() 先建立好、初始是
-    disabled 的)——按了才彈出來，不是像舊版抽屜那樣常駐展開。四個
+    disabled 的)——按了才彈出來，不是像舊版抽屜那樣常駐展開。這幾個
     build() 依序呼叫，靠 closure 互相接起來：
     - 報價盤雙擊某個履約價的 call/put 價格欄位時(`on_leg_selected`)，把
       資料轉交給下單面板的 `set_context()`(那支函式本身也會自動把下單
@@ -169,16 +172,17 @@ def _build_trading_screen(ib_client: IBClient, side_buttons: dict) -> None:
     # 委託簿之後要自動關掉下單面板、跳去委託簿(使用者要求)，下單面板的
     # build() 需要接一個「開委託簿」的 callback——委託簿本身不依賴下單
     # 面板的任何東西，對調兩者的建構順序沒有副作用。
-    open_box, open_fill = web_order_book_widgets.build(_order_book_manager, _position_manager)
+    open_box = web_order_book_widgets.build(_order_book_manager, _position_manager)
     set_context, open_order_entry = web_order_entry_widget.build(
-        _order_book_manager, quote_client, get_contract, _position_manager, open_box,
+        _order_book_manager, quote_client, get_contract, _position_manager, open_box, ib_client,
     )
+    open_positions = web_position_widgets.build(_position_manager)
     web_screener_widget.build(ib_client, open_quote_board)
 
     for button, opener in (
         (side_buttons["order_entry"], open_order_entry),
         (side_buttons["order_book"], open_box),
-        (side_buttons["fill_report"], open_fill),
+        (side_buttons["positions"], open_positions),
         (side_buttons["quote_board"], open_quote_board),
     ):
         button.on_click(opener)
@@ -213,23 +217,22 @@ async def index() -> None:
     # *** ui.header() 一定要是頁面的直接子層，不能包在下面 placeholder
     # 那個會被 clear()/重建的 ui.column() 裡面 ***：Quasar 的版面配置
     # (QLayout)要求 QHeader 是固定的結構元件，跟著內容一起被清空重建會
-    # 壞掉。下單面板/委託簿/成交回報/選擇權報價(以及未來會補上的部位/
-    # 損益圖)都是標題列按鈕彈出的置中 modal，不是常駐面板——股票篩選器
-    # 才是主畫面(見 CLAUDE.md 路線圖)。連線成功前這幾個按鈕還沒有東西
-    # 可以開，先 disable，`_build_trading_screen()` 建好對應的 dialog
-    # 之後才各自 enable。
+    # 壞掉。下單面板/委託簿/部位/選擇權報價都是標題列按鈕彈出的置中
+    # modal，不是常駐面板——股票篩選器才是主畫面(見 CLAUDE.md 路線
+    # 圖)。連線成功前這幾個按鈕還沒有東西可以開，先 disable，
+    # `_build_trading_screen()` 建好對應的 dialog 之後才各自 enable。
     with ui.header().classes("items-center justify-between"):
         ui.label("Options TBoard").classes("text-lg font-semibold")
         with ui.row().classes("items-center gap-2"):
             side_buttons = {
-                "order_entry": ui.button("下單面板").props("flat color=white"),
+                "order_entry": ui.button("下單／帳戶").props("flat color=white"),
                 "order_book": ui.button("委託簿").props("flat color=white"),
-                "fill_report": ui.button("成交回報").props("flat color=white"),
+                "positions": ui.button("部位").props("flat color=white"),
                 "quote_board": ui.button("選擇權報價").props("flat color=white"),
             }
             # 模擬用綠色(positive)、正式用紅色(negative)特別標出來，不
             # 用跟其他按鈕一樣的 flat 樣式——這顆按鈕代表的是「等一下下
-            # 單會真的送到哪個帳戶」，故意讓它比較顯眼，不要跟旁邊三顆
+            # 單會真的送到哪個帳戶」，故意讓它比較顯眼，不要跟旁邊幾顆
             # 功能按鈕長得一樣不小心按錯。
             env_btn = ui.button(
                 "模擬環境" if _simulation else "正式環境",

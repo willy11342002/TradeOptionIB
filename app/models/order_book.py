@@ -61,6 +61,7 @@ class OrderLeg:
     strike: Optional[float] = None
     local_symbol: str = ""         # IB qualified 後的顯示字串(例如 "SPY   261016C00760000")
     multiplier: str = "100"        # 給 payoff_chart_widget.py 算損益用，美股選擇權幾乎恆為 "100"
+    expiry: str = ""               # Contract.lastTradeDateOrContractMonth 原始格式("YYYYMMDD")，僅供 UI 顯示用
 
 
 @dataclass
@@ -168,6 +169,7 @@ class OrderBookManager:
             strike=getattr(contract, "strike", None) or None,
             local_symbol=getattr(contract, "localSymbol", "") or "",
             multiplier=getattr(contract, "multiplier", "") or "100",
+            expiry=getattr(contract, "lastTradeDateOrContractMonth", "") or "",
         )
 
     def discard_staged(self, record_id: str) -> None:
