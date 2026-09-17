@@ -33,7 +33,42 @@ services:
       TRADING_MODE: ${IB_TRADING_MODE:-both}
       # 全新安裝預設可能是唯讀，不明確設 no 下單會被拒絕——跟
       # gce/scripts/startup.sh 的 config.ini::ReadOnlyApi 是同一個坑。
+      # IBC 開機時確實會照這個設定把 Global Configuration 裡的
+      # 「Read-Only API」checkbox 自動勾掉(用 docker exec 進容器/接 VNC
+      # 都實測驗證過，checkbox 真的是關的)。
       READ_ONLY_API: "no"
+      # *** 光有上面這個旗標不夠，Gateway 還有另一道獨立、IBC 無法自動
+      # 化的關卡 ***：每次 container 全新開機(全新登入、不是單純
+      # restart)，第一個 API client 只要送出任何「需要寫入權限」的請求
+      # (連我們自己的 app 連線當下 ib_async 內建就會送的
+      # reqOpenOrdersAsync/reqCompletedOrdersAsync 都算)，Gateway 就會
+      # 跳出一個叫「API client needs write access action confirmation」
+      # 的視窗，要求真人手動確認——這個關卡跟上面的 Read-Only API
+      # checkbox 是不是勾著完全無關(checkbox 關了、且已經關了超過一分
+      # 鐘再連，一樣照樣跳這個視窗擋下來)，IBC 完全不會幫忙按(這是
+      # IBC 官方倉庫 issue #10 記載的已知行為，作者原話"IBC is not
+      # intended to be a tool for configuring TWS/Gateway"，2018 年就
+      # 明講不會加自動化)。ib_async 這端看到的症狀是
+      # `Warning 321: ... Read-Only mode`(誤導性的錯誤訊息，其實是這個
+      # 視窗卡住，不是 checkbox 沒關)、`reqOpenOrdersAsync`/
+      # `reqCompletedOrdersAsync` 各自等滿 `app/models/ib_client.py::
+      # connect_async()` 的 timeout 秒數才放棄。
+      #
+      # *** 目前唯一確認有效的解法：每次 container 全新開機後，搶在
+      # app 第一次連線之前，用 VNC 手動點開 Configure → Settings →
+      # API → Settings → Apply → OK 一次(即使 checkbox 已經是關的也要
+      # 點，這個動作本身才是清掉那個視窗判定的關鍵，不是勾選狀態)
+      # ***：`restart: unless-stopped` 讓 Gateway 大部分時間不會重開，
+      # 只有手動 `docker compose up -d --force-recreate`、機器重開機、
+      # 或每天 05:00-05:30 UTC 那次排程冷重開(見下面 TWS_COLD_RESTART)
+      # 才需要重做這個手動步驟；之後同一次 Gateway session 裡任何次數
+      # 的 app 重新整理/斷線重連都不會再卡。VNC 連線密碼見
+      # `IB_VNC_PASSWORD`(.env.example 有說明)，noVNC 網頁版連法可以參
+      # 考除錯記錄，直接用任何 VNC client 接 127.0.0.1:5900 也可以。
+      #
+      # TWS_SETTINGS_PATH(下面)只解決「Read-Only API checkbox 本身要不
+      # 要重設」這一半，跟上面這道關卡是兩件事，兩個都要處理。
+      TWS_SETTINGS_PATH: /home/ibgateway/tws_settings
       # 無人值守環境保險起見全部自動接受，跟 GCE 那邊
       # AcceptIncomingConnectionAction=accept 理由一致，避免彈窗卡住整
       # 條自動化流程沒人能點。
@@ -57,3 +92,7 @@ services:
       - "127.0.0.1:4001:4003"
       - "127.0.0.1:4002:4004"
       - "127.0.0.1:5900:5900"
+    volumes:
+      # 對應上面 TWS_SETTINGS_PATH——本機這個資料夾放帳密以外的 Gateway
+      # 使用者設定(ibg.xml)，跟 .env 一樣不進 git(見 .gitignore)。
+      - ./ib_gateway_settings:/home/ibgateway/tws_settings
