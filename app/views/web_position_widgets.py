@@ -1,12 +1,11 @@
 """
 NiceGUI 版未平倉部位，取代 `app/views/position_widgets.py`
-(`PositionTreeWidget`)裡「部位顯示＋分組管理」的部分。
-
-*** 明確不搬的部分：自動平倉(停利/停損規則) ***：Qt 版把部位顯示跟
-`AutoCloseManager` 的停利/停損規則編輯/狀態顯示混在同一支檔案裡，這裡
-先只搬「分組顯示＋現價浮動損益＋分組管理」這一半——自動平倉是另一個獨
-立、更大的功能(規則引擎＋背景監控＋規則3/4/5那幾種平倉後續動作)，還沒
-有 NiceGUI 版，等真的要搬再開新檔案，不要為了這次順便硬塞進來。
+(`PositionTreeWidget`)，現在含自動平倉(停利/停損)規則的顯示/編輯——原
+本開頭寫著「明確不搬」，那是還沒排到的階段，規則引擎本身
+(`app/models/auto_close.py`/`app/models/auto_close_manager.py`/
+`app/services/auto_close_store.py`)完全沒改，這支檔案只是接上
+`web_auto_close_dialog.py` 的三個對話框跟 `AutoCloseManager` 的公開介
+面，UI 層的移植細節見 `web_auto_close_dialog.py` 開頭的說明。
 
 跟 Qt 版一樣用 `PositionManager.groups` 分組(自動分組來自本地已成交複
 式單紀錄、手動覆蓋存在 `position_groups_pref.json`)。「移到群組」用下
@@ -15,25 +14,79 @@ NiceGUI 版未平倉部位，取代 `app/views/position_widgets.py`
 
 *** `_refresh()` 一定要用 `with client:` 包住 ***(照抄
 `web_order_book_widgets.py` 開頭的說明，同一個坑)：`positions_changed`
-訊號會從 `ib.positionEvent`/報價 tick 這些 ib_async 事件回呼觸發，不是
-使用者在這個分頁上點了什麼——這種情況下 NiceGUI 沒有「目前是哪個瀏覽器
-分頁」的環境資訊，`_refresh()` 又是整批 `clear()` 後重新建立全新元件
-(不是單純改既有元件屬性)，沒有 `with client:` 的話新元素只會在伺服器
-端算出來，不會真的推到瀏覽器上。
+/`auto_close_manager.rules_changed` 這些訊號會從 `ib.positionEvent`/報
+價 tick/委託成交這些 ib_async 事件回呼觸發，不是使用者在這個分頁上點了
+什麼——這種情況下 NiceGUI 沒有「目前是哪個瀏覽器分頁」的環境資訊，
+`_refresh()` 又是整批 `clear()` 後重新建立全新元件(不是單純改既有元件
+屬性)，沒有 `with client:` 的話新元素只會在伺服器端算出來，不會真的推
+到瀏覽器上。`_on_auto_close_error()` 用 `ui.notify()` 而不是像其他地方
+一樣寫進行內文字標籤，理由同一個：自動平倉的錯誤是背景訊號觸發的，使
+用者不一定正好開著「部位」這個對話框，全域 toast 才看得到。
 """
 import asyncio
+import datetime
 from typing import Callable, Optional
 
 from nicegui import ui
 
+from app.models.auto_close import (
+    SL_MODE_ADD_LEG, SL_MODE_NEW_GROUP, SL_MODE_REOPEN_DOUBLE,
+    STATUS_ARMED, STATUS_FAILED, STATUS_PAUSED, STATUS_TRIGGERED, STATUS_UNSET,
+)
+from app.models.auto_close_manager import AutoCloseManager
 from app.models.positions import (
     PositionGroup, PositionManager, UNGROUPED_ID, current_price, position_pnl,
 )
 from app.services import position_groups_store
+from app.views import web_auto_close_dialog
 
 _DEFAULT_GROUP_COLOR = "#4a90d9"
 _NEW_GROUP_SENTINEL = "__new_group__"
 _RIGHT_LABELS = {"C": "買權", "P": "賣權"}
+
+_STATUS_ICONS = {
+    STATUS_UNSET: "⚪", STATUS_PAUSED: "⏸", STATUS_ARMED: "▶",
+    STATUS_TRIGGERED: "✅", STATUS_FAILED: "❌",
+}
+
+
+def _status_icon(status: str) -> str:
+    return _STATUS_ICONS.get(status, "⚪")
+
+
+def _triggered_suffix(rule) -> str:
+    if rule is not None and rule.status == STATUS_TRIGGERED and rule.triggered_at:
+        return f"(觸發於 {datetime.datetime.fromtimestamp(rule.triggered_at).strftime('%H:%M:%S')})"
+    return ""
+
+
+def _tp_summary(rule) -> str:
+    if rule is None:
+        return "未設定"
+    if rule.reopen is not None:
+        text = f"{rule.threshold_points:g}pt，平倉+原地重開({rule.reopen.strike:g} @{rule.reopen.price:g})"
+    else:
+        text = f"{rule.threshold_points:g}pt，只平倉不重開"
+    return text + _triggered_suffix(rule)
+
+
+def _sl_summary(rule) -> str:
+    if rule is None:
+        return "未設定"
+    if rule.mode == SL_MODE_REOPEN_DOUBLE and rule.reopen is not None:
+        text = f"{rule.threshold_points:g}pt，規則3 平倉+原地重開×2口({rule.reopen.strike:g} @{rule.reopen.price:g})"
+    elif rule.mode == SL_MODE_NEW_GROUP:
+        parts = []
+        if rule.new_put is not None:
+            parts.append(f"Put {rule.new_put.strike:g}@{rule.new_put.price:g}")
+        if rule.new_call is not None:
+            parts.append(f"Call {rule.new_call.strike:g}@{rule.new_call.price:g}")
+        text = f"{rule.threshold_points:g}pt，規則4 平倉+另開新價差({'、'.join(parts) or '未設定'})"
+    elif rule.mode == SL_MODE_ADD_LEG and rule.add_leg is not None:
+        text = f"{rule.threshold_points:g}pt，規則5 不平倉+加開對側({rule.add_leg.strike:g} @{rule.add_leg.price:g})"
+    else:
+        text = f"{rule.threshold_points:g}pt"
+    return text + _triggered_suffix(rule)
 
 # *** 部位列一定要套跟委託簿(web_order_book_widgets.py)同一套固定欄寬
 # grid-cols，不能用 flex+gap 各自依內容自然寬度排 ***(使用者反饋：只有
@@ -104,8 +157,9 @@ def _pnl_text(pnl: Optional[float]) -> str:
     return "—" if pnl is None else f"{pnl:,.0f}"
 
 
-def build(position_manager: PositionManager) -> Callable:
+def build(position_manager: PositionManager, auto_close_manager: AutoCloseManager) -> Callable:
     client = ui.context.client  # 見檔案開頭 *** _refresh() 一定要用 with client: *** 的說明
+    prompt_take_profit, prompt_stop_loss, prompt_group_take_profit = web_auto_close_dialog.build()
 
     # *** 卡片寬度用 w-fit，不要固定 w-[820px] ***(使用者反饋：固定寬度比
     # 欄位實際需要的寬度窄一點點，逼出一條難看的橫向捲軸)——跟委託簿
@@ -116,6 +170,9 @@ def build(position_manager: PositionManager) -> Callable:
         with ui.row().classes("items-center gap-2"):
             ui.label("未平倉部位").classes("text-lg font-semibold")
             ui.button("重新查詢", on_click=lambda: position_manager.refresh()).props("flat dense")
+            ui.button(
+                "全部啟動", on_click=lambda: auto_close_manager.arm_all_paused(),
+            ).props("flat dense").tooltip("把所有已設定但暫停中的停利/停損/整組停利規則一次全部啟用")
         status_label = ui.label("").classes("text-xs text-grey")
         # 欄位名稱列：跟 _build_position_row() 用同一組 _POSITION_GRID_COLS
         # 固定欄寬(見該常數定義處的說明)，只在對話框頂端放一次，不是每個
@@ -214,17 +271,43 @@ def build(position_manager: PositionManager) -> Callable:
             position_manager.delete_group(group.group_id)
             _refresh()
 
+    async def _on_edit_group_take_profit(group: PositionGroup) -> None:
+        rule = auto_close_manager.get_group_rule(group.group_id)
+        result = await prompt_group_take_profit(group.name, rule)
+        if result is None:
+            return
+        action, new_rule = result
+        auto_close_manager.set_group_rule(group.group_id, None if action == "clear" else new_rule)
+
+    def _on_toggle_group_rule(group: PositionGroup, rule) -> None:
+        new_status = STATUS_PAUSED if rule.status == STATUS_ARMED else STATUS_ARMED
+        auto_close_manager.set_group_rule_status(group.group_id, new_status)
+
     def _build_group_header(group: PositionGroup) -> None:
         total_qty = sum(p.qty for p in group.positions)
         pnls = [position_pnl(p, current_price(position_manager, p)) for p in group.positions]
         pnls = [v for v in pnls if v is not None]
         group_pnl = sum(pnls) if pnls else None
+        group_rule = auto_close_manager.get_group_rule(group.group_id)
         with ui.row().classes("items-center gap-2 w-full"):
             ui.element("div").classes("w-3 h-3 rounded-full shrink-0").style(f"background-color:{group.color}")
             ui.label(group.name).classes("font-semibold")
             ui.label(f"{total_qty:g} 口").classes("text-xs text-grey")
             ui.label(_pnl_text(group_pnl)).classes(f"text-sm {_pnl_classes(group_pnl)}")
+            ui.label(f"{_status_icon(group_rule.status if group_rule else STATUS_UNSET)} 整組停利").classes(
+                "text-xs text-grey",
+            ).tooltip(_tp_summary(group_rule) if group_rule else "未設定整組停利")
+            if group_rule is not None and group_rule.paused_reason:
+                ui.icon("info").classes("text-xs text-grey").tooltip(f"暫停原因：{group_rule.paused_reason}")
             ui.space()
+            ui.button(
+                "整組停利", on_click=lambda g=group: asyncio.ensure_future(_on_edit_group_take_profit(g)),
+            ).props("flat dense size=sm")
+            if group_rule is not None and group_rule.status in (STATUS_ARMED, STATUS_PAUSED):
+                toggle_label = "暫停" if group_rule.status == STATUS_ARMED else "啟用"
+                ui.button(
+                    toggle_label, on_click=lambda g=group, r=group_rule: _on_toggle_group_rule(g, r),
+                ).props("flat dense size=sm")
             if group.group_id != UNGROUPED_ID:  # 「未分組」是固定虛擬群組，不能改名/改色/刪除，跟 Qt 版一致
                 ui.button(
                     icon="edit", on_click=lambda g=group: asyncio.ensure_future(_on_rename_group(g)),
@@ -257,6 +340,54 @@ def build(position_manager: PositionManager) -> Callable:
                     on_change=lambda e, key=position.symbol_key: asyncio.ensure_future(_on_move_change(key, e.value)),
                 ).props("dense options-dense").classes("w-full")
 
+    def _apply_position_rule_result(symbol_key: str, kind: str, result) -> None:
+        if result is None:
+            return
+        action, rule = result
+        new_rule = None if action == "clear" else rule
+        if kind == "take_profit":
+            auto_close_manager.set_take_profit(symbol_key, new_rule)
+        else:
+            auto_close_manager.set_stop_loss(symbol_key, new_rule)
+
+    def _on_toggle_position_rule(symbol_key: str, kind: str, rule) -> None:
+        new_status = STATUS_PAUSED if rule.status == STATUS_ARMED else STATUS_ARMED
+        auto_close_manager.set_position_rule_status(symbol_key, kind, new_status)
+
+    def _build_rule_row(position, kind: str, rule) -> None:
+        # kind: "take_profit"/"stop_loss"，對照 AutoCloseManager 的 API。
+        label_text = "停利" if kind == "take_profit" else "停損"
+        summary = _tp_summary(rule) if kind == "take_profit" else _sl_summary(rule)
+
+        async def _on_edit() -> None:
+            if kind == "take_profit":
+                result = await prompt_take_profit(rule)
+            else:
+                sibling = auto_close_manager.find_sibling(position)
+                result = await prompt_stop_loss(position, sibling, rule)
+            _apply_position_rule_result(position.symbol_key, kind, result)
+
+        with ui.row().classes("items-center gap-2 pl-8 text-xs"):
+            ui.label(f"{_status_icon(rule.status if rule else STATUS_UNSET)} {label_text}").classes("w-14 shrink-0")
+            ui.label(summary).classes("text-grey")
+            ui.space()
+            ui.button("設定", on_click=lambda: asyncio.ensure_future(_on_edit())).props("flat dense size=sm")
+            if rule is not None and rule.status in (STATUS_ARMED, STATUS_PAUSED):
+                toggle_label = "暫停" if rule.status == STATUS_ARMED else "啟用"
+                ui.button(
+                    toggle_label,
+                    on_click=lambda k=kind, r=rule: _on_toggle_position_rule(position.symbol_key, k, r),
+                ).props("flat dense size=sm")
+
+    def _build_rule_rows(position) -> None:
+        rules = auto_close_manager.get_position_rules(position.symbol_key)
+        _build_rule_row(position, "take_profit", rules.take_profit)
+        _build_rule_row(position, "stop_loss", rules.stop_loss)
+
+    def _on_auto_close_error(message: str) -> None:
+        with client:
+            ui.notify(message, type="negative", close_button=True, timeout=0)
+
     def _refresh() -> None:
         with client:
             groups_container.clear()
@@ -269,10 +400,13 @@ def build(position_manager: PositionManager) -> Callable:
                         _build_group_header(group)
                         for position in group.positions:
                             _build_position_row(position, group)
+                            _build_rule_rows(position)
             total = sum(len(g.positions) for g in groups)
             status_label.text = f"共 {total} 筆部位" if total else ""
 
     position_manager.positions_changed.connect(_refresh)
+    auto_close_manager.rules_changed.connect(_refresh)
+    auto_close_manager.auto_close_error.connect(_on_auto_close_error)
     _refresh()  # PositionManager 建構時已經查過一次未平倉，這裡立刻畫出來，不用等第一次變動
 
     return dialog.open
