@@ -32,6 +32,17 @@ NiceGUI 版下單面板，取代 `app/views/order_entry_widget.py`
 常駐顯示權益表格，兩欄並排，不是往下疊——卡片因此改寬(`w-[900px]`)。
 main.py 那顆開這個 dialog 的標題列按鈕文字也要跟著從「下單面板」改
 名，反映這裡現在同時放了下單跟權益。
+
+*** dialog 本身的 UI 延後到第一次真的要開啟才建 ***：跟
+`web_quote_board_page.py` 同一個理由(見該檔開頭/`app/services/
+lazy_ui.py` 的完整說明)。`set_context`/`open_dialog` 是這個 dialog 唯
+二兩個對外入口(雙擊報價盤選商品／標題列按鈕)，第一次不管從哪個入口進
+來都要觸發同一次建構，之後共用同一份已建好的實體，靠 `_ensure_built()`
+記住「有沒有建過」，不要各自各建一次(不然裡面 `web_payoff_chart_widget.
+build()` 的訂閱會疊加)。`open_order_book`(呼叫端傳進來的 `web_order_
+book_widgets.build()` 回傳值)現在也是延後建構、包成 async 的入口，
+`_on_staged()` 因此要跟著改成 `async def` 才能真的 `await` 到它，不能
+再像以前那樣直接呼叫一個同步函式。
 """
 from typing import Callable, Optional
 
@@ -59,234 +70,254 @@ def build(
         "put_contract": None,
         "outright_contract": None,  # 裸買賣分頁用的那一腳(雙擊 call 欄位就是 call_contract，反之亦然)
     }
+    built: dict = {}  # {"pair": (set_context, open_dialog)}，第一次建好之後記住，兩個入口共用
 
-    def _cached_bid_ask(contract) -> tuple:
-        if contract is None:
-            return None, None
-        data = quote_client.get_cached(str(contract.conId)) or {}
-        return data.get("bid"), data.get("ask")
+    def _build_dialog() -> tuple:
+        def _cached_bid_ask(contract) -> tuple:
+            if contract is None:
+                return None, None
+            data = quote_client.get_cached(str(contract.conId)) or {}
+            return data.get("bid"), data.get("ask")
 
-    # *** 卡片改寬螢幕(原本是單欄、往下疊到很長)，帳戶權益放右欄、跟左欄
-    # 的表單+損益圖並排 ***(使用者要求)：`items-start` 讓右欄的權益表格
-    # 不會被左欄較高的內容拉著垂直置中。
-    with ui.dialog() as dialog, ui.card().classes("w-[900px] max-w-full gap-2"):
-        with ui.row().classes("w-full gap-4 no-wrap items-start"):
-            with ui.column().classes("gap-2 flex-1 min-w-0") as left_col:
-                title_label = ui.label("下單面板(雙擊報價盤的價格欄位選擇商品)").classes("text-lg font-semibold")
+        # *** 卡片改寬螢幕(原本是單欄、往下疊到很長)，帳戶權益放右欄、跟左欄
+        # 的表單+損益圖並排 ***(使用者要求)：`items-start` 讓右欄的權益表格
+        # 不會被左欄較高的內容拉著垂直置中。
+        with ui.dialog() as dialog, ui.card().classes("w-[900px] max-w-full gap-2"):
+            with ui.row().classes("w-full gap-4 no-wrap items-start"):
+                with ui.column().classes("gap-2 flex-1 min-w-0") as left_col:
+                    title_label = ui.label("下單面板(雙擊報價盤的價格欄位選擇商品)").classes("text-lg font-semibold")
 
-                with ui.tabs().classes("w-full") as tabs:
-                    outright_tab = ui.tab("裸買賣")
-                    duplex_tab = ui.tab("價差單")
+                    with ui.tabs().classes("w-full") as tabs:
+                        outright_tab = ui.tab("裸買賣")
+                        duplex_tab = ui.tab("價差單")
 
-                with ui.tab_panels(tabs, value=outright_tab).classes("w-full"):
-                    with ui.tab_panel(outright_tab):
-                        with ui.row().classes("items-end gap-4"):
-                            out_side = ui.select({True: "買進", False: "賣出"}, value=True, label="方向").classes("w-24")
-                            out_price = ui.number("價格", value=0.0, format="%.2f", step=0.05, min=0.01).classes("w-28")
-                            out_qty = ui.number("口數", value=1, format="%d", min=1).classes("w-24")
-                            out_tif = ui.select(_TIF_CHOICES, value="DAY", label="委託條件").classes("w-24")
-                            out_submit_btn = ui.button("暫存到委託簿")
-                        out_status = ui.label("").classes("text-sm")
+                    with ui.tab_panels(tabs, value=outright_tab).classes("w-full"):
+                        with ui.tab_panel(outright_tab):
+                            with ui.row().classes("items-end gap-4"):
+                                out_side = ui.select({True: "買進", False: "賣出"}, value=True, label="方向").classes("w-24")
+                                out_price = ui.number("價格", value=0.0, format="%.2f", step=0.05, min=0.01).classes("w-28")
+                                out_qty = ui.number("口數", value=1, format="%d", min=1).classes("w-24")
+                                out_tif = ui.select(_TIF_CHOICES, value="DAY", label="委託條件").classes("w-24")
+                                out_submit_btn = ui.button("暫存到委託簿")
+                            out_status = ui.label("").classes("text-sm")
 
-                    with ui.tab_panel(duplex_tab):
-                        with ui.row().classes("items-end gap-4"):
-                            spread_right = ui.select(
-                                {"C": "買權", "P": "賣權"}, value="C", label="買權/賣權",
-                            ).classes("w-24")
-                            spread_side = ui.select({True: "買方", False: "賣方"}, value=True, label="方向").classes("w-24")
-                            spread_width = ui.select(_WIDTH_OPTIONS, value=1.0, label="寬度").classes("w-24")
-                            spread_price = ui.number(
-                                "淨價格", value=0.0, format="%.2f", step=0.05, min=0.01,
-                            ).classes("w-28")
-                            spread_qty = ui.number("口數", value=1, format="%d", min=1).classes("w-24")
-                            spread_tif = ui.select(_TIF_CHOICES, value="DAY", label="委託條件").classes("w-24")
-                            spread_submit_btn = ui.button("暫存到委託簿")
-                        spread_status = ui.label("").classes("text-sm")
+                        with ui.tab_panel(duplex_tab):
+                            with ui.row().classes("items-end gap-4"):
+                                spread_right = ui.select(
+                                    {"C": "買權", "P": "賣權"}, value="C", label="買權/賣權",
+                                ).classes("w-24")
+                                spread_side = ui.select({True: "買方", False: "賣方"}, value=True, label="方向").classes("w-24")
+                                spread_width = ui.select(_WIDTH_OPTIONS, value=1.0, label="寬度").classes("w-24")
+                                spread_price = ui.number(
+                                    "淨價格", value=0.0, format="%.2f", step=0.05, min=0.01,
+                                ).classes("w-28")
+                                spread_qty = ui.number("口數", value=1, format="%d", min=1).classes("w-24")
+                                spread_tif = ui.select(_TIF_CHOICES, value="DAY", label="委託條件").classes("w-24")
+                                spread_submit_btn = ui.button("暫存到委託簿")
+                            spread_status = ui.label("").classes("text-sm")
 
-            ui.separator().props("vertical")
-            web_equity_widget.build(ib_client)
+                ui.separator().props("vertical")
+                web_equity_widget.build(ib_client)
 
-    def _autofill_outright_price() -> None:
-        contract = state["outright_contract"]
-        if contract is None:
-            return
-        bid, ask = _cached_bid_ask(contract)
-        if not out_price.value:  # 只在欄位是空的/0 的時候自動帶入，不要蓋掉使用者手動改過的價格
-            price = ask if out_side.value else bid
-            if price:
-                out_price.value = round(price, 2)
-
-    def _leg_cost(contract, buy: bool) -> Optional[float]:
-        """單腳的「成本」：買方是付出的 ask(正)，賣方是收到的 bid(負)，
-        兩腳加總取絕對值就是淨價差的debit/credit，公式照抄舊版
-        order_entry_widget.py::_leg_cost()。"""
-        bid, ask = _cached_bid_ask(contract)
-        if buy:
-            return ask if ask and ask > 0 else None
-        return -bid if bid and bid > 0 else None
-
-    def _resolve_duplex_legs():
-        """回傳 ((leg1_contract, buy1), (leg2_contract, buy2))，查不到某
-        一腳合約(這個到期日的履約價範圍沒涵蓋算出來的另一腳履約價)回傳
-        None。"""
-        call_contract = state["call_contract"]
-        if call_contract is None:
-            return None
-        anchor_strike = call_contract.strike
-        right = spread_right.value
-        width = spread_width.value
-        buy_spread = spread_side.value
-        (low_strike, low_action), (high_strike, high_action) = vertical_spread_legs(
-            anchor_strike, width, right, buy_spread,
-        )
-        is_call = right == "C"
-        low_contract = get_contract(low_strike, is_call)
-        high_contract = get_contract(high_strike, is_call)
-        if low_contract is None or high_contract is None:
-            return None
-        return (low_contract, low_action == "BUY"), (high_contract, high_action == "BUY")
-
-    def _draft_payoff_legs() -> list:
-        """給 web_payoff_chart_widget.build() 的 draft_legs_provider：回
-        傳「目前作用中分頁、表單上還沒暫存」的那筆草稿，換算成
-        PayoffLeg 清單(使用者要求邊調價格/口數邊看損益圖，不用先暫存到
-        委託簿才看得到)。價格或口數還沒填(0/空)就回傳空清單，不要拿 0
-        當權利金硬畫一條假的線。"""
-        if tabs.value == outright_tab:
+        def _autofill_outright_price() -> None:
             contract = state["outright_contract"]
-            if contract is None or not out_price.value or not out_qty.value:
+            if contract is None:
+                return
+            bid, ask = _cached_bid_ask(contract)
+            if not out_price.value:  # 只在欄位是空的/0 的時候自動帶入，不要蓋掉使用者手動改過的價格
+                price = ask if out_side.value else bid
+                if price:
+                    out_price.value = round(price, 2)
+
+        def _leg_cost(contract, buy: bool) -> Optional[float]:
+            """單腳的「成本」：買方是付出的 ask(正)，賣方是收到的 bid(負)，
+            兩腳加總取絕對值就是淨價差的debit/credit，公式照抄舊版
+            order_entry_widget.py::_leg_cost()。"""
+            bid, ask = _cached_bid_ask(contract)
+            if buy:
+                return ask if ask and ask > 0 else None
+            return -bid if bid and bid > 0 else None
+
+        def _resolve_duplex_legs():
+            """回傳 ((leg1_contract, buy1), (leg2_contract, buy2))，查不到某
+            一腳合約(這個到期日的履約價範圍沒涵蓋算出來的另一腳履約價)回傳
+            None。"""
+            call_contract = state["call_contract"]
+            if call_contract is None:
+                return None
+            anchor_strike = call_contract.strike
+            right = spread_right.value
+            width = spread_width.value
+            buy_spread = spread_side.value
+            (low_strike, low_action), (high_strike, high_action) = vertical_spread_legs(
+                anchor_strike, width, right, buy_spread,
+            )
+            is_call = right == "C"
+            low_contract = get_contract(low_strike, is_call)
+            high_contract = get_contract(high_strike, is_call)
+            if low_contract is None or high_contract is None:
+                return None
+            return (low_contract, low_action == "BUY"), (high_contract, high_action == "BUY")
+
+        def _draft_payoff_legs() -> list:
+            """給 web_payoff_chart_widget.build() 的 draft_legs_provider：回
+            傳「目前作用中分頁、表單上還沒暫存」的那筆草稿，換算成
+            PayoffLeg 清單(使用者要求邊調價格/口數邊看損益圖，不用先暫存到
+            委託簿才看得到)。價格或口數還沒填(0/空)就回傳空清單，不要拿 0
+            當權利金硬畫一條假的線。"""
+            if tabs.value == outright_tab:
+                contract = state["outright_contract"]
+                if contract is None or not out_price.value or not out_qty.value:
+                    return []
+                return [PayoffLeg(
+                    strike=contract.strike, call_put=contract.right, buy=out_side.value,
+                    qty=int(out_qty.value), premium=out_price.value,
+                    multiplier=float(getattr(contract, "multiplier", None) or 100),
+                )]
+
+            legs = _resolve_duplex_legs()
+            if legs is None or not spread_price.value or not spread_qty.value:
                 return []
-            return [PayoffLeg(
-                strike=contract.strike, call_put=contract.right, buy=out_side.value,
-                qty=int(out_qty.value), premium=out_price.value,
-                multiplier=float(getattr(contract, "multiplier", None) or 100),
-            )]
+            (leg1, buy1), (leg2, buy2) = legs
+            net_buyer = spread_side.value
+            draft = []
+            price_assigned = False
+            for contract, buy in ((leg1, buy1), (leg2, buy2)):
+                if not price_assigned and buy == net_buyer:
+                    premium = spread_price.value
+                    price_assigned = True
+                else:
+                    premium = 0.0
+                draft.append(PayoffLeg(
+                    strike=contract.strike, call_put=contract.right, buy=buy,
+                    qty=int(spread_qty.value), premium=premium,
+                    multiplier=float(getattr(contract, "multiplier", None) or 100),
+                ))
+            return draft
 
-        legs = _resolve_duplex_legs()
-        if legs is None or not spread_price.value or not spread_qty.value:
-            return []
-        (leg1, buy1), (leg2, buy2) = legs
-        net_buyer = spread_side.value
-        draft = []
-        price_assigned = False
-        for contract, buy in ((leg1, buy1), (leg2, buy2)):
-            if not price_assigned and buy == net_buyer:
-                premium = spread_price.value
-                price_assigned = True
-            else:
-                premium = 0.0
-            draft.append(PayoffLeg(
-                strike=contract.strike, call_put=contract.right, buy=buy,
-                qty=int(spread_qty.value), premium=premium,
-                multiplier=float(getattr(contract, "multiplier", None) or 100),
-            ))
-        return draft
+        with left_col:
+            ui.separator()
+            # 到期損益圖(使用者要求「編輯中這筆也要顯示在損益圖上」)：跟委託
+            # 簿裡那份共用同一個 web_payoff_chart_widget.build()，多傳
+            # draft_legs_provider=_draft_payoff_legs 把目前分頁表單裡還沒暫存
+            # 的草稿併進「含下單匣」那條虛線——語意上草稿本來就是「假設這筆
+            # 也送出去」的一部分，不用另外畫第三條線。裸買賣/價差單兩個分頁
+            # 共用同一個 provider，內部靠 tabs.value 判斷目前是哪一頁。放在
+            # left_col(不是 card)——帳戶權益在右欄，跟左欄的表單/損益圖是
+            # 平行的兩欄，不是損益圖之後接著往下疊的第三塊。
+            _, _refresh_payoff = web_payoff_chart_widget.build(
+                position_manager, order_book_manager, draft_legs_provider=_draft_payoff_legs,
+            )
 
-    with left_col:
-        ui.separator()
-        # 到期損益圖(使用者要求「編輯中這筆也要顯示在損益圖上」)：跟委託
-        # 簿裡那份共用同一個 web_payoff_chart_widget.build()，多傳
-        # draft_legs_provider=_draft_payoff_legs 把目前分頁表單裡還沒暫存
-        # 的草稿併進「含下單匣」那條虛線——語意上草稿本來就是「假設這筆
-        # 也送出去」的一部分，不用另外畫第三條線。裸買賣/價差單兩個分頁
-        # 共用同一個 provider，內部靠 tabs.value 判斷目前是哪一頁。放在
-        # left_col(不是 card)——帳戶權益在右欄，跟左欄的表單/損益圖是
-        # 平行的兩欄，不是損益圖之後接著往下疊的第三塊。
-        _, _refresh_payoff = web_payoff_chart_widget.build(
-            position_manager, order_book_manager, draft_legs_provider=_draft_payoff_legs,
-        )
+        def _autofill_duplex_price() -> None:
+            legs = _resolve_duplex_legs()
+            if legs is None:
+                return
+            (leg1, buy1), (leg2, buy2) = legs
+            cost1 = _leg_cost(leg1, buy1)
+            cost2 = _leg_cost(leg2, buy2)
+            if cost1 is None or cost2 is None:
+                return
+            if not spread_price.value:
+                spread_price.value = round(max(abs(cost1 + cost2), 0.01), 2)
 
-    def _autofill_duplex_price() -> None:
-        legs = _resolve_duplex_legs()
-        if legs is None:
-            return
-        (leg1, buy1), (leg2, buy2) = legs
-        cost1 = _leg_cost(leg1, buy1)
-        cost2 = _leg_cost(leg2, buy2)
-        if cost1 is None or cost2 is None:
-            return
-        if not spread_price.value:
-            spread_price.value = round(max(abs(cost1 + cost2), 0.01), 2)
+        def set_context(
+            call_contract, put_contract, is_call: bool,
+            call_bid, call_ask, put_bid, put_ask, strike_step: float,
+        ) -> None:
+            """報價盤雙擊某個 call/put 價格欄位時呼叫(見
+            web_quote_board_page.py 的 on_leg_selected)，參數對照舊版
+            order_entry_widget.py::set_context()。"""
+            state["call_contract"] = call_contract
+            state["put_contract"] = put_contract
+            state["outright_contract"] = call_contract if is_call else put_contract
 
-    def set_context(
-        call_contract, put_contract, is_call: bool,
-        call_bid, call_ask, put_bid, put_ask, strike_step: float,
-    ) -> None:
-        """報價盤雙擊某個 call/put 價格欄位時呼叫(見
-        web_quote_board_page.py 的 on_leg_selected)，參數對照舊版
-        order_entry_widget.py::set_context()。"""
-        state["call_contract"] = call_contract
-        state["put_contract"] = put_contract
-        state["outright_contract"] = call_contract if is_call else put_contract
+            outright = state["outright_contract"]
+            local_symbol = getattr(outright, "localSymbol", "") or outright.symbol
+            title_label.text = f"下單面板——{local_symbol}"
 
-        outright = state["outright_contract"]
-        local_symbol = getattr(outright, "localSymbol", "") or outright.symbol
-        title_label.text = f"下單面板——{local_symbol}"
+            # 寬度預設值：跟這次雙擊之前記錄的相鄰履約價差最接近的選項。
+            spread_width.value = min(_WIDTH_OPTIONS, key=lambda w: abs(w - strike_step))
+            spread_right.value = "C" if is_call else "P"
 
-        # 寬度預設值：跟這次雙擊之前記錄的相鄰履約價差最接近的選項。
-        spread_width.value = min(_WIDTH_OPTIONS, key=lambda w: abs(w - strike_step))
-        spread_right.value = "C" if is_call else "P"
+            out_price.value = 0.0
+            spread_price.value = 0.0
+            out_status.text = ""
+            spread_status.text = ""
+            _autofill_outright_price()
+            _autofill_duplex_price()
+            _refresh_payoff()
+            dialog.open()
 
-        out_price.value = 0.0
-        spread_price.value = 0.0
-        out_status.text = ""
-        spread_status.text = ""
-        _autofill_outright_price()
-        _autofill_duplex_price()
-        _refresh_payoff()
-        dialog.open()
+        def _on_outright_side_change() -> None:
+            out_price.value = 0.0
+            _autofill_outright_price()
+            _refresh_payoff()
 
-    def _on_outright_side_change() -> None:
-        out_price.value = 0.0
-        _autofill_outright_price()
-        _refresh_payoff()
+        def _on_duplex_params_change() -> None:
+            spread_price.value = 0.0
+            _autofill_duplex_price()
+            _refresh_payoff()
 
-    def _on_duplex_params_change() -> None:
-        spread_price.value = 0.0
-        _autofill_duplex_price()
-        _refresh_payoff()
+        async def _on_staged() -> None:
+            # *** 暫存成功後自動關掉下單面板、跳去委託簿 ***(使用者要求)：
+            # 不用使用者自己再按一次委託簿按鈕，也不用在這裡另外顯示「已暫
+            # 存」的文字——直接跳過去，委託簿裡那份到期損益圖(跟這裡是同一
+            # 份 web_payoff_chart_widget.build())本來就會即時反映剛剛暫存的
+            # 這一筆，比留在這個表單上顯示一行文字更直接。委託簿本身現在也
+            # 是延後建構(見 web_order_book_widgets.py)，`open_order_book`
+            # 因此是 async，這裡要 `await` 才會真的建/開，不能像以前那樣
+            # 直接呼叫一個同步函式(那樣只會產生一個沒人執行的 coroutine)。
+            dialog.close()
+            await open_order_book()
 
-    def _on_staged() -> None:
-        # *** 暫存成功後自動關掉下單面板、跳去委託簿 ***(使用者要求)：
-        # 不用使用者自己再按一次委託簿按鈕，也不用在這裡另外顯示「已暫
-        # 存」的文字——直接跳過去，委託簿裡那份到期損益圖(跟這裡是同一
-        # 份 web_payoff_chart_widget.build())本來就會即時反映剛剛暫存的
-        # 這一筆，比留在這個表單上顯示一行文字更直接。
-        dialog.close()
-        open_order_book()
+        async def _on_stage_outright() -> None:
+            contract = state["outright_contract"]
+            if contract is None:
+                out_status.text = "請先雙擊報價盤的價格欄位選擇商品"
+                return
+            order_book_manager.stage_outright(contract, out_side.value, out_price.value, out_qty.value, out_tif.value)
+            await _on_staged()
 
-    def _on_stage_outright() -> None:
-        contract = state["outright_contract"]
-        if contract is None:
-            out_status.text = "請先雙擊報價盤的價格欄位選擇商品"
-            return
-        order_book_manager.stage_outright(contract, out_side.value, out_price.value, out_qty.value, out_tif.value)
-        _on_staged()
+        async def _on_stage_duplex() -> None:
+            legs = _resolve_duplex_legs()
+            if legs is None:
+                spread_status.text = "這個寬度算出來的另一腳履約價目前不在報價盤顯示範圍內，改小寬度或先訂閱涵蓋範圍更大的履約價"
+                return
+            (leg1, buy1), (leg2, buy2) = legs
+            order_book_manager.stage_duplex(
+                leg1, buy1, leg2, buy2, spread_price.value, spread_qty.value,
+                tif=spread_tif.value, net_buyer=spread_side.value,
+            )
+            await _on_staged()
 
-    def _on_stage_duplex() -> None:
-        legs = _resolve_duplex_legs()
-        if legs is None:
-            spread_status.text = "這個寬度算出來的另一腳履約價目前不在報價盤顯示範圍內，改小寬度或先訂閱涵蓋範圍更大的履約價"
-            return
-        (leg1, buy1), (leg2, buy2) = legs
-        order_book_manager.stage_duplex(
-            leg1, buy1, leg2, buy2, spread_price.value, spread_qty.value,
-            tif=spread_tif.value, net_buyer=spread_side.value,
-        )
-        _on_staged()
+        out_side.on_value_change(lambda _e: _on_outright_side_change())
+        spread_right.on_value_change(lambda _e: _on_duplex_params_change())
+        spread_side.on_value_change(lambda _e: _on_duplex_params_change())
+        spread_width.on_value_change(lambda _e: _on_duplex_params_change())
+        # 價格/口數/分頁本身不會重算 autofill(那兩個是「使用者手動改的值」，
+        # 不能被自動填價蓋掉)，但損益圖要跟著即時重畫。
+        out_price.on_value_change(lambda _e: _refresh_payoff())
+        out_qty.on_value_change(lambda _e: _refresh_payoff())
+        spread_price.on_value_change(lambda _e: _refresh_payoff())
+        spread_qty.on_value_change(lambda _e: _refresh_payoff())
+        tabs.on_value_change(lambda _e: _refresh_payoff())
+        out_submit_btn.on_click(_on_stage_outright)
+        spread_submit_btn.on_click(_on_stage_duplex)
 
-    out_side.on_value_change(lambda _e: _on_outright_side_change())
-    spread_right.on_value_change(lambda _e: _on_duplex_params_change())
-    spread_side.on_value_change(lambda _e: _on_duplex_params_change())
-    spread_width.on_value_change(lambda _e: _on_duplex_params_change())
-    # 價格/口數/分頁本身不會重算 autofill(那兩個是「使用者手動改的值」，
-    # 不能被自動填價蓋掉)，但損益圖要跟著即時重畫。
-    out_price.on_value_change(lambda _e: _refresh_payoff())
-    out_qty.on_value_change(lambda _e: _refresh_payoff())
-    spread_price.on_value_change(lambda _e: _refresh_payoff())
-    spread_qty.on_value_change(lambda _e: _refresh_payoff())
-    tabs.on_value_change(lambda _e: _refresh_payoff())
-    out_submit_btn.on_click(_on_stage_outright)
-    spread_submit_btn.on_click(_on_stage_duplex)
+        return set_context, dialog.open
 
-    return set_context, dialog.open
+    def _ensure_built() -> tuple:
+        if "pair" not in built:
+            built["pair"] = _build_dialog()
+        return built["pair"]
+
+    def set_context(*args, **kwargs) -> None:
+        real_set_context, _real_open = _ensure_built()
+        real_set_context(*args, **kwargs)
+
+    def open_dialog() -> None:
+        _real_set_context, real_open = _ensure_built()
+        real_open()
+
+    return set_context, open_dialog

@@ -149,7 +149,17 @@ def _build_trading_screen(ib_client: IBClient, side_buttons: dict) -> None:
       面板的視窗彈出來，不用使用者自己再按按鈕)。
     - 股票篩選器候選清單每一列的「期權報價」按鈕呼叫報價盤的
       `open_quote_board(symbol)`，彈出報價盤並自動帶入這檔標的、直接查
-      詢一次。"""
+      詢一次。
+
+    *** 這四個 build() 現在都是「秒回」的——真正的 dialog UI(AG
+    Grid/Plotly 圖表/技術分析頁籤這些)延後到使用者第一次按按鈕才建
+    ***：實測抓到真實案例，`index()` 連線成功後如果在這裡把四個視窗的
+    完整 UI 都同步建完，加總很容易超過 NiceGUI `@ui.page` 預設 3 秒的
+    `response_timeout`，讓整頁被砍成 500(參見 `app/services/lazy_ui.py`
+    開頭的完整說明)。這裡回傳的 `open_quote_board`/`open_box`/
+    `open_order_entry`/`open_positions`/`set_context` 都只是輕量的
+    façade，第一次呼叫才觸發真正的 UI 建構，之後重複呼叫沿用同一份，
+    不會重複訂閱 Signal。"""
     global _order_client, _order_book_manager, _position_manager, _auto_close_manager
     if _order_book_manager is None:
         _order_client = IBOrderClient(ib_client)
@@ -214,7 +224,21 @@ def _toggle_environment() -> None:
     ui.navigate.reload()
 
 
-@ui.page("/")
+@ui.page(
+    "/",
+    # *** 一定要蓋掉 NiceGUI 預設 3.0 秒的 response_timeout ***：實測用
+    # timing log 抓到真實案例——`ib_client.connect_async()` 內部呼叫的
+    # `ib.connectAsync()` 會併發打 `reqOpenOrdersAsync()`/
+    # `reqCompletedOrdersAsync()` 等好幾個「連線當下順便同步」的請求，
+    # 這兩個目前在這個帳戶會timeout(見 app/models/ib_client.py::
+    # connect_async() 開頭關於 IB Gateway 唯讀模式的說明)，`connect_
+    # async()` 因此固定要吃滿它自己的 `timeout=10.0` 秒才回傳，遠超過
+    # NiceGUI 預設值——沒蓋掉的話，每次連線都會被 NiceGUI 自己的機制在
+    # 3 秒整砍成 500(`nicegui/page.py` 的 `asyncio.wait(..., timeout=
+    # response_timeout)`)，跟畫面組得快不快完全無關。15 秒是
+    # `connect_async()` 那個 10 秒上限加緩衝，不是隨便挑的數字。
+    response_timeout=15.0,
+)
 async def index() -> None:
     global _ib_client
     web_theme.apply()

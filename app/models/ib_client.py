@@ -100,8 +100,39 @@ class IBClient:
         self.ib.disconnectedEvent += self._on_disconnected
 
     async def connect_async(self, host: str, port: int, client_id: int, timeout: float = 10.0) -> bool:
-        """回傳連線是否成功。呼叫端(connect_dialog.py)要在 qasync 的事
-        件迴圈裡用 await 呼叫，不能再同步呼叫。"""
+        """回傳連線是否成功。呼叫端(main.py::index())在 NiceGUI 的事件迴
+        圈裡 await 呼叫。
+
+        *** 這個 `timeout` 不是「連線握手」的時間，是 `ib.connectAsync()`
+        內部一整批「連線當下順便同步」的請求(`reqPositionsAsync()`/
+        `reqOpenOrdersAsync()`/`reqCompletedOrdersAsync()`/
+        `reqAccountUpdatesAsync()`/`reqExecutionsAsync()`)各自的
+        `asyncio.wait_for(..., timeout)` ***：實測用 timing log 抓到真實
+        案例——這個帳戶接上 docker-compose.yml 那個 IB Gateway 容器之後，
+        `reqOpenOrdersAsync()`/`reqCompletedOrdersAsync()` 固定收到
+        `Warning 321: The API interface is currently in Read-Only mode`
+        (見 `_INFO_ERROR_CODES` 過濾不到的地方，這兩個是 ib_async 自己的
+        wrapper 直接印，不經過這裡的 `_on_error`)，之後就完全沒有回應、
+        一路卡到這裡傳進去的 timeout 秒數才被 ib_async 自己判定逾時、印
+        `"xxx request timed out"`——`connect_async()` 因此每次都固定要吃
+        滿 10 秒才回傳，不是網路慢。**這不是這支程式碼能修的**：
+        `docker-compose.yml` 已經設了 `READ_ONLY_API: "no"`，但容器裡的
+        Gateway 顯然沒有真的套用（同一天切換到 docker 化 Gateway 之後才
+        第一次出現這個警告，之前接原生 Gateway 從來沒有），需要在 infra
+        層排查(很可能是舊 volume/已存在的 container 沒有重新套用新
+        env，需要整個重建容器，不是單純 restart)。**Read-Only mode 本身
+        也代表這個帳戶目前送出的真實委託會被 IB 拒絕**，這比這裡的逾時
+        更需要優先處理——呼叫端(`main.py`)是用調高 NiceGUI 的
+        `response_timeout` 蓋過這 10 秒，不是想辦法讓這個函式變快，兩者
+        是不同的修法方向，故意不做的原因見那裡的說明。
+
+        *** 不要為了讓這裡變快而砍掉 `reqOpenOrdersAsync`/
+        `reqCompletedOrdersAsync`(例如改傳 `fetchFields` 排除它們)
+        ***：`app/models/ib_order_client.py::__init__` 的
+        `self._ib.trades()` 就是靠這兩個請求連線時同步好的資料，重開程
+        式後才找得到上一個 session 送出的既有委託去改價/刪單——砍掉這兩
+        個請求會讓那個「重開程式後還能管理舊委託」的功能整個失效，換來
+        的連線加速不值得。"""
         try:
             await self.ib.connectAsync(host, port, clientId=client_id, timeout=timeout)
         except Exception as e:  # noqa: BLE001
