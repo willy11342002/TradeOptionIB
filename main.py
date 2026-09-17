@@ -1,20 +1,18 @@
 """
-NiceGUI 版進入點，取代過程還沒完成——目前做到「連線→股票篩選器(主畫
-面)→選擇權報價盤/下單面板(含帳戶權益)/委託簿/部位(標題列按鈕彈出的
-置中 modal)」這條路徑，成交的委託留在委託簿裡看，沒有另外一個「成交回
-報」視窗(使用者要求簡化，見 web_order_book_widgets.py 開頭的說明)。下
-單面板/委託簿裡各自嵌了一份到期損益圖
-(`web_payoff_chart_widget.py`，重用 Qt 版同一套 `app/services/
-payoff.py` 數學)。部位(`web_position_widgets.py`)目前只搬了分組顯示/
-現價浮動損益/分組管理，自動平倉(停利/停損規則引擎)、AI 助手還在
-`pyqt.py`(PyQt5+qasync 舊版桌面 app，遷移完成後會整支刪除)那邊，見
-CLAUDE.md 的路線圖說明。
+NiceGUI 版進入點——「連線→股票篩選器(主畫面)→選擇權報價盤/下單面板(含
+帳戶權益)/委託簿/部位(標題列按鈕彈出的置中 modal)」這條路徑，成交的委
+託留在委託簿裡看，沒有另外一個「成交回報」視窗(使用者要求簡化，見
+web_order_book_widgets.py 開頭的說明)。下單面板/委託簿裡各自嵌了一份
+到期損益圖(`web_payoff_chart_widget.py`，共用 `app/services/payoff.py`
+數學)。部位(`web_position_widgets.py`)含分組顯示/現價浮動損益/分組管
+理，以及自動平倉(停利/停損規則引擎，`web_auto_close_dialog.py`)。股票
+篩選器(`web_screener_widget.py`)含 AI 條件建議/AI 選掃描代碼/自選清
+單。原本的 PyQt5+qasync 桌面版(`pyqt.py`)已經整支刪除，這裡是唯一的進
+入點。
 
-跟 `pyqt.py` 最大的不同：這裡沒有 qasync/QApplication 那套組合，NiceGUI
 架在 FastAPI/uvicorn 上，本來就是純 asyncio，不需要「Qt 事件迴圈兼
 asyncio 迴圈」這種特殊處理，`app.services.background_tasks.py` 的
-`spawn()`/`run_blocking()` 一樣可以直接沿用(那支模組本來就是 Qt-free
-的)。
+`spawn()`/`run_blocking()` 直接沿用。
 """
 import asyncio
 import os
@@ -25,15 +23,14 @@ from app.paths import PROJECT_ROOT
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-# *** 一定要在最開頭呼叫，理由跟 pyqt.py 一樣：這支 app 混了好幾種第三方
-# 非同步 SDK(ib_async/pydantic-ai/httpx)，出問題時可能完全不會印出任何
-# 東西，見 app/services/app_logging.py 開頭的完整說明。`install_qt_handler
-# =False`：這個進程沒有 Qt，不用裝 Qt 訊息 hook。***
+# *** 一定要在最開頭呼叫 ***：這支 app 混了好幾種第三方非同步 SDK
+# (ib_async/pydantic-ai/httpx)，出問題時可能完全不會印出任何東西，見
+# app/services/app_logging.py 開頭的完整說明。
 from app.services.app_logging import (
     install_asyncio_exception_handler, install_hang_watchdog_asyncio, setup_logging,
 )
 
-setup_logging(install_qt_handler=False)
+setup_logging()
 
 from nicegui import app, core, ui  # noqa: E402  (要在 setup_logging() 之後才 import，跟 main.py 的順序理由一致)
 
@@ -132,9 +129,7 @@ _connect_lock = asyncio.Lock()
 
 async def _on_startup() -> None:
     # 只有在事件迴圈已經在跑的時候才能呼叫這兩個(都需要 running loop)，
-    # app.on_startup 註冊的 callback 保證跑在這個時機點，跟 pyqt.py 用
-    # QTimer.singleShot(0, ...) 確保 loop.run_forever() 已經開始跑才顯示
-    # 連線對話框是同一個道理。
+    # app.on_startup 註冊的 callback 保證跑在這個時機點。
     install_asyncio_exception_handler(asyncio.get_running_loop())
     install_hang_watchdog_asyncio()
 

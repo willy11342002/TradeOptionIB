@@ -87,7 +87,7 @@ from nicegui import ui
 
 from app.models.ib_client import IBClient
 from app.models import yfinance_history_client
-from app.services import chart_drawing_store, historical_bars_store, theme
+from app.services import chart_drawing_store, historical_bars_store
 
 # (key, 顯示名稱, IB barSizeSetting, 初次回補 durationStr, 增量更新
 # durationStr)——查過 IB 官方文件(historical_limitations.html)確認：
@@ -242,15 +242,15 @@ _HLINE_JS = """
 
 
 def _palette() -> dict:
-    """深色/淺色模式各用一組格線/文字透明度——底色維持透明(跟外層卡片同
-    色)，格線/座標字如果直接套預設的不透明白/黑色，在深色底下會顯得又
-    粗又刺眼(使用者原始回報的「格子很醜」)，改成低透明度的細線。"""
-    dark = theme.load_theme() == "dark"
+    """低透明度的格線/文字透明度——底色維持透明(跟外層卡片同色)，格線/
+    座標字如果直接套預設的不透明白色，在深色底下會顯得又粗又刺眼(使用
+    者原始回報的「格子很醜」)，改成低透明度的細線。畫面固定深色(見
+    `app/services/web_theme.py`)，不需要再判斷淺色配色。"""
     return {
-        "grid": "rgba(255,255,255,0.08)" if dark else "rgba(0,0,0,0.10)",
-        "line": "rgba(255,255,255,0.30)" if dark else "rgba(0,0,0,0.30)",
-        "font": "rgba(255,255,255,0.70)" if dark else "rgba(0,0,0,0.70)",
-        "spike": "rgba(255,255,255,0.45)" if dark else "rgba(0,0,0,0.45)",
+        "grid": "rgba(255,255,255,0.08)",
+        "line": "rgba(255,255,255,0.30)",
+        "font": "rgba(255,255,255,0.70)",
+        "spike": "rgba(255,255,255,0.45)",
     }
 
 

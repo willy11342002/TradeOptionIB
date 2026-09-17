@@ -31,7 +31,6 @@ from nicegui import ui
 
 from app.models.order_book import OrderBookManager
 from app.models.positions import PositionManager
-from app.services import theme
 from app.services.payoff import (
     PayoffLeg, combined_payoff, find_breakevens, payoff_extremes, pending_legs, position_legs, price_axis_range,
 )
@@ -43,15 +42,14 @@ SAMPLE_POINTS = 400
 
 
 def _palette() -> dict:
-    """跟 web_technical_analysis_panel.py::_palette() 同一套慣例：深色/
-    淺色模式各用一組低透明度的格線/文字顏色，底色維持透明(跟外層卡片同
-    色)。"""
-    dark = theme.load_theme() == "dark"
+    """跟 web_technical_analysis_panel.py::_palette() 同一套慣例：低透明
+    度的格線/文字顏色，底色維持透明(跟外層卡片同色)——畫面固定深色(見
+    `app/services/web_theme.py`)，不需要再判斷淺色配色。"""
     return {
-        "grid": "rgba(255,255,255,0.08)" if dark else "rgba(0,0,0,0.10)",
-        "line": "rgba(255,255,255,0.30)" if dark else "rgba(0,0,0,0.30)",
-        "font": "rgba(255,255,255,0.70)" if dark else "rgba(0,0,0,0.70)",
-        "zero": "rgba(255,255,255,0.35)" if dark else "rgba(0,0,0,0.35)",
+        "grid": "rgba(255,255,255,0.08)",
+        "line": "rgba(255,255,255,0.30)",
+        "font": "rgba(255,255,255,0.70)",
+        "zero": "rgba(255,255,255,0.35)",
     }
 
 
