@@ -1,0 +1,59 @@
+# IB Gateway 常駐服務：取代手動開 IB Gateway 軟體、點登入這一步。用
+# gnzsnz/ib-gateway-docker(https://github.com/gnzsnz/ib-gateway-docker)
+# 這個社群維護的 image，裡面已經包好 IB Gateway + IBC(自動答覆登入/風
+# 險揭露等彈窗) + Xvfb + socat，跟 gce/scripts/startup.sh 在 GCE VM 上
+# 原生裝的是同一套組合(IBC + Xvfb + socat)——GCE 那邊選原生安裝是因為
+# GCP 沒有適合的免費容器服務(見 gce/README.md)，本機沒有這個限制，直
+# 接用 docker 最省事。
+#
+# 帳密/模式設定讀根目錄 .env(見 .env.example)，跟 main.py 共用同一
+# 份，不用另外複製一份 docker 專用的 .env。
+#
+# 對外 port 刻意對齊 IB Gateway 原生預設值(live=4001、paper=4002，見
+# app/services/ib_prefs.py 的 DEFAULT_PORT_LIVE/DEFAULT_PORT_PAPER)，
+# 這樣 main.py 完全不用改連線設定，跟本機真的裝 Gateway 時一樣直接連
+# 127.0.0.1:4001/4002。image 內部實際上是把 Gateway 綁在
+# 4003(live)/4004(paper)、用內建的 socat 轉出來——Gateway 的 API
+# socket 只綁 127.0.0.1，同一個 network namespace 裡不能自己再監聽一
+# 次同個 port，這跟 GCE 原生安裝要另外裝 socat 轉 port 是同一個原因。
+services:
+  ib-gateway:
+    container_name: ib-gateway
+    image: ghcr.io/gnzsnz/ib-gateway:stable
+    restart: unless-stopped
+    environment:
+      TWS_USERID: ${IB_LOGIN_LIVE:-}
+      TWS_PASSWORD: ${IB_PASSWORD_LIVE:-}
+      TWS_USERID_PAPER: ${IB_LOGIN_PAPER:-}
+      TWS_PASSWORD_PAPER: ${IB_PASSWORD_PAPER:-}
+      # both = live/paper 各自獨立的 Gateway process 一起常駐，main.py
+      # 畫面右上角切模擬/正式環境不用重開 container；只想跑 paper 就把
+      # .env 的 IB_TRADING_MODE 改成 paper，IB_LOGIN_LIVE/
+      # IB_PASSWORD_LIVE 留空即可。
+      TRADING_MODE: ${IB_TRADING_MODE:-both}
+      # 全新安裝預設可能是唯讀，不明確設 no 下單會被拒絕——跟
+      # gce/scripts/startup.sh 的 config.ini::ReadOnlyApi 是同一個坑。
+      READ_ONLY_API: "no"
+      # 無人值守環境保險起見全部自動接受，跟 GCE 那邊
+      # AcceptIncomingConnectionAction=accept 理由一致，避免彈窗卡住整
+      # 條自動化流程沒人能點。
+      TWS_ACCEPT_INCOMING: accept
+      EXISTING_SESSION_DETECTED_ACTION: manual
+      # 避開交易時間重開(UTC 05:00-05:30，換算美股收盤後凌晨)，跟
+      # gce/scripts/startup.sh 的 AutoRestartTime/ColdRestartTime 用同
+      # 一組時間——不要為了本機時區另外設 TIME_ZONE，不然算出來的就不
+      # 是美股收盤空檔了。
+      TWS_COLD_RESTART: "05:00 AM"
+      AUTO_RESTART_TIME: "05:30 AM"
+      # 2FA 在無人值守流程卡住目前沒有 100% 解法(跟 gce/README.md「已
+      # 知的坑」同一個問題)：exit 讓 container 結束、restart:
+      # unless-stopped 會重試；不要改成 restart，避免無限重試對帳號觸
+      # 發風控。live 帳戶建議先確認 paper 穩定跑過幾天再開。
+      TWOFA_TIMEOUT_ACTION: exit
+      # 需要用 VNC 接進去手動排查(例如 2FA 卡住、想看畫面在幹嘛)才填，
+      # 見 .env.example 說明；留空就不會啟動 VNC server。
+      VNC_SERVER_PASSWORD: ${IB_VNC_PASSWORD:-}
+    ports:
+      - "127.0.0.1:4001:4003"
+      - "127.0.0.1:4002:4004"
+      - "127.0.0.1:5900:5900"
