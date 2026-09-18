@@ -9,11 +9,22 @@ Iron Condor 機械化規則的合成回測引擎。
       3. 浮動虧損 >= entry_credit * stop_loss_multiple(預設 1 倍)
   - 出場後不留空手，下一個交易日立刻用當天報價重新進場(對應「都沒有空手」)
 
-v1 簡化，尚未做的事:
+v1(run_backtest)簡化，尚未做的事:
   - 不模擬美式提前履約
   - 不模擬恐慌期間的滑價/買賣價差擴大、也沒算手續費
   - 出場是整組一起平倉，沒有做「只滾動被測試那一腳」的單腳調整
   - 進場天期固定用 entry_dte 一個數字，沒有在 30~45 之間依實際到期日曆變動
+
+v2(run_backtest_rolling)在 v1 的基礎上，把 put 腳、call 腳拆成兩個各自獨立
+管理的價差單(各自有自己的進場日/到期天數)，加兩個動作:
+  - 被測試那一腳浮虧達到停損倍數：不是整組平倉，是只把那一腳滾動(平倉+
+    立即用當天報價重新開一個新的同方向價差，天期重置回 entry_dte)
+  - 觸發上面的滾動時，順便檢查另一腳(安全腳)：如果已經衰減到收到權利金
+    的 harvest_threshold_pct 以上(代表已經很深價外、剩餘時間價值很少)，
+    也一併滾動收割，賺到的權利金拿去貼補被測試那一腳的虧損
+兩腳的 DTE/停利觸發也各自獨立判斷，不再綁在同一個到期日曆上——這是真實
+「單腳管理」的自然結果，不是額外假設。滑價/手續費一樣沒算，滾動的執行
+成本一樣被忽略，跟 v1 同樣的限制還在。
 """
 from __future__ import annotations
 
@@ -34,6 +45,10 @@ class Params:
     profit_target_pct: float = 0.5
     stop_loss_multiple: float = 1.0
     risk_free_rate: float = 0.04
+    # 只有 run_backtest_rolling 用：安全腳浮動獲利達到收到權利金的這個比例，就一併滾動收割。
+    # 必須設得比 profit_target_pct 低，不然安全腳會先被自己獨立的停利規則平倉重置、永遠沒機會
+    # 累積到收割門檻——這不是理論猜測，是實測 0.8(高於預設停利0.5)跑12年收割次數=0之後才發現的。
+    harvest_threshold_pct: float = 0.3
 
 
 @dataclass
@@ -153,6 +168,117 @@ def run_backtest(df: pd.DataFrame, params: Params) -> tuple[list[Trade], pd.Seri
             equity.loc[d] = realized
         else:
             equity.loc[d] = realized + floating_pnl
+
+    return trades, equity
+
+
+@dataclass
+class LegTrade:
+    """run_backtest_rolling 的交易紀錄，一筆只代表一腳(put或call)，不是整組iron condor。"""
+    side: str  # "put" 或 "call"
+    entry_date: pd.Timestamp
+    exit_date: pd.Timestamp
+    K_short: float
+    K_long: float
+    entry_credit: float
+    exit_value: float
+    pnl: float
+    max_loss: float
+    exit_reason: str  # "dte" / "profit_target" / "stop_loss_roll" / "harvest_roll"
+
+
+def _open_side(S: float, sigma: float, right: str, params: Params) -> dict:
+    T = params.entry_dte / 365.0
+    r = params.risk_free_rate
+    width = max(params.strike_round, round(S * params.width_pct / params.strike_round) * params.strike_round)
+    K_short = _find_strike(S, T, r, sigma, params.target_delta, right, params.strike_round)
+    K_long = (K_short - width) if right == "P" else (K_short + width)
+    credit = bs.price(S, K_short, T, r, sigma, right) - bs.price(S, K_long, T, r, sigma, right)
+    return {"K_short": K_short, "K_long": K_long, "width": width, "entry_credit": credit, "right": right}
+
+
+def _side_value(S: float, T: float, r: float, sigma: float, side: dict) -> float:
+    return bs.price(S, side["K_short"], T, r, sigma, side["right"]) - bs.price(S, side["K_long"], T, r, sigma, side["right"])
+
+
+def run_backtest_rolling(df: pd.DataFrame, params: Params) -> tuple[list[LegTrade], pd.Series]:
+    """put腳、call腳各自獨立管理：被測試那一腳觸發停損就滾動(不是整組平倉)，
+    同時檢查安全腳夠不夠深價外，夠的話一併滾動收割。df 需要有 close/vix 兩欄。"""
+    trades: list[LegTrade] = []
+    equity = pd.Series(0.0, index=df.index)
+    realized = 0.0
+    r = params.risk_free_rate
+
+    sides: dict[str, dict | None] = {"put": None, "call": None}
+    entry_dates: dict[str, pd.Timestamp | None] = {"put": None, "call": None}
+
+    def close_and_log(name: str, side: dict, entry_date, exit_date, value_now: float, floating: float, reason: str):
+        nonlocal realized
+        realized += floating
+        trades.append(LegTrade(
+            side=name, entry_date=entry_date, exit_date=exit_date,
+            K_short=side["K_short"], K_long=side["K_long"],
+            entry_credit=side["entry_credit"], exit_value=value_now,
+            pnl=floating, max_loss=side["width"] - side["entry_credit"], exit_reason=reason,
+        ))
+
+    for d in df.index:
+        S = float(df.loc[d, "close"])
+        sigma = float(df.loc[d, "vix"]) / 100.0
+        if S <= 0 or sigma <= 0:
+            equity.loc[d] = realized
+            continue
+
+        for name, right in (("put", "P"), ("call", "C")):
+            if sides[name] is None:
+                sides[name] = _open_side(S, sigma, right, params)
+                entry_dates[name] = d
+
+        info = {}
+        for name in ("put", "call"):
+            side = sides[name]
+            days_held = (d - entry_dates[name]).days
+            remaining = params.entry_dte - days_held
+            T = max(remaining, 1) / 365.0
+            value_now = _side_value(S, T, r, sigma, side)
+            floating = side["entry_credit"] - value_now
+            info[name] = {"remaining": remaining, "value": value_now, "floating": floating}
+
+        touched = set()
+        rolled_for_stop = None
+        for name in ("put", "call"):
+            side = sides[name]
+            f = info[name]
+            if f["remaining"] <= params.exit_dte:
+                reason = "dte"
+            elif f["floating"] >= params.profit_target_pct * side["entry_credit"]:
+                reason = "profit_target"
+            elif f["floating"] <= -params.stop_loss_multiple * side["entry_credit"]:
+                reason = "stop_loss_roll"
+            else:
+                reason = None
+            if reason:
+                close_and_log(name, side, entry_dates[name], d, f["value"], f["floating"], reason)
+                sides[name] = _open_side(S, sigma, side["right"], params)
+                entry_dates[name] = d
+                touched.add(name)
+                if reason == "stop_loss_roll":
+                    rolled_for_stop = name
+
+        if rolled_for_stop is not None:
+            other = "call" if rolled_for_stop == "put" else "put"
+            if other not in touched:
+                other_side = sides[other]
+                f = info[other]
+                if f["floating"] >= params.harvest_threshold_pct * other_side["entry_credit"]:
+                    close_and_log(other, other_side, entry_dates[other], d, f["value"], f["floating"], "harvest_roll")
+                    sides[other] = _open_side(S, sigma, other_side["right"], params)
+                    entry_dates[other] = d
+                    touched.add(other)
+
+        put_floating_today = 0.0 if "put" in touched else info["put"]["floating"]
+        call_floating_today = 0.0 if "call" in touched else info["call"]["floating"]
+        equity.loc[d] = realized + put_floating_today + call_floating_today
 
     return trades, equity
 

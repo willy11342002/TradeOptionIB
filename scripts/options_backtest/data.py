@@ -1,9 +1,15 @@
 """
 用 yfinance 抓回測需要的兩條歷史序列，並快取在本機(不進版控)：
   - 標的每日收盤價(如 SPY)
-  - VIX 每日收盤(當作市場實際隱含波動率的代理，不是用歷史已實現波動率反推——
-    用已實現波動率會把賣方長期的風險溢酬(VRP)直接定義成零，用 VIX 才能讓
-    合成回測反映出真實存在的溢酬，見 black_scholes.py 開頭的說明)
+  - 對應標的的隱含波動率指數每日收盤(當作市場實際隱含波動率的代理，不是用
+    歷史已實現波動率反推——用已實現波動率會把賣方長期的風險溢酬(VRP)直接
+    定義成零，用真實隱含波動率才能讓合成回測反映出真實存在的溢酬，見
+    black_scholes.py 開頭的說明)
+
+隱含波動率指數一定要對應到標的本身，不能整個回測都套 VIX：QQQ(那斯達克
+100)歷史上波動率通常比SPX高，拿SPX的VIX去幫QQQ定價，會讓找到的履約價/
+權利金都偏離QQQ真實該有的水位，回測結果會失真(不是「QQQ真的比較不適合
+這個策略」，是波動率指數用錯了)。
 """
 from __future__ import annotations
 
@@ -14,6 +20,18 @@ import pandas as pd
 import yfinance as yf
 
 CACHE_DIR = Path(__file__).parent / ".cache"
+
+# 標的 -> 對應的 CBOE 隱含波動率指數，沒列到的預設用 ^VIX(SPX)，並會印警告。
+VOL_INDEX_MAP = {
+    "SPY": "^VIX",
+    "SPX": "^VIX",
+    "IVV": "^VIX",
+    "VOO": "^VIX",
+    "QQQ": "^VXN",
+    "NDX": "^VXN",
+    "IWM": "^RVX",   # Russell 2000
+    "RUT": "^RVX",
+}
 
 
 def _download_with_retry(ticker: str, start: str, end: str, attempts: int = 4) -> pd.DataFrame:
@@ -51,9 +69,16 @@ def _cached_download(ticker: str, start: str, end: str) -> pd.Series:
 
 
 def load_underlying_and_vix(ticker: str, start: str, end: str) -> pd.DataFrame:
-    """回傳以日期為 index 的 DataFrame，欄位: close(標的收盤價)、vix(當天VIX，例如20.0代表20%)。"""
+    """回傳以日期為 index 的 DataFrame，欄位: close(標的收盤價)、vix(當天隱含波動率指數，例如20.0代表20%)。"""
+    vol_index = VOL_INDEX_MAP.get(ticker.upper())
+    if vol_index is None:
+        vol_index = "^VIX"
+        print(f"[警告] {ticker} 沒有對應的隱含波動率指數，預設用 ^VIX(SPX)代理——"
+              f"如果 {ticker} 的真實波動率水位跟SPX差很多，回測結果會失真，"
+              f"考慮在 VOL_INDEX_MAP 補上正確的對應指數。")
+
     underlying = _cached_download(ticker, start, end)
-    vix = _cached_download("^VIX", start, end)
+    vix = _cached_download(vol_index, start, end)
 
     out = pd.DataFrame({"close": underlying, "vix": vix}).dropna()
     out = out.sort_index()

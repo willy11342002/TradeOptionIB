@@ -7,6 +7,9 @@
     uv run python -m scripts.options_backtest.run --ticker SPY --start 2015-01-01 --end 2025-01-01
     uv run python -m scripts.options_backtest.run --ticker SPY --stop-loss-multiple 2.0
     uv run python -m scripts.options_backtest.run --ticker SPY --csv-out trades.csv
+    uv run python -m scripts.options_backtest.run --ticker SPY --rolling --csv-out trades_rolling.csv
+        (--rolling: 被測試那一腳觸發停損時改成滾動那一腳，不是整組平倉；
+         同時檢查安全腳有沒有深到可以順便滾動收權利金，見 engine.py 說明)
 """
 from __future__ import annotations
 
@@ -27,6 +30,11 @@ def main():
     parser.add_argument("--profit-target-pct", type=float, default=0.5)
     parser.add_argument("--stop-loss-multiple", type=float, default=1.0)
     parser.add_argument("--risk-free-rate", type=float, default=0.04)
+    parser.add_argument("--rolling", action="store_true",
+                         help="啟用單腳滾動：被測試那一腳觸發停損時滾動而非整組平倉，並檢查安全腳能否順便收割")
+    parser.add_argument("--harvest-threshold-pct", type=float, default=0.3,
+                         help="只有 --rolling 有效：安全腳浮動獲利達到收到權利金的這個比例，就一併滾動收割"
+                              "(必須比 --profit-target-pct 低，不然安全腳會先被自己的停利規則平倉重置，永遠收割不到)")
     parser.add_argument("--csv-out", default="", help="把逐筆交易紀錄存成csv，方便自己另外檢查")
     args = parser.parse_args()
 
@@ -39,13 +47,18 @@ def main():
         profit_target_pct=args.profit_target_pct,
         stop_loss_multiple=args.stop_loss_multiple,
         risk_free_rate=args.risk_free_rate,
+        harvest_threshold_pct=args.harvest_threshold_pct,
     )
-    trades, equity = engine.run_backtest(df, params)
+    if args.rolling:
+        trades, equity = engine.run_backtest_rolling(df, params)
+    else:
+        trades, equity = engine.run_backtest(df, params)
     stats = engine.summarize(trades)
 
-    print(f"標的: {args.ticker}  期間: {args.start} ~ {args.end}  資料筆數: {len(df)}")
+    print(f"標的: {args.ticker}  期間: {args.start} ~ {args.end}  資料筆數: {len(df)}  模式: {'單腳滾動' if args.rolling else '整組平倉(v1)'}")
     print(f"進場DTE={params.entry_dte}  出場DTE={params.exit_dte}  短腳delta={params.target_delta}  "
-          f"寬度%={params.width_pct}  停利={params.profit_target_pct:.0%}  停損倍數={params.stop_loss_multiple}")
+          f"寬度%={params.width_pct}  停利={params.profit_target_pct:.0%}  停損倍數={params.stop_loss_multiple}"
+          + (f"  收割門檻={params.harvest_threshold_pct:.0%}" if args.rolling else ""))
     print("-" * 70)
     if not trades:
         print("沒有任何交易，檢查資料範圍或參數是否合理。")
@@ -64,12 +77,20 @@ def main():
     print(f"最慘的一筆: {worst.entry_date.date()} ~ {worst.exit_date.date()}  "
           f"pnl={worst.pnl:.3f}  reason={worst.exit_reason}")
 
-    stop_losses = [t for t in trades if t.exit_reason == "stop_loss"]
+    stop_reason = "stop_loss_roll" if args.rolling else "stop_loss"
+    stop_losses = [t for t in trades if t.exit_reason == stop_reason]
     if stop_losses:
         worst5 = sorted(stop_losses, key=lambda t: t.pnl)[:5]
-        print("\n觸發停損的交易裡最慘的5筆(可以拿日期去對照2018/2/2020/3這類尾部事件):")
+        print(f"\n觸發{'滾動' if args.rolling else '停損'}的交易裡最慘的5筆(可以拿日期去對照2018/2/2020/3這類尾部事件):")
         for t in worst5:
-            print(f"  {t.entry_date.date()} ~ {t.exit_date.date()}  pnl={t.pnl:.3f}")
+            side = f"[{t.side}] " if args.rolling else ""
+            print(f"  {side}{t.entry_date.date()} ~ {t.exit_date.date()}  pnl={t.pnl:.3f}")
+
+    if args.rolling:
+        harvests = [t for t in trades if t.exit_reason == "harvest_roll"]
+        print(f"\n被測試腳滾動次數: {len(stop_losses)}   安全腳收割滾動次數: {len(harvests)}")
+        if harvests:
+            print(f"收割滾動平均每次多收: {sum(t.pnl for t in harvests) / len(harvests):.3f}")
 
     if args.csv_out:
         import pandas as pd
