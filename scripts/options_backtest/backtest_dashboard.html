@@ -204,7 +204,7 @@
   </div>
 
   <div class="panel footnote">
-    <b>已知限制</b>(來自 scripts/options_backtest/engine.py 的合成回測)：用歷史VIX/VXN這類指數反推 Black-Scholes 價格，不是真實選擇權報價；沒有模擬滑價/買賣價差/手續費；兩邊(put/call)用同一個波動率數字定價，沒有偏斜(skew)；沒有模擬美式提前履約；沒有算滾動本身的執行成本。<code>run_backtest</code>(v1，無side欄位)整組4腳一起平倉；<code>run_backtest_rolling</code>(v2，有side欄位)才有單腳滾動+安全腳收割。數字僅供驗證機制邏輯，不是真實報酬率預測。
+    <b>已知限制</b>(來自 scripts/options_backtest/engine.py 的合成回測)：用歷史VIX/VXN這類指數反推 Black-Scholes 價格，不是真實選擇權報價；兩邊(put/call)用同一個波動率數字定價，沒有偏斜(skew)；沒有模擬美式提前履約；沒有算滾動本身的執行成本。停利/停損固定用掛價邏輯精準停在目標價成交(沒跳空精準停在門檻價，跳空用開盤價)，到期天數出場一律用收盤價；put腳/call腳各自獨立管理，被測試那一腳觸發停損就滾動、不是整組平倉，同時檢查安全腳能否順便收割。數字僅供驗證機制邏輯，不是真實報酬率預測。
   </div>
 
 </div>
@@ -284,44 +284,32 @@ function parseCSV(text) {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length < 2) throw new Error('沒有資料列');
   const headers = lines[0].split(',');
-  const need = ['entry_date', 'exit_date', 'pnl', 'max_loss', 'exit_reason'];
+  const need = ['side', 'entry_date', 'exit_date', 'K_short', 'K_long', 'entry_credit', 'exit_value', 'pnl', 'max_loss', 'exit_reason'];
   for (const col of need) {
-    if (!headers.includes(col)) throw new Error(`缺少欄位: ${col}`);
+    if (!headers.includes(col)) throw new Error(`缺少欄位: ${col}(舊版v1「整組4腳平倉」的CSV已經不支援，改用 run.py 重新產出)`);
   }
   const idx = Object.fromEntries(headers.map((h, i) => [h, i]));
-  // 兩種schema: v1(run_backtest)整組4腳一筆(legsPerTrade=4)；v2(run_backtest_rolling)單腳一筆，
-  // 多一個 side 欄位(legsPerTrade=2)。手續費一律在這個頁面用 pnl/max_loss 即時重算(見
-  // computeStats)，不依賴CSV裡可能有的pnl_usd/commission_usd欄位，這樣口數選單才能即時切換。
-  const isLegSchema = headers.includes('side');
+  // 手續費一律在這個頁面用 pnl/max_loss 即時重算(見 computeStats)，不依賴CSV裡可能有的
+  // pnl_usd/commission_usd欄位，這樣口數選單才能即時切換。
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
     const cols = lines[i].split(',');
-    const base = {
+    rows.push({
+      side: cols[idx.side],
       entry_date: new Date(cols[idx.entry_date]),
       exit_date: new Date(cols[idx.exit_date]),
+      K_short: parseFloat(cols[idx.K_short]),
+      K_long: parseFloat(cols[idx.K_long]),
       entry_credit: parseFloat(cols[idx.entry_credit]),
       exit_value: parseFloat(cols[idx.exit_value]),
       pnl: parseFloat(cols[idx.pnl]),
       max_loss: parseFloat(cols[idx.max_loss]),
       exit_reason: cols[idx.exit_reason],
       fill_mode: idx.fill_mode !== undefined ? cols[idx.fill_mode] : null, // 舊CSV(加這欄之前存的)沒有，null
-    };
-    if (isLegSchema) {
-      base.side = cols[idx.side];
-      base.K_short = parseFloat(cols[idx.K_short]);
-      base.K_long = parseFloat(cols[idx.K_long]);
-    } else {
-      base.short_put = parseFloat(cols[idx.short_put]);
-      base.long_put = parseFloat(cols[idx.long_put]);
-      base.short_call = parseFloat(cols[idx.short_call]);
-      base.long_call = parseFloat(cols[idx.long_call]);
-    }
-    rows.push(base);
+    });
   }
   rows.sort((a, b) => a.exit_date - b.exit_date);
-  rows.isLegSchema = isLegSchema;
-  rows.legsPerTrade = isLegSchema ? 2 : 4;
   return rows;
 }
 
@@ -334,6 +322,7 @@ const DAY = 86400000;
 const IBKR_RATE = 0.65;
 const IBKR_MIN_PER_LEG = 1.00;
 const CONTRACT_MULTIPLIER = 100;
+const LEGS_PER_TRADE = 2; // 每筆Trade是一個價差(短腳+長腳)，跟 engine.py 的 LEGS_PER_TRADE 一致
 
 // 所有數字都是「扣掉IBKR手續費之後」算的：pnl/max_loss 是CSV裡的每股單位，乘
 // CONTRACT_MULTIPLIER*contracts換算成美元，再扣掉每筆開倉+平倉的手續費。commission
@@ -428,7 +417,7 @@ function render(name) {
   document.getElementById('empty').style.display = 'none';
   document.getElementById('report').style.display = 'block';
   const contracts = parseInt(contractsSelect.value, 10) || 1;
-  const legsPerTrade = ds.trades.legsPerTrade;
+  const legsPerTrade = LEGS_PER_TRADE;
   const s = computeStats(ds.trades, contracts, legsPerTrade);
   const commissionPerTrade = legsPerTrade * 2 * Math.max(IBKR_RATE * contracts, IBKR_MIN_PER_LEG);
 
@@ -438,9 +427,8 @@ function render(name) {
   } else {
     const intradayN = ds.trades.filter(t => t.fill_mode === 'intraday').length;
     const closeN = ds.trades.length - intradayN;
-    fillModeHintEl.textContent = intradayN === 0
-      ? '停利/停損：全部只看收盤價(未開 --intraday-fills，或本來就是v1整組平倉，v1不支援掛價)'
-      : `停利/停損：${intradayN}筆掛價成交、${closeN}筆收盤價成交(到期/尚未觸價的出場一律用收盤價)`;
+    fillModeHintEl.textContent =
+      `停利/停損：${intradayN}筆掛價精準停在目標價成交、${closeN}筆到期天數出場用收盤價(見 engine.py 的 _evaluate_exit)`;
   }
 
   const cards = [
@@ -524,11 +512,10 @@ function render(name) {
       <tr><td>最大連續虧損次數</td><td class="neg">${s.maxLossStreak}</td></tr>
     </tbody>`;
 
-  const isLeg = !!ds.trades.isLegSchema;
   const netOf = t => t.pnl * CONTRACT_MULTIPLIER * contracts - commissionPerTrade;
   const commissionHead = `<th>淨損益$(${contracts}口)</th>`;
   const commissionCols = t => `<td class="${cls(netOf(t))}">${netOf(t).toFixed(2)}</td>`;
-  document.getElementById('tradesTable').innerHTML = isLeg ? `
+  document.getElementById('tradesTable').innerHTML = `
     <thead><tr>
       <th>腳</th><th>進場</th><th>出場</th><th>短履約價</th><th>長履約價</th>
       <th>收信用</th><th>平倉值</th><th>損益</th><th>保證金</th><th>出場原因</th>${commissionHead}
@@ -538,19 +525,6 @@ function render(name) {
         <td>${t.side === 'put' ? 'put' : 'call'}</td>
         <td>${fmtDate(t.entry_date)}</td><td>${fmtDate(t.exit_date)}</td>
         <td>${t.K_short}</td><td>${t.K_long}</td>
-        <td>${fmtNum(t.entry_credit)}</td><td>${fmtNum(t.exit_value)}</td>
-        <td class="${cls(t.pnl)}">${fmtNum(t.pnl)}</td><td>${fmtNum(t.max_loss)}</td>
-        <td>${reasonLabel[t.exit_reason] || t.exit_reason}</td>${commissionCols(t)}
-      </tr>
-    `).join('')}</tbody>` : `
-    <thead><tr>
-      <th>進場</th><th>出場</th><th>短put</th><th>長put</th><th>短call</th><th>長call</th>
-      <th>收信用</th><th>平倉值</th><th>損益</th><th>保證金</th><th>出場原因</th>${commissionHead}
-    </tr></thead>
-    <tbody>${ds.trades.map(t => `
-      <tr>
-        <td>${fmtDate(t.entry_date)}</td><td>${fmtDate(t.exit_date)}</td>
-        <td>${t.short_put}</td><td>${t.long_put}</td><td>${t.short_call}</td><td>${t.long_call}</td>
         <td>${fmtNum(t.entry_credit)}</td><td>${fmtNum(t.exit_value)}</td>
         <td class="${cls(t.pnl)}">${fmtNum(t.pnl)}</td><td>${fmtNum(t.max_loss)}</td>
         <td>${reasonLabel[t.exit_reason] || t.exit_reason}</td>${commissionCols(t)}
