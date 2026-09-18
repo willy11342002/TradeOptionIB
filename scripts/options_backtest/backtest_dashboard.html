@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>選擇權回測報表</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --border: #e2e5ea;
+    --text: #1c2230;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --green: #0f9d58;
+    --red: #d93025;
+    --amber: #b7791f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", Segoe UI, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  h1 { font-size: 20px; margin: 0; white-space: nowrap; }
+  .controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-left: auto;
+  }
+  .btn {
+    display: inline-block;
+    padding: 8px 14px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    border: none;
+  }
+  input[type=file] { display: none; }
+  select {
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    font-size: 14px;
+    background: #fff;
+    min-width: 220px;
+  }
+  .hint { color: var(--muted); font-size: 13px; }
+  #empty {
+    background: var(--card);
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+    color: var(--muted);
+  }
+  #report { display: none; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .card .label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .card .value { font-size: 20px; font-weight: 600; }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .panel h2 { font-size: 15px; margin: 0 0 12px 0; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .row2 { grid-template-columns: 1fr; } }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 500; }
+  tbody tr:hover { background: #fafbfc; }
+  .scrollbox { max-height: 420px; overflow-y: auto; }
+  .tooltip {
+    position: absolute;
+    background: #1c2230;
+    color: #fff;
+    font-size: 12px;
+    padding: 6px 9px;
+    border-radius: 6px;
+    pointer-events: none;
+    white-space: nowrap;
+    transform: translate(-50%, -110%);
+    display: none;
+  }
+  .chart-wrap { position: relative; }
+  svg { width: 100%; height: 260px; display: block; }
+  .footnote { color: var(--muted); font-size: 12px; margin-top: 8px; line-height: 1.6; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 12px;
+    background: #eef2ff;
+    color: var(--accent);
+    margin-left: 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>選擇權回測報表</h1>
+  <div class="controls">
+    <label class="btn" for="fileInput">選取 CSV 檔案</label>
+    <input type="file" id="fileInput" accept=".csv" multiple>
+    <select id="datasetSelect"><option>(尚未載入任何檔案)</option></select>
+    <select id="contractsSelect">
+      <option value="1">1口</option>
+      <option value="5">5口</option>
+      <option value="10">10口</option>
+    </select>
+    <label class="btn" for="benchmarkInput" style="background:#0f9d58">選取標的價格CSV</label>
+    <input type="file" id="benchmarkInput" accept=".csv">
+    <span class="hint" id="fileHint">可一次選多個 --csv-out 產出的檔案，用下拉選單切換</span>
+  </div>
+  <div class="hint" id="benchmarkHint" style="width:100%; margin-top:-8px;">
+    尚未載入標的價格(--benchmark-csv-out 產出的 date,close)，權益曲線不會畫 buy-and-hold 對照線
+  </div>
+</header>
+
+<div id="empty">
+  還沒有載入任何回測結果。<br>
+  點右上角「選取 CSV 檔案」，選 <code>scripts/options_backtest/run.py --csv-out</code> 產出的逐筆交易 CSV(可複選)。
+</div>
+
+<div id="report">
+
+  <div class="grid" id="statCards"></div>
+
+  <div class="panel">
+    <div class="row2">
+      <div>
+        <h2>權益曲線 <span class="badge" id="eqBadge"></span></h2>
+        <div id="eqLegend" style="margin-bottom:6px"></div>
+        <div class="chart-wrap">
+          <svg id="equityChart" viewBox="0 0 800 260" preserveAspectRatio="none"></svg>
+          <div class="tooltip" id="eqTooltip"></div>
+        </div>
+      </div>
+      <div>
+        <h2>回撤曲線(Drawdown) <span class="badge" id="ddBadge"></span></h2>
+        <div class="chart-wrap">
+          <svg id="ddChart" viewBox="0 0 800 260" preserveAspectRatio="none"></svg>
+          <div class="tooltip" id="ddTooltip"></div>
+        </div>
+      </div>
+    </div>
+    <p class="footnote">單位是選擇權價格(未乘合約乘數)，跟 CLI 輸出的單位一致；X軸是交易的出場日期。回撤曲線只用逐筆交易的已實現損益疊加，不是逐日 mark-to-market(那條線只有 Python 回測程式跑的當下才有，CSV 沒存)。</p>
+  </div>
+
+  <div class="panel">
+    <h2>風報比 / 期望值細節</h2>
+    <div class="grid" id="riskCards"></div>
+  </div>
+
+  <div class="row2">
+    <div class="panel">
+      <h2>逐年損益</h2>
+      <table id="yearlyTable"></table>
+    </div>
+    <div class="panel">
+      <h2>出場原因分布</h2>
+      <table id="reasonTable"></table>
+      <h2 style="margin-top:16px">連續勝負</h2>
+      <table id="streakTable"></table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>逐筆交易明細</h2>
+    <div class="scrollbox">
+      <table id="tradesTable"></table>
+    </div>
+  </div>
+
+  <div class="panel footnote">
+    <b>已知限制</b>(來自 scripts/options_backtest/engine.py 的合成回測)：用歷史VIX/VXN這類指數反推 Black-Scholes 價格，不是真實選擇權報價；沒有模擬滑價/買賣價差/手續費；兩邊(put/call)用同一個波動率數字定價，沒有偏斜(skew)；沒有模擬美式提前履約；沒有算滾動本身的執行成本。<code>run_backtest</code>(v1，無side欄位)整組4腳一起平倉；<code>run_backtest_rolling</code>(v2，有side欄位)才有單腳滾動+安全腳收割。數字僅供驗證機制邏輯，不是真實報酬率預測。
+  </div>
+
+</div>
+
+<script>
+const datasets = {}; // name -> { trades: [...] }，stats 依口數即時算，不快取
+
+const fileInput = document.getElementById('fileInput');
+const datasetSelect = document.getElementById('datasetSelect');
+const contractsSelect = document.getElementById('contractsSelect');
+const benchmarkInput = document.getElementById('benchmarkInput');
+let benchmark = null; // { name, series: [{date, close}] (依日期排序) }
+
+fileInput.addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []);
+  for (const file of files) {
+    const text = await file.text();
+    try {
+      const trades = parseCSV(text);
+      datasets[file.name] = { trades };
+    } catch (err) {
+      alert(`${file.name} 解析失敗: ${err.message}`);
+    }
+  }
+  rebuildSelect();
+  if (files.length) {
+    datasetSelect.value = files[files.length - 1].name;
+    render(datasetSelect.value);
+  }
+  fileInput.value = '';
+});
+
+benchmarkInput.addEventListener('change', async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    benchmark = { name: file.name, series: parseBenchmarkCSV(text) };
+    document.getElementById('benchmarkHint').textContent =
+      `已載入標的價格: ${file.name}(${benchmark.series.length}筆，${fmtDate(benchmark.series[0].date)}~${fmtDate(benchmark.series[benchmark.series.length-1].date)})`;
+  } catch (err) {
+    alert(`${file.name} 解析失敗: ${err.message}`);
+  }
+  benchmarkInput.value = '';
+  if (datasetSelect.value) render(datasetSelect.value);
+});
+
+function parseBenchmarkCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  const headers = lines[0].split(',');
+  const dIdx = headers.indexOf('date'), cIdx = headers.indexOf('close');
+  if (dIdx < 0 || cIdx < 0) throw new Error('需要 date,close 兩欄(用 --benchmark-csv-out 產出)');
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const cols = lines[i].split(',');
+    rows.push({ date: new Date(cols[dIdx]), close: parseFloat(cols[cIdx]) });
+  }
+  rows.sort((a, b) => a.date - b.date);
+  return rows;
+}
+
+datasetSelect.addEventListener('change', () => render(datasetSelect.value));
+contractsSelect.addEventListener('change', () => render(datasetSelect.value));
+
+function rebuildSelect() {
+  const names = Object.keys(datasets);
+  datasetSelect.innerHTML = names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+  document.getElementById('fileHint').textContent = `已載入 ${names.length} 個檔案`;
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) throw new Error('沒有資料列');
+  const headers = lines[0].split(',');
+  const need = ['entry_date', 'exit_date', 'pnl', 'max_loss', 'exit_reason'];
+  for (const col of need) {
+    if (!headers.includes(col)) throw new Error(`缺少欄位: ${col}`);
+  }
+  const idx = Object.fromEntries(headers.map((h, i) => [h, i]));
+  // 兩種schema: v1(run_backtest)整組4腳一筆(legsPerTrade=4)；v2(run_backtest_rolling)單腳一筆，
+  // 多一個 side 欄位(legsPerTrade=2)。手續費一律在這個頁面用 pnl/max_loss 即時重算(見
+  // computeStats)，不依賴CSV裡可能有的pnl_usd/commission_usd欄位，這樣口數選單才能即時切換。
+  const isLegSchema = headers.includes('side');
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const cols = lines[i].split(',');
+    const base = {
+      entry_date: new Date(cols[idx.entry_date]),
+      exit_date: new Date(cols[idx.exit_date]),
+      entry_credit: parseFloat(cols[idx.entry_credit]),
+      exit_value: parseFloat(cols[idx.exit_value]),
+      pnl: parseFloat(cols[idx.pnl]),
+      max_loss: parseFloat(cols[idx.max_loss]),
+      exit_reason: cols[idx.exit_reason],
+    };
+    if (isLegSchema) {
+      base.side = cols[idx.side];
+      base.K_short = parseFloat(cols[idx.K_short]);
+      base.K_long = parseFloat(cols[idx.K_long]);
+    } else {
+      base.short_put = parseFloat(cols[idx.short_put]);
+      base.long_put = parseFloat(cols[idx.long_put]);
+      base.short_call = parseFloat(cols[idx.short_call]);
+      base.long_call = parseFloat(cols[idx.long_call]);
+    }
+    rows.push(base);
+  }
+  rows.sort((a, b) => a.exit_date - b.exit_date);
+  rows.isLegSchema = isLegSchema;
+  rows.legsPerTrade = isLegSchema ? 2 : 4;
+  return rows;
+}
+
+const sum = arr => arr.reduce((a, b) => a + b, 0);
+const avg = arr => arr.length ? sum(arr) / arr.length : 0;
+const DAY = 86400000;
+
+// IBKR Pro Fixed 美股選擇權費率(跟 scripts/options_backtest/engine.py 的 IBKR_RATE_PER_CONTRACT/
+// IBKR_MIN_PER_LEG 一致)：USD 0.65/口，combo單每一腳分開套用最低 USD 1.00。
+const IBKR_RATE = 0.65;
+const IBKR_MIN_PER_LEG = 1.00;
+const CONTRACT_MULTIPLIER = 100;
+
+// 所有數字都是「扣掉IBKR手續費之後」算的：pnl/max_loss 是CSV裡的每股單位，乘
+// CONTRACT_MULTIPLIER*contracts換算成美元，再扣掉每筆開倉+平倉的手續費。commission
+// 不依賴CSV裡是否存過pnl_usd欄位，即時算，口數選單才能馬上切換重算整份報表。
+function computeStats(trades, contracts, legsPerTrade) {
+  const commissionPerTrade = legsPerTrade * 2 * Math.max(IBKR_RATE * contracts, IBKR_MIN_PER_LEG);
+  const rows = trades.map(t => ({ t, net: t.pnl * CONTRACT_MULTIPLIER * contracts - commissionPerTrade }));
+  const n = rows.length;
+  const wins = rows.filter(r => r.net > 0);
+  const losses = rows.filter(r => r.net <= 0);
+  const winRate = n ? wins.length / n : 0;
+  const avgWin = avg(wins.map(r => r.net));
+  const avgLoss = avg(losses.map(r => r.net));
+  const totalWin = sum(wins.map(r => r.net));
+  const totalLoss = sum(losses.map(r => r.net));
+  const profitFactor = totalLoss !== 0 ? totalWin / Math.abs(totalLoss) : Infinity;
+  const winLossRatio = avgLoss !== 0 ? avgWin / Math.abs(avgLoss) : Infinity;
+  const expectancy = winRate * avgWin + (1 - winRate) * avgLoss;
+  const totalPnl = sum(rows.map(r => r.net));           // 淨損益(已扣手續費)
+  const grossUsd = sum(trades.map(t => t.pnl * CONTRACT_MULTIPLIER * contracts));
+  const commissionUsd = commissionPerTrade * n;
+  const avgMargin = avg(trades.map(t => t.max_loss)) * CONTRACT_MULTIPLIER * contracts;
+  const returnOnMargin = avgMargin ? totalPnl / avgMargin : NaN;
+
+  let cum = 0;
+  const equitySeries = rows.map(r => { cum += r.net; return { date: r.t.exit_date, y: cum }; });
+
+  let peak = -Infinity, peakDate = trades.length ? trades[0].entry_date : null, maxDDDays = 0;
+  const ddSeries = equitySeries.map(p => {
+    if (p.y >= peak) { peak = p.y; peakDate = p.date; }
+    const dd = p.y - peak;
+    const days = (p.date - peakDate) / DAY;
+    if (days > maxDDDays) maxDDDays = days;
+    return { date: p.date, y: dd };
+  });
+  const maxDD = ddSeries.length ? Math.min(...ddSeries.map(p => p.y)) : 0;
+
+  let curWin = 0, curLoss = 0, maxWinStreak = 0, maxLossStreak = 0;
+  rows.forEach(r => {
+    if (r.net > 0) { curWin++; curLoss = 0; } else { curLoss++; curWin = 0; }
+    maxWinStreak = Math.max(maxWinStreak, curWin);
+    maxLossStreak = Math.max(maxLossStreak, curLoss);
+  });
+
+  const byYear = {};
+  rows.forEach(r => {
+    const y = r.t.exit_date.getFullYear();
+    byYear[y] ??= { trades: 0, wins: 0, pnl: 0 };
+    byYear[y].trades++;
+    if (r.net > 0) byYear[y].wins++;
+    byYear[y].pnl += r.net;
+  });
+
+  const byReason = {};
+  rows.forEach(r => {
+    byReason[r.t.exit_reason] ??= { count: 0, pnl: 0 };
+    byReason[r.t.exit_reason].count++;
+    byReason[r.t.exit_reason].pnl += r.net;
+  });
+
+  const first = trades[0], last = trades[trades.length - 1];
+  const years = first && last ? (last.exit_date - first.entry_date) / (365.25 * DAY) : NaN;
+  const annualizedReturn = (years > 0 && returnOnMargin > -1) ? Math.pow(1 + returnOnMargin, 1 / years) - 1 : NaN;
+
+  let best = null, worst = null;
+  rows.forEach(r => {
+    if (!best || r.net > best.net) best = r;
+    if (!worst || r.net < worst.net) worst = r;
+  });
+
+  return {
+    n, winRate, avgWin, avgLoss, profitFactor, winLossRatio, expectancy,
+    totalPnl, avgMargin, returnOnMargin, years, annualizedReturn,
+    equitySeries, ddSeries, maxDD, maxDDDays,
+    maxWinStreak, maxLossStreak, byYear, byReason,
+    best: best ? { ...best.t, pnl: best.net } : null,
+    worst: worst ? { ...worst.t, pnl: worst.net } : null,
+    firstDate: first ? first.entry_date : null, lastDate: last ? last.exit_date : null,
+    contracts, grossUsd, commissionUsd,
+  };
+}
+
+function fmtNum(v, d = 3) { return Number.isFinite(v) ? v.toFixed(d) : '—'; }
+function fmtUsd(v) { return Number.isFinite(v) ? (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '—'; }
+function fmtPct(v, d = 1) { return Number.isFinite(v) ? (v * 100).toFixed(d) + '%' : '—'; }
+function fmtDate(d) { return d instanceof Date && !isNaN(d) ? d.toISOString().slice(0, 10) : '—'; }
+function cls(v) { return v > 0 ? 'pos' : (v < 0 ? 'neg' : ''); }
+
+function render(name) {
+  const ds = datasets[name];
+  if (!ds) return;
+  document.getElementById('empty').style.display = 'none';
+  document.getElementById('report').style.display = 'block';
+  const contracts = parseInt(contractsSelect.value, 10) || 1;
+  const legsPerTrade = ds.trades.legsPerTrade;
+  const s = computeStats(ds.trades, contracts, legsPerTrade);
+  const commissionPerTrade = legsPerTrade * 2 * Math.max(IBKR_RATE * contracts, IBKR_MIN_PER_LEG);
+
+  const cards = [
+    ['交易次數', s.n, ''],
+    ['期間', `${fmtDate(s.firstDate)} ~ ${fmtDate(s.lastDate)}`, ''],
+    ['勝率(扣手續費後)', fmtPct(s.winRate), ''],
+    [`毛利(${contracts}口)`, fmtUsd(s.grossUsd), cls(s.grossUsd)],
+    ['IBKR手續費', fmtUsd(-s.commissionUsd), 'neg'],
+    [`淨損益(${contracts}口)`, fmtUsd(s.totalPnl), cls(s.totalPnl)],
+    ['初始保證金建議', fmtUsd(s.avgMargin), ''],
+    ['淨報酬率(對保證金)', fmtPct(s.returnOnMargin), cls(s.returnOnMargin)],
+    ['年化報酬率(概算)', fmtPct(s.annualizedReturn), cls(s.annualizedReturn)],
+    ['淨最大回撤', fmtUsd(s.maxDD), 'neg'],
+  ];
+  document.getElementById('statCards').innerHTML = cards.map(([label, value, c]) => `
+    <div class="card"><div class="label">${label}</div><div class="value ${c}">${value}</div></div>
+  `).join('');
+
+  document.getElementById('riskCards').innerHTML = [
+    ['單筆期望值(淨)', fmtUsd(s.expectancy), cls(s.expectancy)],
+    ['平均獲利(淨)', fmtUsd(s.avgWin), 'pos'],
+    ['平均虧損(淨)', fmtUsd(s.avgLoss), 'neg'],
+    ['盈虧比(平均獲利/|平均虧損|)', fmtNum(s.winLossRatio, 2), ''],
+    ['Profit Factor(總獲利/|總虧損|)', fmtNum(s.profitFactor, 2), ''],
+    ['平均保證金', fmtUsd(s.avgMargin), ''],
+    ['最大回撤持續天數', Math.round(s.maxDDDays) + ' 天', ''],
+    ['最大連續獲利', s.maxWinStreak + ' 筆', 'pos'],
+    ['最大連續虧損', s.maxLossStreak + ' 筆', 'neg'],
+    ['最佳單筆(淨)', s.best ? `${fmtUsd(s.best.pnl)} (${fmtDate(s.best.exit_date)})` : '—', 'pos'],
+    ['最差單筆(淨)', s.worst ? `${fmtUsd(s.worst.pnl)} (${fmtDate(s.worst.exit_date)})` : '—', 'neg'],
+  ].map(([label, value, c]) => `
+    <div class="card"><div class="label">${label}</div><div class="value ${c}" style="font-size:15px">${value}</div></div>
+  `).join('');
+
+  document.getElementById('eqBadge').textContent = fmtUsd(s.totalPnl);
+  document.getElementById('ddBadge').textContent = `MDD ${fmtUsd(s.maxDD)}`;
+
+  // buy-and-hold對照線：拿策略「平均保證金」當作同樣的投入資金，同一天買進標的、一路抱到底，
+  // 這樣兩條線才是同樣的資金水位在比，不是選擇權保證金的損益直接對比買一股的損益(基準不同、不公平)。
+  let buyHoldSeries = [];
+  if (benchmark && benchmark.series.length && s.firstDate && s.lastDate) {
+    const inRange = benchmark.series.filter(p => p.date >= s.firstDate && p.date <= s.lastDate);
+    if (inRange.length > 1) {
+      const S0 = inRange[0].close;
+      buyHoldSeries = inRange.map(p => ({ date: p.date, y: s.avgMargin * (p.close / S0 - 1) }));
+    }
+  }
+  const eqSeriesList = [{ data: s.equitySeries, color: '#2563eb', label: `策略(淨利，${contracts}口)` }];
+  if (buyHoldSeries.length) {
+    eqSeriesList.push({ data: buyHoldSeries, color: '#0f9d58', dashed: true,
+      label: `Buy&Hold ${benchmark.name.replace(/_.*$/, '')}(投入同樣資金${fmtUsd(s.avgMargin)})` });
+  }
+  drawChart('equityChart', 'eqTooltip', eqSeriesList, { zeroLine: true, legendId: 'eqLegend' });
+  drawChart('ddChart', 'ddTooltip', [{ data: s.ddSeries, color: '#d93025', fillDown: true, label: '回撤' }], { zeroLine: true });
+
+  const years = Object.keys(s.byYear).sort();
+  document.getElementById('yearlyTable').innerHTML = `
+    <thead><tr><th>年度</th><th>交易次數</th><th>勝率</th><th>淨損益</th></tr></thead>
+    <tbody>${years.map(y => {
+      const r = s.byYear[y];
+      return `<tr><td>${y}</td><td>${r.trades}</td><td>${fmtPct(r.wins / r.trades)}</td><td class="${cls(r.pnl)}">${fmtUsd(r.pnl)}</td></tr>`;
+    }).join('')}
+    <tr style="font-weight:600"><td>總計</td><td>${s.n}</td><td>${fmtPct(s.winRate)}</td><td class="${cls(s.totalPnl)}">${fmtUsd(s.totalPnl)}</td></tr>
+    </tbody>`;
+
+  const reasonLabel = {
+    dte: '到期天數觸發', profit_target: '停利觸發', stop_loss: '停損觸發',
+    stop_loss_roll: '停損滾動(單腳)', harvest_roll: '安全腳收割滾動',
+  };
+  document.getElementById('reasonTable').innerHTML = `
+    <thead><tr><th>出場原因</th><th>次數</th><th>佔比</th><th>淨損益</th></tr></thead>
+    <tbody>${Object.entries(s.byReason).map(([reason, r]) => `
+      <tr><td>${reasonLabel[reason] || reason}</td><td>${r.count}</td><td>${fmtPct(r.count / s.n)}</td><td class="${cls(r.pnl)}">${fmtUsd(r.pnl)}</td></tr>
+    `).join('')}
+    <tr style="font-weight:600"><td>總計</td><td>${s.n}</td><td>${fmtPct(1)}</td><td class="${cls(s.totalPnl)}">${fmtUsd(s.totalPnl)}</td></tr>
+    </tbody>`;
+
+  document.getElementById('streakTable').innerHTML = `
+    <tbody>
+      <tr><td>最大連續獲利次數</td><td class="pos">${s.maxWinStreak}</td></tr>
+      <tr><td>最大連續虧損次數</td><td class="neg">${s.maxLossStreak}</td></tr>
+    </tbody>`;
+
+  const isLeg = !!ds.trades.isLegSchema;
+  const netOf = t => t.pnl * CONTRACT_MULTIPLIER * contracts - commissionPerTrade;
+  const commissionHead = `<th>淨損益$(${contracts}口)</th>`;
+  const commissionCols = t => `<td class="${cls(netOf(t))}">${netOf(t).toFixed(2)}</td>`;
+  document.getElementById('tradesTable').innerHTML = isLeg ? `
+    <thead><tr>
+      <th>腳</th><th>進場</th><th>出場</th><th>短履約價</th><th>長履約價</th>
+      <th>收信用</th><th>平倉值</th><th>損益</th><th>保證金</th><th>出場原因</th>${commissionHead}
+    </tr></thead>
+    <tbody>${ds.trades.map(t => `
+      <tr>
+        <td>${t.side === 'put' ? 'put' : 'call'}</td>
+        <td>${fmtDate(t.entry_date)}</td><td>${fmtDate(t.exit_date)}</td>
+        <td>${t.K_short}</td><td>${t.K_long}</td>
+        <td>${fmtNum(t.entry_credit)}</td><td>${fmtNum(t.exit_value)}</td>
+        <td class="${cls(t.pnl)}">${fmtNum(t.pnl)}</td><td>${fmtNum(t.max_loss)}</td>
+        <td>${reasonLabel[t.exit_reason] || t.exit_reason}</td>${commissionCols(t)}
+      </tr>
+    `).join('')}</tbody>` : `
+    <thead><tr>
+      <th>進場</th><th>出場</th><th>短put</th><th>長put</th><th>短call</th><th>長call</th>
+      <th>收信用</th><th>平倉值</th><th>損益</th><th>保證金</th><th>出場原因</th>${commissionHead}
+    </tr></thead>
+    <tbody>${ds.trades.map(t => `
+      <tr>
+        <td>${fmtDate(t.entry_date)}</td><td>${fmtDate(t.exit_date)}</td>
+        <td>${t.short_put}</td><td>${t.long_put}</td><td>${t.short_call}</td><td>${t.long_call}</td>
+        <td>${fmtNum(t.entry_credit)}</td><td>${fmtNum(t.exit_value)}</td>
+        <td class="${cls(t.pnl)}">${fmtNum(t.pnl)}</td><td>${fmtNum(t.max_loss)}</td>
+        <td>${reasonLabel[t.exit_reason] || t.exit_reason}</td>${commissionCols(t)}
+      </tr>
+    `).join('')}</tbody>`;
+}
+
+// seriesList: [{data:[{date,y}], color, label, fillDown}]，可以疊多條線(策略淨值 vs buy-and-hold)。
+function drawChart(svgId, tooltipId, seriesList, { zeroLine, legendId } = {}) {
+  const svg = document.getElementById(svgId);
+  const tooltip = document.getElementById(tooltipId);
+  svg.innerHTML = '';
+  seriesList = seriesList.filter(s => s.data && s.data.length);
+  if (legendId) {
+    const legendEl = document.getElementById(legendId);
+    if (legendEl) {
+      legendEl.innerHTML = seriesList.map(s =>
+        `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:14px;font-size:12px;color:var(--muted)">
+          <span style="width:10px;height:10px;border-radius:50%;background:${s.color};display:inline-block"></span>${s.label}
+        </span>`
+      ).join('');
+    }
+  }
+  if (!seriesList.length) return;
+
+  const W = 800, H = 260, padL = 56, padR = 12, padT = 14, padB = 24;
+  const allPoints = seriesList.flatMap(s => s.data);
+  const xs = allPoints.map(p => p.date.getTime());
+  const ys = allPoints.map(p => p.y);
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  let yMin = Math.min(...ys, 0), yMax = Math.max(...ys, 0);
+  if (yMin === yMax) { yMin -= 1; yMax += 1; }
+  const xScale = t => padL + (t - xMin) / (xMax - xMin || 1) * (W - padL - padR);
+  const yScale = v => H - padB - (v - yMin) / (yMax - yMin || 1) * (H - padT - padB);
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const g = document.createElementNS(ns, 'g');
+
+  [yMax, 0, yMin].forEach(v => {
+    const y = yScale(v);
+    const line = document.createElementNS(ns, 'line');
+    line.setAttribute('x1', padL); line.setAttribute('x2', W - padR);
+    line.setAttribute('y1', y); line.setAttribute('y2', y);
+    line.setAttribute('stroke', v === 0 && zeroLine ? '#c3c9d4' : '#eef0f3');
+    line.setAttribute('stroke-width', '1');
+    g.appendChild(line);
+    const label = document.createElementNS(ns, 'text');
+    label.setAttribute('x', padL - 6); label.setAttribute('y', y + 4);
+    label.setAttribute('text-anchor', 'end'); label.setAttribute('font-size', '10');
+    label.setAttribute('fill', '#6b7280');
+    label.textContent = v.toFixed(0);
+    g.appendChild(label);
+  });
+
+  [{ t: xMin, i: 0 }, { t: xMax, i: 1 }].forEach(({ t, i }) => {
+    const label = document.createElementNS(ns, 'text');
+    label.setAttribute('x', xScale(t));
+    label.setAttribute('y', H - 6);
+    label.setAttribute('text-anchor', i === 0 ? 'start' : 'end');
+    label.setAttribute('font-size', '10');
+    label.setAttribute('fill', '#6b7280');
+    label.textContent = fmtDate(new Date(t));
+    g.appendChild(label);
+  });
+
+  seriesList.forEach(s => {
+    const data = s.data;
+    const pathD = data.map((p, i) => `${i === 0 ? 'M' : 'L'}${xScale(p.date.getTime())},${yScale(p.y)}`).join(' ');
+    if (s.fillDown) {
+      const areaD = `${pathD} L${xScale(data[data.length - 1].date.getTime())},${yScale(0)} L${xScale(data[0].date.getTime())},${yScale(0)} Z`;
+      const area = document.createElementNS(ns, 'path');
+      area.setAttribute('d', areaD);
+      area.setAttribute('fill', s.color);
+      area.setAttribute('opacity', '0.12');
+      g.appendChild(area);
+    }
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', pathD);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', s.color);
+    path.setAttribute('stroke-width', '1.6');
+    if (s.dashed) path.setAttribute('stroke-dasharray', '5,4');
+    g.appendChild(path);
+  });
+
+  svg.appendChild(g);
+
+  const markers = seriesList.map(s => {
+    const m = document.createElementNS(ns, 'circle');
+    m.setAttribute('r', '3.5'); m.setAttribute('fill', s.color); m.setAttribute('display', 'none');
+    svg.appendChild(m);
+    return m;
+  });
+  const vline = document.createElementNS(ns, 'line');
+  vline.setAttribute('y1', padT); vline.setAttribute('y2', H - padB);
+  vline.setAttribute('stroke', '#c3c9d4'); vline.setAttribute('stroke-width', '1');
+  vline.setAttribute('display', 'none');
+  svg.appendChild(vline);
+
+  const overlay = document.createElementNS(ns, 'rect');
+  overlay.setAttribute('x', padL); overlay.setAttribute('y', padT);
+  overlay.setAttribute('width', W - padL - padR); overlay.setAttribute('height', H - padT - padB);
+  overlay.setAttribute('fill', 'transparent');
+  overlay.addEventListener('mousemove', (evt) => {
+    const rect = svg.getBoundingClientRect();
+    const svgX = (evt.clientX - rect.left) / rect.width * W;
+    const t = xMin + (svgX - padL) / (W - padL - padR) * (xMax - xMin);
+    let anyPx = null, anyPy = null;
+    const lines = [];
+    seriesList.forEach((s, si) => {
+      let nearest = s.data[0], best = Infinity;
+      for (const p of s.data) {
+        const diff = Math.abs(p.date.getTime() - t);
+        if (diff < best) { best = diff; nearest = p; }
+      }
+      const px = xScale(nearest.date.getTime()), py = yScale(nearest.y);
+      markers[si].setAttribute('cx', px); markers[si].setAttribute('cy', py); markers[si].setAttribute('display', '');
+      lines.push(`${s.label} ${fmtDate(nearest.date)}  ${nearest.y.toFixed(0)}`);
+      anyPx = px; anyPy = py;
+    });
+    vline.setAttribute('x1', anyPx); vline.setAttribute('x2', anyPx); vline.setAttribute('display', '');
+    tooltip.style.display = 'block';
+    tooltip.style.left = (anyPx / W * rect.width) + 'px';
+    tooltip.style.top = (anyPy / H * rect.height) + 'px';
+    tooltip.innerHTML = lines.join('<br>');
+  });
+  overlay.addEventListener('mouseleave', () => {
+    markers.forEach(m => m.setAttribute('display', 'none'));
+    vline.setAttribute('display', 'none');
+    tooltip.style.display = 'none';
+  });
+  svg.appendChild(overlay);
+}
+</script>
+</body>
+</html>
