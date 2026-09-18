@@ -88,6 +88,7 @@ class Trade:
     pnl: float
     max_loss: float
     exit_reason: str
+    fill_mode: str  # "close"：只看收盤價(v1永遠是這個，沒實作掛價)；"intraday"：見 LegTrade 說明
     contracts: int
     pnl_usd: float           # pnl * CONTRACT_MULTIPLIER * contracts，換算成真實美元
     commission_usd: float    # 這一筆開倉+平倉共8腳次執行的IBKR手續費(combo每腳套用最低收費)
@@ -198,7 +199,7 @@ def run_backtest(df: pd.DataFrame, params: Params) -> tuple[list[Trade], pd.Seri
                 short_put=position["K_sp"], long_put=position["K_lp"],
                 short_call=position["K_sc"], long_call=position["K_lc"],
                 entry_credit=position["entry_credit"], exit_value=value_now,
-                pnl=floating_pnl, max_loss=max_loss, exit_reason=exit_reason,
+                pnl=floating_pnl, max_loss=max_loss, exit_reason=exit_reason, fill_mode="close",
                 contracts=params.contracts, pnl_usd=pnl_usd, commission_usd=commission_usd,
                 net_pnl_usd=pnl_usd - commission_usd,
             ))
@@ -224,6 +225,7 @@ class LegTrade:
     pnl: float
     max_loss: float
     exit_reason: str  # "dte" / "profit_target" / "stop_loss_roll" / "harvest_roll"
+    fill_mode: str  # "close"：停利/停損只看收盤價；"intraday"：見 _evaluate_exit 說明(params.intraday_fills)
     contracts: int
     pnl_usd: float           # pnl * CONTRACT_MULTIPLIER * contracts，換算成真實美元
     commission_usd: float    # 這一筆開倉+平倉共4腳次執行的IBKR手續費(combo每腳套用最低收費)
@@ -313,12 +315,14 @@ def run_backtest_rolling(df: pd.DataFrame, params: Params) -> tuple[list[LegTrad
         realized += floating
         pnl_usd = floating * CONTRACT_MULTIPLIER * params.contracts
         commission_usd = _round_trip_commission(2, params)  # 單邊價差單2腳(短腳+長腳)
+        # dte出場是行事曆決定的，不管 intraday_fills 開關，永遠只看收盤價(見 _evaluate_exit)。
+        fill_mode = "intraday" if (params.intraday_fills and reason != "dte") else "close"
         trades.append(LegTrade(
             side=name, entry_date=entry_date, exit_date=exit_date,
             K_short=side["K_short"], K_long=side["K_long"],
             entry_credit=side["entry_credit"], exit_value=value_now,
             pnl=floating, max_loss=side["width"] - side["entry_credit"], exit_reason=reason,
-            contracts=params.contracts, pnl_usd=pnl_usd, commission_usd=commission_usd,
+            fill_mode=fill_mode, contracts=params.contracts, pnl_usd=pnl_usd, commission_usd=commission_usd,
             net_pnl_usd=pnl_usd - commission_usd,
         ))
 

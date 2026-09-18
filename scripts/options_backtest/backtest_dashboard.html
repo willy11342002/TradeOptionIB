@@ -154,6 +154,7 @@
 
 <div id="report">
 
+  <div class="hint" id="fillModeHint" style="margin-bottom:10px"></div>
   <div class="grid" id="statCards"></div>
 
   <div class="panel">
@@ -304,6 +305,7 @@ function parseCSV(text) {
       pnl: parseFloat(cols[idx.pnl]),
       max_loss: parseFloat(cols[idx.max_loss]),
       exit_reason: cols[idx.exit_reason],
+      fill_mode: idx.fill_mode !== undefined ? cols[idx.fill_mode] : null, // 舊CSV(加這欄之前存的)沒有，null
     };
     if (isLegSchema) {
       base.side = cols[idx.side];
@@ -429,6 +431,17 @@ function render(name) {
   const legsPerTrade = ds.trades.legsPerTrade;
   const s = computeStats(ds.trades, contracts, legsPerTrade);
   const commissionPerTrade = legsPerTrade * 2 * Math.max(IBKR_RATE * contracts, IBKR_MIN_PER_LEG);
+
+  const fillModeHintEl = document.getElementById('fillModeHint');
+  if (ds.trades.some(t => t.fill_mode === null)) {
+    fillModeHintEl.textContent = '⚠️ 這份CSV是加 fill_mode 欄位之前存的，無法確認停利/停損是收盤價還是掛價成交，數字僅供參考。';
+  } else {
+    const intradayN = ds.trades.filter(t => t.fill_mode === 'intraday').length;
+    const closeN = ds.trades.length - intradayN;
+    fillModeHintEl.textContent = intradayN === 0
+      ? '停利/停損：全部只看收盤價(未開 --intraday-fills，或本來就是v1整組平倉，v1不支援掛價)'
+      : `停利/停損：${intradayN}筆掛價成交、${closeN}筆收盤價成交(到期/尚未觸價的出場一律用收盤價)`;
+  }
 
   const cards = [
     ['交易次數', s.n, ''],
