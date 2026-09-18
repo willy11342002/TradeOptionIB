@@ -50,26 +50,35 @@ def _download_with_retry(ticker: str, start: str, end: str, attempts: int = 4) -
 
 
 def _cached_download(ticker: str, start: str, end: str) -> pd.Series:
+    """只要收盤價(vix這類波動率指數用這個就夠)。"""
+    return _cached_download_ohlc(ticker, start, end)["close"]
+
+
+def _cached_download_ohlc(ticker: str, start: str, end: str) -> pd.DataFrame:
+    """開高低收都要，模擬盤中觸價用的(標的價格用這個)。"""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     safe_name = ticker.replace("^", "_")
-    cache_path = CACHE_DIR / f"{safe_name}_{start}_{end}.csv"
+    cache_path = CACHE_DIR / f"{safe_name}_{start}_{end}_ohlc.csv"
     if cache_path.exists():
-        cached = pd.read_csv(cache_path, index_col=0, parse_dates=True)
-        return cached["close"]
+        return pd.read_csv(cache_path, index_col=0, parse_dates=True)
 
     df = _download_with_retry(ticker, start, end)
 
-    close = df["Close"]
-    if isinstance(close, pd.DataFrame):  # 有些 yfinance 版本單一標的也會回 MultiIndex 欄位
-        close = close.iloc[:, 0]
-    close = close.rename("close")
+    out = pd.DataFrame(index=df.index)
+    for src_col, dst_col in (("Open", "open"), ("High", "high"), ("Low", "low"), ("Close", "close")):
+        col = df[src_col]
+        if isinstance(col, pd.DataFrame):  # 有些 yfinance 版本單一標的也會回 MultiIndex 欄位
+            col = col.iloc[:, 0]
+        out[dst_col] = col
 
-    close.to_frame().to_csv(cache_path)
-    return close
+    out.to_csv(cache_path)
+    return out
 
 
 def load_underlying_and_vix(ticker: str, start: str, end: str) -> pd.DataFrame:
-    """回傳以日期為 index 的 DataFrame，欄位: close(標的收盤價)、vix(當天隱含波動率指數，例如20.0代表20%)。"""
+    """回傳以日期為 index 的 DataFrame，欄位:
+    open/high/low/close(標的當天開高低收)、vix(當天隱含波動率指數收盤，例如20.0代表20%)。
+    vix 只用收盤，當天波動率視為常數(沒有VIX的盤中開高低資料，這是已知簡化)。"""
     vol_index = VOL_INDEX_MAP.get(ticker.upper())
     if vol_index is None:
         vol_index = "^VIX"
@@ -77,9 +86,11 @@ def load_underlying_and_vix(ticker: str, start: str, end: str) -> pd.DataFrame:
               f"如果 {ticker} 的真實波動率水位跟SPX差很多，回測結果會失真，"
               f"考慮在 VOL_INDEX_MAP 補上正確的對應指數。")
 
-    underlying = _cached_download(ticker, start, end)
+    underlying = _cached_download_ohlc(ticker, start, end)
     vix = _cached_download(vol_index, start, end)
 
-    out = pd.DataFrame({"close": underlying, "vix": vix}).dropna()
+    out = underlying.copy()
+    out["vix"] = vix
+    out = out.dropna()
     out = out.sort_index()
     return out
