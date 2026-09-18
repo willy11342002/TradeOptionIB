@@ -47,6 +47,8 @@ def main():
                          help="只有 --rolling 有效：停利/停損改用當天開高低價模擬盤中掛單被動成交"
                               "(沒跳空精準停在門檻價，跳空用開盤價)，不加這個旗標就跟以前一樣只看收盤價")
     parser.add_argument("--csv-out", default="", help="把逐筆交易紀錄存成csv，方便自己另外檢查")
+    parser.add_argument("--benchmark-csv-out", default="",
+                         help="把回測期間標的每日收盤價存成csv(date,close)，餵給dashboard畫buy-and-hold對照線")
     parser.add_argument("--contracts", default="1,5,10",
                          help="逗號分隔的口數清單，第一個數字是CSV裡每筆pnl_usd/commission_usd/net_pnl_usd用的口數，"
                               "全部數字都會列進毛利/手續費/淨利比較表，例如 1,5,10")
@@ -122,6 +124,10 @@ def main():
         import pandas as pd
         pd.DataFrame([t.__dict__ for t in trades]).to_csv(args.csv_out, index=False)
         print(f"\n已輸出逐筆交易紀錄: {args.csv_out}(每筆已含 pnl_usd/commission_usd/net_pnl_usd，{csv_contracts}口)")
+
+    if args.benchmark_csv_out:
+        df[["close"]].rename_axis("date").to_csv(args.benchmark_csv_out)
+        print(f"已輸出標的每日收盤價: {args.benchmark_csv_out}(給dashboard畫buy-and-hold對照線用)")
 
 
 if __name__ == "__main__":
