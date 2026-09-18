@@ -41,6 +41,14 @@ import pandas as pd
 
 from . import black_scholes as bs
 
+# IBKR Pro Fixed 美股選擇權費率(2026-09查的官方頁面，月交易量<=10,000口那一階):
+# USD 0.65/口，每筆訂單最低 USD 1.00——combo(多腳組合)單的這個最低收費是「每一腳分開算」，
+# 不是整張combo單只收一次，這是小口數時手續費佔比會突然暴增的主因。來源:
+# https://www.interactivebrokers.com/en/pricing/commissions-options.php
+IBKR_RATE_PER_CONTRACT = 0.65
+IBKR_MIN_PER_LEG = 1.00
+CONTRACT_MULTIPLIER = 100  # 美股選擇權1口=100股
+
 
 @dataclass
 class Params:
@@ -60,6 +68,11 @@ class Params:
     # 模擬「掛著停利/停損單，被動成交」——沒跳空的話假設剛好停在門檻價成交，跳空(開盤就已經
     # 越過門檻)的話用開盤價成交(跳空沒辦法要求精準價位)。False(預設)是舊版行為，只看收盤價。
     intraday_fills: bool = False
+    # 每筆交易的口數跟IBKR手續費費率，直接影響每一筆 Trade/LegTrade 存的 pnl_usd/commission_usd/
+    # net_pnl_usd——不用等到CSV存完才後製套用，CSV裡每一筆就已經扣好手續費了。
+    contracts: int = 1
+    commission_rate: float = IBKR_RATE_PER_CONTRACT
+    commission_min_per_leg: float = IBKR_MIN_PER_LEG
 
 
 @dataclass
@@ -75,6 +88,17 @@ class Trade:
     pnl: float
     max_loss: float
     exit_reason: str
+    contracts: int
+    pnl_usd: float           # pnl * CONTRACT_MULTIPLIER * contracts，換算成真實美元
+    commission_usd: float    # 這一筆開倉+平倉共8腳次執行的IBKR手續費(combo每腳套用最低收費)
+    net_pnl_usd: float       # pnl_usd - commission_usd，才是真正到手的淨損益
+
+
+def _round_trip_commission(legs_per_side: int, params: "Params") -> float:
+    """一筆交易開倉+平倉的總手續費：legs_per_side是單邊(開倉或平倉)牽涉幾腳
+    (整組iron condor=4，單腳滾動的價差=2)，每一腳都套用 max(rate*contracts, min_per_leg)。"""
+    per_leg_charge = max(params.commission_rate * params.contracts, params.commission_min_per_leg)
+    return legs_per_side * 2 * per_leg_charge
 
 
 def _find_strike(S: float, T: float, r: float, sigma: float, target_delta: float, right: str, strike_round: float) -> float:
@@ -167,12 +191,16 @@ def run_backtest(df: pd.DataFrame, params: Params) -> tuple[list[Trade], pd.Seri
 
         if exit_reason:
             realized += floating_pnl
+            pnl_usd = floating_pnl * CONTRACT_MULTIPLIER * params.contracts
+            commission_usd = _round_trip_commission(4, params)  # 整組iron condor單邊4腳
             trades.append(Trade(
                 entry_date=entry_date, exit_date=d,
                 short_put=position["K_sp"], long_put=position["K_lp"],
                 short_call=position["K_sc"], long_call=position["K_lc"],
                 entry_credit=position["entry_credit"], exit_value=value_now,
                 pnl=floating_pnl, max_loss=max_loss, exit_reason=exit_reason,
+                contracts=params.contracts, pnl_usd=pnl_usd, commission_usd=commission_usd,
+                net_pnl_usd=pnl_usd - commission_usd,
             ))
             position = None
             entry_date = None
@@ -196,6 +224,10 @@ class LegTrade:
     pnl: float
     max_loss: float
     exit_reason: str  # "dte" / "profit_target" / "stop_loss_roll" / "harvest_roll"
+    contracts: int
+    pnl_usd: float           # pnl * CONTRACT_MULTIPLIER * contracts，換算成真實美元
+    commission_usd: float    # 這一筆開倉+平倉共4腳次執行的IBKR手續費(combo每腳套用最低收費)
+    net_pnl_usd: float       # pnl_usd - commission_usd，才是真正到手的淨損益
 
 
 def _open_side(S: float, sigma: float, right: str, params: Params) -> dict:
@@ -279,11 +311,15 @@ def run_backtest_rolling(df: pd.DataFrame, params: Params) -> tuple[list[LegTrad
     def close_and_log(name: str, side: dict, entry_date, exit_date, value_now: float, floating: float, reason: str):
         nonlocal realized
         realized += floating
+        pnl_usd = floating * CONTRACT_MULTIPLIER * params.contracts
+        commission_usd = _round_trip_commission(2, params)  # 單邊價差單2腳(短腳+長腳)
         trades.append(LegTrade(
             side=name, entry_date=entry_date, exit_date=exit_date,
             K_short=side["K_short"], K_long=side["K_long"],
             entry_credit=side["entry_credit"], exit_value=value_now,
             pnl=floating, max_loss=side["width"] - side["entry_credit"], exit_reason=reason,
+            contracts=params.contracts, pnl_usd=pnl_usd, commission_usd=commission_usd,
+            net_pnl_usd=pnl_usd - commission_usd,
         ))
 
     for d in df.index:
@@ -349,15 +385,6 @@ def max_drawdown(equity: pd.Series) -> float:
     return float(drawdown.min())
 
 
-# IBKR Pro Fixed 美股選擇權費率(2026-09查的官方頁面，月交易量<=10,000口那一階):
-# USD 0.65/口，每筆訂單最低 USD 1.00——combo(多腳組合)單的這個最低收費是「每一腳分開算」，
-# 不是整張combo單只收一次，這是小口數時手續費佔比會突然暴增的主因。來源:
-# https://www.interactivebrokers.com/en/pricing/commissions-options.php
-IBKR_RATE_PER_CONTRACT = 0.65
-IBKR_MIN_PER_LEG = 1.00
-CONTRACT_MULTIPLIER = 100  # 美股選擇權1口=100股
-
-
 def commission_for_trades(n_trades: int, legs_per_trade: int, contracts: int,
                            rate_per_contract: float = IBKR_RATE_PER_CONTRACT,
                            min_per_leg: float = IBKR_MIN_PER_LEG) -> float:
@@ -399,6 +426,9 @@ def summarize(trades: list[Trade]) -> dict:
     total_pnl = sum(t.pnl for t in trades)
     avg_margin = sum(t.max_loss for t in trades) / n
     worst = min(trades, key=lambda t: t.pnl)
+    gross_usd = sum(t.pnl_usd for t in trades)
+    commission_usd = sum(t.commission_usd for t in trades)
+    net_usd = sum(t.net_pnl_usd for t in trades)
     return {
         "trades": n,
         "win_rate": win_rate,
@@ -409,4 +439,9 @@ def summarize(trades: list[Trade]) -> dict:
         "avg_margin": avg_margin,
         "return_on_margin": (total_pnl / avg_margin) if avg_margin else float("nan"),
         "worst_trade": worst,
+        "contracts": trades[0].contracts,
+        "gross_usd": gross_usd,
+        "commission_usd": commission_usd,
+        "net_usd": net_usd,
+        "commission_drag_pct": (commission_usd / gross_usd) if gross_usd else float("nan"),
     }

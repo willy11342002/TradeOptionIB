@@ -45,7 +45,9 @@ def main():
                          help="只有 --rolling 有效：停利/停損改用當天開高低價模擬盤中掛單被動成交"
                               "(沒跳空精準停在門檻價，跳空用開盤價)，不加這個旗標就跟以前一樣只看收盤價")
     parser.add_argument("--csv-out", default="", help="把逐筆交易紀錄存成csv，方便自己另外檢查")
-    parser.add_argument("--contracts", default="1,3,5,10", help="逗號分隔的口數清單，算IBKR手續費扣完的淨利，例如 1,3,5,10")
+    parser.add_argument("--contracts", default="1,3,5,10",
+                         help="逗號分隔的口數清單，第一個數字是CSV裡每筆pnl_usd/commission_usd/net_pnl_usd用的口數，"
+                              "全部數字都會列進結尾的毛利/手續費/淨利比較表，例如 1,3,5,10")
     parser.add_argument("--commission-rate", type=float, default=engine.IBKR_RATE_PER_CONTRACT,
                          help="每口每腳手續費(美元)，預設IBKR Pro Fixed <=10,000口那一階的0.65")
     parser.add_argument("--commission-min", type=float, default=engine.IBKR_MIN_PER_LEG,
@@ -54,6 +56,9 @@ def main():
 
     if args.intraday_fills and not args.rolling:
         print("[警告] --intraday-fills 只有 --rolling 有效，v1(整組平倉)目前還是只看收盤價，這個旗標會被忽略。")
+
+    contract_list = [int(x) for x in args.contracts.split(",")]
+    csv_contracts = contract_list[0]  # 每筆Trade/LegTrade裡的pnl_usd/commission_usd用這個口數算
 
     df = data.load_underlying_and_vix(args.ticker, args.start, args.end)
     params = engine.Params(
@@ -66,6 +71,9 @@ def main():
         risk_free_rate=args.risk_free_rate,
         harvest_threshold_pct=args.harvest_threshold_pct,
         intraday_fills=args.intraday_fills,
+        contracts=csv_contracts,
+        commission_rate=args.commission_rate,
+        commission_min_per_leg=args.commission_min,
     )
     if args.rolling:
         trades, equity = engine.run_backtest_rolling(df, params)
@@ -91,6 +99,9 @@ def main():
     print(f"平均保證金(最大虧損): {stats['avg_margin']:.3f}")
     print(f"總報酬率(對平均保證金): {stats['return_on_margin']:.1%}")
     print(f"最大回撤(逐日mark-to-market權益曲線): {engine.max_drawdown(equity):.3f}")
+    print(f"[{csv_contracts}口] 毛利=${stats['gross_usd']:,.0f}  手續費=${stats['commission_usd']:,.0f}"
+          f"({stats['commission_drag_pct']:.1%})  淨利=${stats['net_usd']:,.0f}"
+          f"  ← CSV裡每一筆的 pnl_usd/commission_usd/net_pnl_usd 都是這個口數算的")
 
     worst = stats["worst_trade"]
     print(f"最慘的一筆: {worst.entry_date.date()} ~ {worst.exit_date.date()}  "
@@ -112,17 +123,18 @@ def main():
             print(f"收割滾動平均每次多收: {sum(t.pnl for t in harvests) / len(harvests):.3f}")
 
     legs_per_trade = 2 if args.rolling else 4
-    print(f"\n=== 扣除IBKR手續費後的淨利(每腳${args.commission_rate:.2f}/口，combo每腳最低${args.commission_min:.2f}) ===")
+    print(f"\n=== 不同口數的毛利/手續費/淨利比較(每腳${args.commission_rate:.2f}/口，combo每腳最低${args.commission_min:.2f}) ===")
     print(f"{'口數':>6} {'毛利':>14} {'手續費':>12} {'手續費佔比':>10} {'淨利':>14}")
-    for c in [int(x) for x in args.contracts.split(",")]:
+    for c in contract_list:
         ns = engine.net_summary(trades, legs_per_trade, c, args.commission_rate, args.commission_min)
+        marker = " ← CSV用這個口數" if c == csv_contracts else ""
         print(f"{ns['contracts']:>5}口 ${ns['gross_usd']:>12,.0f} ${ns['commission_usd']:>10,.0f} "
-              f"{ns['commission_drag_pct']:>9.1%} ${ns['net_usd']:>12,.0f}")
+              f"{ns['commission_drag_pct']:>9.1%} ${ns['net_usd']:>12,.0f}{marker}")
 
     if args.csv_out:
         import pandas as pd
         pd.DataFrame([t.__dict__ for t in trades]).to_csv(args.csv_out, index=False)
-        print(f"\n已輸出逐筆交易紀錄: {args.csv_out}")
+        print(f"\n已輸出逐筆交易紀錄: {args.csv_out}(每筆已含 pnl_usd/commission_usd/net_pnl_usd，{csv_contracts}口)")
 
 
 if __name__ == "__main__":
