@@ -395,15 +395,29 @@ def commission_for_trades(n_trades: int, legs_per_trade: int, contracts: int,
     return n_trades * legs_per_trade * 2 * per_leg_charge
 
 
+def net_equity_curve(trades: list, legs_per_trade: int, contracts: int,
+                      rate_per_contract: float = IBKR_RATE_PER_CONTRACT,
+                      min_per_leg: float = IBKR_MIN_PER_LEG) -> pd.Series:
+    """依出場日期排序，逐筆累加「扣掉IBKR手續費後」的美元損益，做成淨值曲線——
+    可以直接丟給 max_drawdown()，量出來的回撤才是真正會發生在帳戶上的回撤，
+    不是只看選擇權理論價格、完全沒算交易成本的回撤。"""
+    commission_per_trade = legs_per_trade * 2 * max(rate_per_contract * contracts, min_per_leg)
+    ordered = sorted(trades, key=lambda t: t.exit_date)
+    net = [t.pnl * CONTRACT_MULTIPLIER * contracts - commission_per_trade for t in ordered]
+    return pd.Series(net, index=pd.DatetimeIndex([t.exit_date for t in ordered])).cumsum()
+
+
 def net_summary(trades: list, legs_per_trade: int, contracts: int,
                  rate_per_contract: float = IBKR_RATE_PER_CONTRACT,
                  min_per_leg: float = IBKR_MIN_PER_LEG) -> dict:
     """把 summarize() 的每股權利金單位換算成美元(乘 CONTRACT_MULTIPLIER * contracts)，
-    扣掉 IBKR combo 手續費，回傳含毛利/手續費/淨利的完整數字。"""
+    扣掉 IBKR combo 手續費，回傳含毛利/手續費/淨利/淨報酬率/淨最大回撤的完整數字。"""
     gross_pnl_per_share = sum(t.pnl for t in trades)
     gross_usd = gross_pnl_per_share * CONTRACT_MULTIPLIER * contracts
     commission_usd = commission_for_trades(len(trades), legs_per_trade, contracts, rate_per_contract, min_per_leg)
     net_usd = gross_usd - commission_usd
+    avg_margin_usd = (sum(t.max_loss for t in trades) / len(trades)) * CONTRACT_MULTIPLIER * contracts
+    net_curve = net_equity_curve(trades, legs_per_trade, contracts, rate_per_contract, min_per_leg)
     return {
         "contracts": contracts,
         "n_trades": len(trades),
@@ -411,6 +425,8 @@ def net_summary(trades: list, legs_per_trade: int, contracts: int,
         "commission_usd": commission_usd,
         "net_usd": net_usd,
         "commission_drag_pct": (commission_usd / gross_usd) if gross_usd else float("nan"),
+        "net_return_on_margin": (net_usd / avg_margin_usd) if avg_margin_usd else float("nan"),
+        "net_max_drawdown_usd": max_drawdown(net_curve),
     }
 
 

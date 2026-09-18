@@ -13,9 +13,11 @@
     uv run python -m scripts.options_backtest.run --ticker SPY --rolling --intraday-fills
         (--intraday-fills: 只有搭配 --rolling 才有效，停利/停損改用當天開高低價
          模擬盤中掛單被動成交，沒跳空就精準停在門檻價，跳空就用開盤價，見 engine.py)
-    uv run python -m scripts.options_backtest.run --ticker SPY --rolling --intraday-fills --contracts 1,3,5,10
-        (輸出結尾會列出扣掉IBKR手續費後，不同口數各自的毛利/手續費/淨利——
+    uv run python -m scripts.options_backtest.run --ticker SPY --rolling --intraday-fills --contracts 1,5,10
+        (毛利/手續費/淨利/淨報酬率/淨最大回撤，每個口數各一行——
          combo多腳單的最低收費是每一腳分開算，小口數時手續費佔比會遠高於大口數)
+    uv run python -m scripts.options_backtest.run --ticker SPY --rolling --intraday-fills --verbose
+        (--verbose 才印勝率/盈虧比/最慘交易這些細節，預設只印精簡的口數比較表)
 """
 from __future__ import annotations
 
@@ -45,13 +47,14 @@ def main():
                          help="只有 --rolling 有效：停利/停損改用當天開高低價模擬盤中掛單被動成交"
                               "(沒跳空精準停在門檻價，跳空用開盤價)，不加這個旗標就跟以前一樣只看收盤價")
     parser.add_argument("--csv-out", default="", help="把逐筆交易紀錄存成csv，方便自己另外檢查")
-    parser.add_argument("--contracts", default="1,3,5,10",
+    parser.add_argument("--contracts", default="1,5,10",
                          help="逗號分隔的口數清單，第一個數字是CSV裡每筆pnl_usd/commission_usd/net_pnl_usd用的口數，"
-                              "全部數字都會列進結尾的毛利/手續費/淨利比較表，例如 1,3,5,10")
+                              "全部數字都會列進毛利/手續費/淨利比較表，例如 1,5,10")
     parser.add_argument("--commission-rate", type=float, default=engine.IBKR_RATE_PER_CONTRACT,
                          help="每口每腳手續費(美元)，預設IBKR Pro Fixed <=10,000口那一階的0.65")
     parser.add_argument("--commission-min", type=float, default=engine.IBKR_MIN_PER_LEG,
                          help="combo單每一腳的最低收費(美元)，預設IBKR的1.00")
+    parser.add_argument("--verbose", action="store_true", help="印出勝率/盈虧比/最慘交易/滾動次數等細節，預設不印")
     args = parser.parse_args()
 
     if args.intraday_fills and not args.rolling:
@@ -82,54 +85,38 @@ def main():
     stats = engine.summarize(trades)
 
     mode = ('單腳滾動' if args.rolling else '整組平倉(v1)') + ('+盤中觸價' if (args.rolling and args.intraday_fills) else '')
-    print(f"標的: {args.ticker}  期間: {args.start} ~ {args.end}  資料筆數: {len(df)}  模式: {mode}")
-    print(f"進場DTE={params.entry_dte}  出場DTE={params.exit_dte}  短腳delta={params.target_delta}  "
-          f"寬度%={params.width_pct}  停利={params.profit_target_pct:.0%}  停損倍數={params.stop_loss_multiple}"
-          + (f"  收割門檻={params.harvest_threshold_pct:.0%}" if args.rolling else ""))
-    print("-" * 70)
+    print(f"{args.ticker}  {args.start}~{args.end}  {mode}  {stats['trades']}筆  勝率{stats['win_rate']:.1%}")
     if not trades:
         print("沒有任何交易，檢查資料範圍或參數是否合理。")
         return
 
-    print(f"交易次數: {stats['trades']}")
-    print(f"勝率: {stats['win_rate']:.1%}")
-    print(f"平均獲利: {stats['avg_win']:.3f}   平均虧損: {stats['avg_loss']:.3f}")
-    print(f"單筆期望值: {stats['expectancy']:.3f}")
-    print(f"總損益(選擇權價格單位，未乘合約乘數): {stats['total_pnl']:.3f}")
-    print(f"平均保證金(最大虧損): {stats['avg_margin']:.3f}")
-    print(f"總報酬率(對平均保證金): {stats['return_on_margin']:.1%}")
-    print(f"最大回撤(逐日mark-to-market權益曲線): {engine.max_drawdown(equity):.3f}")
-    print(f"[{csv_contracts}口] 毛利=${stats['gross_usd']:,.0f}  手續費=${stats['commission_usd']:,.0f}"
-          f"({stats['commission_drag_pct']:.1%})  淨利=${stats['net_usd']:,.0f}"
-          f"  ← CSV裡每一筆的 pnl_usd/commission_usd/net_pnl_usd 都是這個口數算的")
-
-    worst = stats["worst_trade"]
-    print(f"最慘的一筆: {worst.entry_date.date()} ~ {worst.exit_date.date()}  "
-          f"pnl={worst.pnl:.3f}  reason={worst.exit_reason}")
-
-    stop_reason = "stop_loss_roll" if args.rolling else "stop_loss"
-    stop_losses = [t for t in trades if t.exit_reason == stop_reason]
-    if stop_losses:
-        worst5 = sorted(stop_losses, key=lambda t: t.pnl)[:5]
-        print(f"\n觸發{'滾動' if args.rolling else '停損'}的交易裡最慘的5筆(可以拿日期去對照2018/2/2020/3這類尾部事件):")
-        for t in worst5:
-            side = f"[{t.side}] " if args.rolling else ""
-            print(f"  {side}{t.entry_date.date()} ~ {t.exit_date.date()}  pnl={t.pnl:.3f}")
-
-    if args.rolling:
-        harvests = [t for t in trades if t.exit_reason == "harvest_roll"]
-        print(f"\n被測試腳滾動次數: {len(stop_losses)}   安全腳收割滾動次數: {len(harvests)}")
-        if harvests:
-            print(f"收割滾動平均每次多收: {sum(t.pnl for t in harvests) / len(harvests):.3f}")
-
     legs_per_trade = 2 if args.rolling else 4
-    print(f"\n=== 不同口數的毛利/手續費/淨利比較(每腳${args.commission_rate:.2f}/口，combo每腳最低${args.commission_min:.2f}) ===")
-    print(f"{'口數':>6} {'毛利':>14} {'手續費':>12} {'手續費佔比':>10} {'淨利':>14}")
+    print(f"\n{'口數':>4} {'毛利':>12} {'手續費':>10} {'淨利':>12} {'淨報酬率':>9} {'淨最大回撤':>11}")
     for c in contract_list:
         ns = engine.net_summary(trades, legs_per_trade, c, args.commission_rate, args.commission_min)
-        marker = " ← CSV用這個口數" if c == csv_contracts else ""
-        print(f"{ns['contracts']:>5}口 ${ns['gross_usd']:>12,.0f} ${ns['commission_usd']:>10,.0f} "
-              f"{ns['commission_drag_pct']:>9.1%} ${ns['net_usd']:>12,.0f}{marker}")
+        marker = " ←CSV" if c == csv_contracts else ""
+        print(f"{ns['contracts']:>3}口 ${ns['gross_usd']:>10,.0f} ${ns['commission_usd']:>8,.0f} "
+              f"${ns['net_usd']:>10,.0f} {ns['net_return_on_margin']:>8.1%} ${ns['net_max_drawdown_usd']:>9,.0f}{marker}")
+
+    if args.verbose:
+        print(f"\n平均獲利: {stats['avg_win']:.3f}   平均虧損: {stats['avg_loss']:.3f}   單筆期望值(每股): {stats['expectancy']:.3f}")
+        worst = stats["worst_trade"]
+        print(f"最慘的一筆: {worst.entry_date.date()} ~ {worst.exit_date.date()}  pnl={worst.pnl:.3f}  reason={worst.exit_reason}")
+
+        stop_reason = "stop_loss_roll" if args.rolling else "stop_loss"
+        stop_losses = [t for t in trades if t.exit_reason == stop_reason]
+        if stop_losses:
+            worst5 = sorted(stop_losses, key=lambda t: t.pnl)[:5]
+            print(f"\n觸發{'滾動' if args.rolling else '停損'}最慘的5筆:")
+            for t in worst5:
+                side = f"[{t.side}] " if args.rolling else ""
+                print(f"  {side}{t.entry_date.date()} ~ {t.exit_date.date()}  pnl={t.pnl:.3f}")
+
+        if args.rolling:
+            harvests = [t for t in trades if t.exit_reason == "harvest_roll"]
+            print(f"\n被測試腳滾動次數: {len(stop_losses)}   安全腳收割滾動次數: {len(harvests)}")
+            if harvests:
+                print(f"收割滾動平均每次多收: {sum(t.pnl for t in harvests) / len(harvests):.3f}")
 
     if args.csv_out:
         import pandas as pd
