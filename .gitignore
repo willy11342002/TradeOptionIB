@@ -37,3 +37,7 @@ logs/
 # docker-compose.yml::TWS_SETTINGS_PATH 掛的 volume，存 IB Gateway 使用
 # 者設定(ibg.xml，含 Read-Only API 勾選狀態)，帳戶專屬、本機才有意義。
 ib_gateway_settings/
+
+# scripts/options_backtest 從 yfinance 抓下來的歷史價格/VIX 快取，本機
+# 重跑省時間用，隨時可以重新下載，不需要進版控。
+scripts/options_backtest/.cache/
