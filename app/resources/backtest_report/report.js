@@ -94,12 +94,17 @@ const IBKR_RATE = 0.65;
 const IBKR_MIN_PER_LEG = 1.00;
 const CONTRACT_MULTIPLIER = 100;
 
-// 所有數字都是「扣掉IBKR手續費之後」算的：pnl/max_loss 是CSV裡的每股單位，乘
+// 一列 = 一邊：價差 2 腳(短+長)、裸賣 1 腳(K_long 是 null)，開倉+平倉各一次，每腳套用最低收費。
+function commissionOf(t, contracts) {
+  const legs = t.K_long == null ? 1 : 2;
+  return legs * 2 * Math.max(IBKR_RATE * contracts, IBKR_MIN_PER_LEG);
+}
+
+// 所有數字都是「扣掉IBKR手續費之後」算的：pnl/margin 是每股單位，乘
 // CONTRACT_MULTIPLIER*contracts換算成美元，再扣掉每筆開倉+平倉的手續費。commission
-// 不依賴CSV裡是否存過pnl_usd欄位，即時算，口數選單才能馬上切換重算整份報表。
-function computeStats(trades, contracts, legsPerTrade) {
-  const commissionPerTrade = legsPerTrade * 2 * Math.max(IBKR_RATE * contracts, IBKR_MIN_PER_LEG);
-  const rows = trades.map(t => ({ t, net: t.pnl * CONTRACT_MULTIPLIER * contracts - commissionPerTrade }));
+// 不依賴存檔裡的pnl_usd欄位，即時算，口數選單才能馬上切換重算整份報表。
+function computeStats(trades, contracts) {
+  const rows = trades.map(t => ({ t, net: t.pnl * CONTRACT_MULTIPLIER * contracts - commissionOf(t, contracts) }));
   const n = rows.length;
   const wins = rows.filter(r => r.net > 0);
   const losses = rows.filter(r => r.net <= 0);
@@ -113,12 +118,10 @@ function computeStats(trades, contracts, legsPerTrade) {
   const expectancy = winRate * avgWin + (1 - winRate) * avgLoss;
   const totalPnl = sum(rows.map(r => r.net));           // 淨損益(已扣手續費)
   const grossUsd = sum(trades.map(t => t.pnl * CONTRACT_MULTIPLIER * contracts));
-  const commissionUsd = commissionPerTrade * n;
-  const avgMargin = avg(trades.map(t => t.max_loss)) * CONTRACT_MULTIPLIER * contracts;
-  // 保證金說明用的分項(每股)：max_loss = 價差寬度 - 收到權利金，所以平均值也滿足 avgMaxLoss = avgWidth - avgCredit。
-  const avgWidth = avg(trades.map(t => Math.abs(t.K_short - t.K_long)));
-  const avgCredit = avg(trades.map(t => t.entry_credit));
-  const peakMargin = trades.length ? Math.max(...trades.map(t => t.max_loss)) * CONTRACT_MULTIPLIER * contracts : 0;
+  const commissionUsd = sum(trades.map(t => commissionOf(t, contracts)));
+  // t.margin 是每一列開倉當下「整組同時持有的部位」的每股保證金(引擎算的，見 engine.position_margin)。
+  const avgMargin = avg(trades.map(t => t.margin)) * CONTRACT_MULTIPLIER * contracts;
+  const peakMargin = trades.length ? Math.max(...trades.map(t => t.margin)) * CONTRACT_MULTIPLIER * contracts : 0;
   const returnOnMargin = avgMargin ? totalPnl / avgMargin : NaN;
 
   let cum = 0;
@@ -169,7 +172,7 @@ function computeStats(trades, contracts, legsPerTrade) {
 
   return {
     n, winRate, avgWin, avgLoss, profitFactor, winLossRatio, expectancy,
-    totalPnl, avgMargin, avgWidth, avgCredit, peakMargin, returnOnMargin, years, annualizedReturn,
+    totalPnl, avgMargin, peakMargin, returnOnMargin, years, annualizedReturn,
     equitySeries, ddSeries, maxDD, maxDDDays,
     maxWinStreak, maxLossStreak, byYear, byReason,
     best: best ? { ...best.t, pnl: best.net } : null,
@@ -197,9 +200,7 @@ function render(id) {
   $('empty').style.display = 'none';
   $('report').style.display = 'block';
   const contracts = parseInt($('contractsSelect').value, 10) || 1;
-  const legsPerTrade = 2;   // 一列 = 一個單邊價差(短腳+長腳)
-  const s = computeStats(trades, contracts, legsPerTrade);
-  const commissionPerTrade = legsPerTrade * 2 * Math.max(IBKR_RATE * contracts, IBKR_MIN_PER_LEG);
+  const s = computeStats(trades, contracts);
 
   $('runInfo').textContent = `${run.name} · ${run.ticker} · ${run.start} ~ ${run.end}`;
   $('strategyDesc').innerHTML = (run.description || []).map(l => `<div class="desc-line">${escapeHtml(l)}</div>`).join('');
@@ -225,19 +226,19 @@ function render(id) {
     <div class="card"><div class="label">${label}</div><div class="value ${c}">${value}</div></div>
   `).join('');
 
-  // 初始保證金建議的公式說明：帶入這次回測實際的平均數字，讓使用者看得到數字怎麼來的。
-  const per = v => '$' + v.toFixed(2);
-  const condorMargin = Math.max(s.avgWidth - 2 * s.avgCredit, 0) * CONTRACT_MULTIPLIER * contracts;
+  // 初始保證金建議的公式說明。數字本身是引擎逐列算好存進去的(t.margin)，這裡只解釋算法。
   $('marginNote').innerHTML = `
-    <b>初始保證金建議</b> = 平均(價差寬度 − 收到權利金) × ${CONTRACT_MULTIPLIER} 股 × ${contracts} 口<br>
-    本次：平均寬度 ${per(s.avgWidth)} − 平均收到權利金 ${per(s.avgCredit)} = 平均最大虧損 ${per(s.avgWidth - s.avgCredit)}／股
-    → × ${CONTRACT_MULTIPLIER} × ${contracts} = <b>${fmtUsd(s.avgMargin)}</b><br>
-    • 為什麼是這個數字：賣出一個價差(賣短腳、買長腳)，最壞情況是到期時標的越過長腳，虧損上限 = 寬度 − 收到的權利金，
-    這個上限就是券商要預留的保證金。<br>
-    • 這是「一個單邊價差」的平均值(報表一列 = 一邊)，不是最大值；本次單邊價差最大的上限是 ${fmtUsd(s.peakMargin)}。<br>
-    • 一組 Iron Condor 的 put 邊、call 邊不會同時虧到上限。一般 Reg T 規則是取較寬一邊的寬度、扣掉兩邊合計的權利金，
-    照這次的平均數字約 ${fmtUsd(condorMargin)}(= (平均寬度 − 2 × 平均權利金) × ${CONTRACT_MULTIPLIER} × ${contracts})，
-    比上面的建議值低；建議值刻意取較保守的單邊算法。實際保證金要求以 IBKR 帳戶顯示為準。<br>
+    <b>初始保證金建議</b> = 平均(每列開倉當下「整組同時持有的部位」的每股保證金) × ${CONTRACT_MULTIPLIER} 股 × ${contracts} 口
+    = <b>${fmtUsd(s.avgMargin)}</b>；本次單列最大 ${fmtUsd(s.peakMargin)}。<br>
+    • 這是簡化的 Reg-T 估算，用開倉當天的現價，之後不隨價格變動重算；實際保證金要求以 IBKR 帳戶顯示為準。<br>
+    • 價差邊的需求 = 價差寬度；裸賣邊的需求 = max(20% × 現價 − 價外距離, 10% × 參考價) + 該邊權利金
+    (參考價：put 用履約價、call 用現價)。<br>
+    • put 邊、call 邊不會同時虧損(現價只會越過其中一邊)，所以整組只取需求最大的那一邊，不是兩邊相加；
+    另一邊如果是裸賣，再加上它的權利金(裸雙賣的 Reg-T 算法)；最後扣掉整組收到的全部權利金。<br>
+    • Iron Condor 化簡後 = 較寬的寬度 − 兩邊權利金合計；裸雙賣 = 兩邊裸賣需求較大的那一個。
+    Jade Lizard/Twisted Sister 是上述規則的混合。<br>
+    • 同一天同時開的兩邊(兩列)共用同一個整組數字；只剩一邊持有時，就只算那一邊。<br>
+    • 裸賣沒有虧損上限，這個保證金只是資金占用的估計，不是最大虧損。<br>
     • 「淨報酬率(對保證金)」和「年化報酬率」都是拿這個建議值當分母。`;
 
   $('riskCards').innerHTML = [
@@ -305,7 +306,7 @@ function render(id) {
       <tr><td>最大連續虧損次數</td><td class="neg">${s.maxLossStreak}</td></tr>
     </tbody>`;
 
-  const netOf = t => t.pnl * CONTRACT_MULTIPLIER * contracts - commissionPerTrade;
+  const netOf = t => t.pnl * CONTRACT_MULTIPLIER * contracts - commissionOf(t, contracts);
   $('tradesTable').innerHTML = `
     <thead><tr>
       <th>腳</th><th>進場</th><th>出場</th><th>短履約價</th><th>長履約價</th>
@@ -315,9 +316,9 @@ function render(id) {
       <tr>
         <td>${t.side}</td>
         <td>${fmtDate(t.entry_date)}</td><td>${fmtDate(t.exit_date)}</td>
-        <td>${t.K_short}</td><td>${t.K_long}</td>
+        <td>${t.K_short}</td><td>${t.K_long ?? '—'}</td>
         <td>${fmtNum(t.entry_credit)}</td><td>${fmtNum(t.exit_value)}</td>
-        <td class="${cls(t.pnl)}">${fmtNum(t.pnl)}</td><td>${fmtNum(t.max_loss)}</td>
+        <td class="${cls(t.pnl)}">${fmtNum(t.pnl)}</td><td>${fmtNum(t.margin, 2)}</td>
         <td>${reasonLabel[t.exit_reason] || t.exit_reason}</td>
         <td>${t.fill_mode === 'intraday' ? '盤中' : '收盤'}</td>
         <td class="${cls(netOf(t))}">${netOf(t).toFixed(2)}</td>
