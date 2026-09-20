@@ -7,7 +7,7 @@ web_order_book_widgets.py 開頭的說明)。下單面板/委託簿裡各自嵌�
 數學)。部位(`web_position_widgets.py`)含分組顯示/現價浮動損益/分組管
 理，以及自動平倉(停利/停損規則引擎，`web_auto_close_dialog.py`)。股票
 篩選器(`web_screener_widget.py`)含 AI 條件建議/AI 選掃描代碼/自選清
-單。原本的 PyQt5+qasync 桌面版(`pyqt.py`)已經整支刪除，這裡是唯一的進
+單。回測(`web_backtest_dialog.py`)是標題列獨立按鈕，不依賴 IB 連線。原本的 PyQt5+qasync 桌面版(`pyqt.py`)已經整支刪除，這裡是唯一的進
 入點。
 
 架在 FastAPI/uvicorn 上，本來就是純 asyncio，不需要「Qt 事件迴圈兼
@@ -59,7 +59,8 @@ from app.models.order_book import OrderBookManager  # noqa: E402
 from app.models.positions import PositionManager  # noqa: E402
 from app.services import ib_prefs, web_theme  # noqa: E402
 from app.views import (  # noqa: E402
-    web_order_book_widgets, web_order_entry_widget, web_position_widgets, web_quote_board_page, web_screener_widget,
+    web_backtest_dialog, web_order_book_widgets, web_order_entry_widget, web_position_widgets,
+    web_quote_board_page, web_screener_widget,
 )
 
 # *** IB 連線(IBClient)要存成 process 級的全域狀態，不能只放在
@@ -259,6 +260,11 @@ async def index() -> None:
                 "positions": ui.button("部位").props("flat color=white"),
                 "quote_board": ui.button("選擇權報價").props("flat color=white"),
             }
+            # 回測不依賴 IB 連線(純歷史資料合成回測)，不放進上面那組「連線後才 enable」的
+            # side_buttons，永遠可以按。dialog 內容第一次按才建(lazy_open)，pandas/yfinance
+            # 要等到使用者真的按下「執行回測」才 import，首頁載入不受影響，見
+            # app/views/web_backtest_dialog.py 開頭。
+            ui.button("回測", on_click=web_backtest_dialog.build()).props("flat color=white")
             # 模擬用綠色(positive)、正式用紅色(negative)特別標出來，不
             # 用跟其他按鈕一樣的 flat 樣式——這顆按鈕代表的是「等一下下
             # 單會真的送到哪個帳戶」，故意讓它比較顯眼，不要跟旁邊幾顆

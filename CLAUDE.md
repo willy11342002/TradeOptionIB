@@ -58,6 +58,30 @@ Qt 跟 asyncio 共用同一個事件迴圈)，後來發現這套組合踩過好�
   （見 `app/models/ib_client.py`）。IB 用 `NaN` 或 `-1` 代表「這個欄位
   沒有值」，兩種都要濾掉（`app/models/ib_quote_client.py::_clean()`）。
 
+## 回測模組（合成價格 Iron Condor 回測）
+
+標題列「回測」按鈕開一個大 dialog，三個分頁：新策略(參數設定)/策略清單/報表。純歷史資料合成回測，
+**不依賴 IB 連線**。
+
+- 位置：model 層 `app/models/backtest/`(`spec.py` 策略/規則的純資料定義+驗證+中文描述、`engine.py`
+  引擎、`market_data.py` yfinance 抓價+快取、`stats.py` 摘要、`trade.py` 逐筆交易)；存檔
+  `app/services/backtest_store.py`(`pref/backtest/runs/`，寫入失敗會丟例外，不像其他 store 靜默
+  吞掉)；UI `app/views/web_backtest_dialog.py`；報表的 HTML/CSS/JS 在
+  `app/resources/backtest_report/`(從舊 `scripts/options_backtest/backtest_dashboard.html` 複製並
+  隔離樣式，不是 iframe)。`scripts/options_backtest/` 是舊的命令列版，保留但 app 不 import、不呼叫它。
+- **lazy import 是硬規定**：`pandas`/`yfinance`/`engine`/`market_data` 只能在使用者按下「執行回測」之後
+  才 import(見 `web_backtest_dialog._execute()`)；`spec.py`/`stats.py`/`trade.py`/`backtest_store.py`
+  必須維持純標準庫，不要在 `main.py` 或任何 view 模組頂層 import 它們，不然首頁又會撞
+  `response_timeout`(見 `app/services/lazy_ui.py`)。
+- **報表 JS 必須用 `ui.run_javascript()` 注入，不能用 `ui.add_head_html("<script>…")`**：頁面載入後
+  NiceGUI 是用 `insertAdjacentHTML` 補插入 head，瀏覽器不會執行這種方式插進去的 `<script>`(只有
+  CSS 會生效)。所有回測的逐筆資料一次送進瀏覽器記憶體(`window.BtReport`)，切換回測完全在前端。
+- 策略 = 進場規則(Iron Condor，短腳用「條件清單 + and/or」找履約價、長腳=距離短腳固定寬度) + 出場
+  規則清單(範圍整組/單邊 × 類型停利/停損/到期天數，每個組合最多一條，至少要有一條到期天數)。
+  完整語意見 `spec.py`/`engine.py` 開頭說明；**不要加使用者沒要求的自動行為**(例如安全腳順便滾動)。
+- 已知取捨：整組平倉後當天收盤價立刻重新進場(舊 v1 是隔天，同一組規則兩邊淨利會差很多)；盤中觸價
+  用開高低收四個取樣點近似；同一天先判斷停利再判斷停損，對策略偏樂觀。
+
 ## Agent skills
 
 ### Issue tracker
