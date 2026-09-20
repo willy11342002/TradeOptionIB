@@ -37,11 +37,31 @@ _SCOPE_OPTIONS = dict(S.SCOPE_LABELS)
 _ACTION_OPTIONS = dict(S.ACTION_LABELS)
 _FILL_OPTIONS = dict(S.FILL_LABELS)
 _WIDTH_UNIT_OPTIONS = dict(S.WIDTH_UNIT_LABELS)
+_STRATEGY_OPTIONS = dict(S.STRATEGY_LABELS)
 _TICKER_OPTIONS = {t: f"{t}（{idx}）" for t, idx in S.SUPPORTED_TICKERS.items()}
 
 _SEMANTICS_HINT = (
     "短腳條件：在 OTM 履約價（間距 1 美元）上逐一檢查，and = 全部條件都滿足、or = 任一條件滿足，取通過者中離"
     "現價最近的一個；沒有履約價通過就當天不進場、隔天再試。沒有任何持倉時當天收盤價立刻重新進場。"
+)
+_STRATEGY_HINT = (
+    "四種策略只差在哪一邊有買保護腳：Iron Condor 兩邊都有、裸雙賣兩邊都沒有、Jade Lizard 只有 call 邊有"
+    "（put 邊裸賣）、Twisted Sister 只有 put 邊有（call 邊裸賣）。短腳條件和出場規則四種策略共用。"
+    "裸賣沒有虧損上限，保證金用簡化的 Reg-T 估算（見報表說明），停損規則請務必設定。"
+)
+_PRICING_HINT = (
+    "標的限有對應波動率指數的 ETF。價格是 Black-Scholes + 歷史波動率指數合成的，不是真實選擇權報價。"
+    "偏斜強度：0 = 所有履約價用同一個波動率（沒有偏斜）；越大價外 put 越貴、價外 call 越便宜"
+    "（sigma = ATM × (1 − 強度 × ln(履約價/現價))）。這會大幅影響 put 邊和 call 邊誰比較賺，"
+    "Jade Lizard 和 Twisted Sister 的排名尤其敏感。ATM 相對 VIX 比例：VIX 是一整排價外選擇權算出來的，"
+    "通常高於平價選擇權的隱含波動率，1 = 直接把 VIX 當 ATM。預設值（偏斜 4、比例 0.96）是拿 2026-09-18 "
+    "SPY 真實選擇權鏈在 16 delta 附近擬合的：只是低波動（VIX 14.8）當天的單一快照，不是歷史平均，"
+    "真實偏斜會隨行情變（崩盤時 put 更貴）。建議在預設值附近掃幾組（例如偏斜 3、4、5）看策略排名穩不穩，"
+    "不要當成精確定價。"
+)
+_NO_SINGLE_SIDE_RISK_HINT = (
+    "總權利金 ≥ 保護價差的寬度才進場（Jade Lizard 的 call 價差、Twisted Sister 的 put 價差被總權利金完全蓋過，"
+    "那一側就沒有虧損風險）；不滿足就當天不進場、隔天再試。寬度設太大會讓這個條件幾乎永遠不成立。"
 )
 _WIDTH_HINT = (
     f"ETF 選擇權履約價最小跳動 {S.STRIKE_STEP:g} 美元：單位選「美元」時寬度必須是 {S.STRIKE_STEP:g} 的整數倍"
@@ -83,7 +103,8 @@ def _run_payload(meta: dict) -> Optional[dict]:
         return {
             "id": meta["id"], "name": meta["name"], "ticker": cfg["ticker"], "start": cfg["start"],
             "end": cfg["end"], "updated_at": meta.get("updated_at", ""),
-            "description": S.describe_strategy(S.strategy_from_dict(meta["strategy"])),
+            "description": S.describe_strategy(S.strategy_from_dict(meta["strategy"]))
+            + S.describe_config(S.config_from_dict(cfg)),
             "trades": trades, "benchmark": benchmark,
         }
     except (OSError, ValueError, KeyError):
@@ -165,6 +186,8 @@ def _build_dialog() -> Callable:
 
     # =============================================================================== 分頁 1：新策略
     def collect() -> Tuple[S.StrategySpec, S.RunConfig]:
+        strategy.entry.kind = kind_select.value
+        strategy.entry.conditions.no_single_side_risk = bool(no_single_side_risk_check.value)
         strategy.entry.dte = _int_if_whole(dte_input.value)
         strategy.entry.short.combine = combine_toggle.value
         strategy.entry.long.width = width_input.value
@@ -174,6 +197,7 @@ def _build_dialog() -> Callable:
         cfg = S.RunConfig(
             ticker=ticker_select.value, start=(start_input.value or "").strip(), end=(end_input.value or "").strip(),
             contracts=_int_if_whole(contracts_input.value),
+            skew=skew_input.value, atm_ratio=atm_ratio_input.value,
         )
         return strategy, cfg
 
@@ -201,6 +225,9 @@ def _build_dialog() -> Callable:
         name_input.value = f"{meta['name']} 複製"
         ticker_select.value = cfg.ticker
         start_input.value, end_input.value, contracts_input.value = cfg.start, cfg.end, cfg.contracts
+        skew_input.value, atm_ratio_input.value = cfg.skew, cfg.atm_ratio
+        kind_select.value = loaded.entry.kind
+        no_single_side_risk_check.value = loaded.entry.conditions.no_single_side_risk
         dte_input.value = loaded.entry.dte
         combine_toggle.value = loaded.entry.short.combine
         width_input.value = loaded.entry.long.width
@@ -215,6 +242,8 @@ def _build_dialog() -> Callable:
     def reset_form() -> None:
         fresh = S.default_strategy()
         strategy.entry, strategy.exit_rules = fresh.entry, fresh.exit_rules
+        kind_select.value = fresh.entry.kind
+        no_single_side_risk_check.value = fresh.entry.conditions.no_single_side_risk
         dte_input.value = fresh.entry.dte
         combine_toggle.value = fresh.entry.short.combine
         width_input.value = fresh.entry.long.width
@@ -373,7 +402,7 @@ def _build_dialog() -> Callable:
                 summary, cfg = meta.get("summary", {}), meta.get("config", {})
                 with ui.row().classes("w-full items-center gap-2 no-wrap q-py-xs").style("border-top: 1px solid #2b3040"):
                     ui.label(meta["name"]).classes("w-56 ellipsis").tooltip("\n".join(
-                        S.describe_strategy(S.strategy_from_dict(meta["strategy"]))))
+                        S.describe_strategy(S.strategy_from_dict(meta["strategy"])) + S.describe_config(S.config_from_dict(cfg))))
                     ui.label(cfg.get("ticker", "")).classes("w-16")
                     ui.label(f"{cfg.get('start', '')} ~ {cfg.get('end', '')}").classes("w-52")
                     ui.label(str(summary.get("trades", ""))).classes("w-14")
@@ -425,13 +454,18 @@ def _build_dialog() -> Callable:
                         start_input = ui.input("起始日期", value="2015-01-01").props('mask="####-##-##"').classes("w-36")
                         end_input = ui.input("結束日期", value="2025-01-01").props('mask="####-##-##"').classes("w-36")
                         contracts_input = ui.number("口數", value=1, format="%d", min=1, step=1).classes("w-24")
-                    ui.label(
-                        "標的限有對應波動率指數的 ETF。價格是 Black-Scholes + 歷史波動率指數合成的，不是真實選擇權報價。"
-                    ).classes("text-caption text-grey")
+                    with ui.row().classes("items-center gap-3"):
+                        skew_input = ui.number("偏斜強度", value=S.RunConfig().skew, format="%g", min=0, max=S.SKEW_MAX, step=0.5).classes("w-32")
+                        atm_ratio_input = ui.number(
+                            "ATM 相對 VIX 比例", value=S.RunConfig().atm_ratio, format="%g",
+                            min=S.ATM_RATIO_RANGE[0], max=S.ATM_RATIO_RANGE[1], step=0.01,
+                        ).classes("w-44")
+                    ui.label(_PRICING_HINT).classes("text-caption text-grey")
 
                 with ui.card().props("flat bordered").classes("w-full gap-2"):
-                    ui.label("進場規則（Iron Condor）").classes("text-subtitle1 font-semibold")
+                    ui.label("進場規則").classes("text-subtitle1 font-semibold")
                     with ui.row().classes("items-center gap-3"):
+                        kind_select = ui.select(_STRATEGY_OPTIONS, value=strategy.entry.kind, label="策略").classes("w-64")
                         dte_input = ui.number("進場天期 (DTE)", value=strategy.entry.dte, format="%d", min=2, step=1).classes("w-36")
                     ui.label("短腳履約價條件").classes("text-body2")
                     with ui.row().classes("items-center gap-3"):
@@ -442,11 +476,17 @@ def _build_dialog() -> Callable:
                         )
                     render_conditions()
                     ui.button("新增條件", icon="add", on_click=add_condition).props("flat dense")
-                    ui.label("長腳（距離短腳固定寬度，往價外再買一腳保護）").classes("text-body2")
-                    with ui.row().classes("items-center gap-3"):
-                        width_input = ui.number("寬度", value=strategy.entry.long.width, format="%g").classes("w-28")
-                        width_unit_select = ui.select(_WIDTH_UNIT_OPTIONS, value=strategy.entry.long.width_unit, label="單位").classes("w-32")
-                    ui.label(_WIDTH_HINT).classes("text-caption text-grey")
+                    with ui.column().classes("gap-2") as long_leg_box:
+                        ui.label("長腳（距離短腳固定寬度，往價外再買一腳保護；裸賣的那一邊沒有長腳）").classes("text-body2")
+                        with ui.row().classes("items-center gap-3"):
+                            width_input = ui.number("寬度", value=strategy.entry.long.width, format="%g").classes("w-28")
+                            width_unit_select = ui.select(_WIDTH_UNIT_OPTIONS, value=strategy.entry.long.width_unit, label="單位").classes("w-32")
+                        ui.label(_WIDTH_HINT).classes("text-caption text-grey")
+                    with ui.column().classes("gap-1") as entry_conditions_box:
+                        ui.label("進場條件").classes("text-body2")
+                        no_single_side_risk_check = ui.checkbox(
+                            "無單邊風險（總權利金 ≥ 保護價差寬度）", value=strategy.entry.conditions.no_single_side_risk)
+                        ui.label(_NO_SINGLE_SIDE_RISK_HINT).classes("text-caption text-grey")
 
                     def sync_width_input() -> None:
                         # 美元寬度必須是最小跳動的整數倍；現價 % 換算出來的寬度由引擎四捨五入到格點。
@@ -457,6 +497,15 @@ def _build_dialog() -> Callable:
 
                     width_unit_select.on_value_change(lambda _: sync_width_input())
                     sync_width_input()
+
+                    def sync_kind_widgets() -> None:
+                        # 裸雙賣沒有長腳，寬度整區隱藏；「無單邊風險」只對一邊裸賣、一邊價差的策略有意義。
+                        long_leg_box.set_visibility(bool(S.PROTECTED_SIDES.get(kind_select.value)))
+                        entry_conditions_box.set_visibility(kind_select.value in S.STRATEGIES_WITH_SINGLE_SIDE_RISK_CHECK)
+
+                    kind_select.on_value_change(lambda _: sync_kind_widgets())
+                    sync_kind_widgets()
+                    ui.label(_STRATEGY_HINT).classes("text-caption text-grey")
                     ui.label(_SEMANTICS_HINT).classes("text-caption text-grey")
 
                 with ui.card().props("flat bordered").classes("w-full gap-2"):
