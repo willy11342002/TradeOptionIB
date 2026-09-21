@@ -52,7 +52,9 @@ function prepareRun(raw) {
   const trades = raw.trades.map(t => ({ ...t, entry_date: new Date(t.entry_date), exit_date: new Date(t.exit_date) }));
   trades.sort((a, b) => a.exit_date - b.exit_date);
   const benchmark = (raw.benchmark || []).map(([d, c]) => ({ date: new Date(d), close: c })).sort((a, b) => a.date - b.date);
-  return { ...raw, trades, benchmark };
+  // equity: [[日期, 每股毛損益]]，逐日「已平倉 + 未平倉浮動損益」(舊存檔沒有這欄位，是空陣列)
+  const equity = (raw.equity || []).map(([d, g]) => ({ date: new Date(d), gross: g })).sort((a, b) => a.date - b.date);
+  return { ...raw, trades, benchmark, equity };
 }
 
 function refresh() {
@@ -182,6 +184,34 @@ function computeStats(trades, contracts) {
   };
 }
 
+// 含未平倉浮動損益的逐日權益(mark-to-market)。引擎存的是每股毛損益(已平倉 + 未平倉浮動，不含手續費)，
+// 這裡換成美元並扣掉「到當天為止已平倉交易」的手續費——跟已實現權益曲線同一套規則(手續費在出場那天才
+// 扣)，所以兩條線在每一筆出場日會重合，中間的落差就是未平倉部位的浮動損益。trades 已依 exit_date 排序。
+// 回傳 null 代表這份回測沒有逐日權益(舊存檔，重跑一次才會有)。
+function computeMtm(equity, trades, contracts) {
+  if (!equity.length) return null;
+  const mult = CONTRACT_MULTIPLIER * contracts;
+  let ti = 0, realizedGross = 0, cumCommission = 0;
+  let peak = 0, maxDD = 0, maxDDDate = null, maxFloat = 0, maxFloatDate = null;
+  const series = [], ddSeries = [];
+  equity.forEach(p => {
+    while (ti < trades.length && trades[ti].exit_date <= p.date) {
+      realizedGross += trades[ti].pnl * mult;
+      cumCommission += commissionOf(trades[ti], contracts);
+      ti++;
+    }
+    const y = p.gross * mult - cumCommission;
+    const floating = p.gross * mult - realizedGross;   // 未平倉部位目前的浮動損益(不含手續費)
+    peak = Math.max(peak, y);
+    const dd = y - peak;
+    if (dd < maxDD) { maxDD = dd; maxDDDate = p.date; }
+    if (floating < maxFloat) { maxFloat = floating; maxFloatDate = p.date; }
+    series.push({ date: p.date, y });
+    ddSeries.push({ date: p.date, y: dd });
+  });
+  return { series, ddSeries, maxDD, maxDDDate, maxFloat, maxFloatDate };
+}
+
 function fmtNum(v, d = 3) { return Number.isFinite(v) ? v.toFixed(d) : '—'; }
 function fmtUsd(v) { return Number.isFinite(v) ? (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '—'; }
 function fmtPct(v, d = 1) { return Number.isFinite(v) ? (v * 100).toFixed(d) + '%' : '—'; }
@@ -201,6 +231,7 @@ function render(id) {
   $('report').style.display = 'block';
   const contracts = parseInt($('contractsSelect').value, 10) || 1;
   const s = computeStats(trades, contracts);
+  const mtm = computeMtm(run.equity, trades, contracts);
 
   $('runInfo').textContent = `${run.name} · ${run.ticker} · ${run.start} ~ ${run.end}`;
   $('strategyDesc').innerHTML = (run.description || []).map(l => `<div class="desc-line">${escapeHtml(l)}</div>`).join('');
@@ -220,7 +251,9 @@ function render(id) {
     ['初始保證金建議', fmtUsd(s.avgMargin), ''],
     ['淨報酬率(對保證金)', fmtPct(s.returnOnMargin), cls(s.returnOnMargin)],
     ['年化報酬率(概算)', fmtPct(s.annualizedReturn), cls(s.annualizedReturn)],
-    ['淨最大回撤', fmtUsd(s.maxDD), 'neg'],
+    ['淨最大回撤(已平倉)', fmtUsd(s.maxDD), 'neg'],
+    ['最大回撤(含未平倉)', mtm ? `${fmtUsd(mtm.maxDD)}${mtm.maxDDDate ? ` (${fmtDate(mtm.maxDDDate)})` : ''}` : '—', 'neg'],
+    ['最大浮虧(未平倉部位)', mtm ? `${fmtUsd(mtm.maxFloat)}${mtm.maxFloatDate ? ` (${fmtDate(mtm.maxFloatDate)})` : ''}` : '—', 'neg'],
   ];
   $('statCards').innerHTML = cards.map(([label, value, c]) => `
     <div class="card"><div class="label">${label}</div><div class="value ${c}">${value}</div></div>
@@ -258,7 +291,7 @@ function render(id) {
   `).join('');
 
   $('eqBadge').textContent = fmtUsd(s.totalPnl);
-  $('ddBadge').textContent = `MDD ${fmtUsd(s.maxDD)}`;
+  $('ddBadge').textContent = mtm ? `MDD 已平倉 ${fmtUsd(s.maxDD)} · 含未平倉 ${fmtUsd(mtm.maxDD)}` : `MDD ${fmtUsd(s.maxDD)}`;
 
   // buy-and-hold對照線：拿策略「平均保證金」當作同樣的投入資金，同一天買進標的、一路抱到底，
   // 這樣兩條線才是同樣的資金水位在比，不是選擇權保證金的損益直接對比買一股的損益(基準不同、不公平)。
@@ -270,13 +303,19 @@ function render(id) {
       buyHoldSeries = inRange.map(p => ({ date: p.date, y: s.avgMargin * (p.close / S0 - 1) }));
     }
   }
-  const eqSeriesList = [{ data: s.equitySeries, color: '#3b82f6', label: `策略(淨利，${contracts}口)` }];
+  const eqSeriesList = [{ key: 'realized', data: s.equitySeries, color: '#3b82f6', label: `策略(已平倉淨利，${contracts}口)` }];
+  if (mtm) eqSeriesList.push({ key: 'mtm', data: mtm.series, color: '#f59e0b', label: '策略(含未平倉浮動損益，逐日收盤)' });
   if (buyHoldSeries.length) {
-    eqSeriesList.push({ data: buyHoldSeries, color: '#22c55e', dashed: true,
+    eqSeriesList.push({ key: 'buyhold', data: buyHoldSeries, color: '#22c55e', dashed: true,
       label: `Buy&Hold ${run.ticker}(投入同樣資金${fmtUsd(s.avgMargin)})` });
   }
-  drawChart('equityChart', 'eqTooltip', eqSeriesList, { zeroLine: true, legendId: 'eqLegend' });
-  drawChart('ddChart', 'ddTooltip', [{ data: s.ddSeries, color: '#ef4444', fillDown: true, label: '回撤' }], { zeroLine: true });
+  drawChart('equityChart', 'eqTooltip', eqSeriesList, {
+    zeroLine: true, legendId: 'eqLegend',
+    legendNote: mtm ? '' : '(這份回測存檔沒有逐日浮動損益資料，重跑一次即可產生)',
+  });
+  const ddSeriesList = [{ key: 'dd_realized', data: s.ddSeries, color: '#ef4444', fillDown: true, label: '回撤(已平倉)' }];
+  if (mtm) ddSeriesList.push({ key: 'dd_mtm', data: mtm.ddSeries, color: '#f59e0b', label: '回撤(含未平倉)' });
+  drawChart('ddChart', 'ddTooltip', ddSeriesList, { zeroLine: true, legendId: 'ddLegend' });
 
   const years = Object.keys(s.byYear).sort();
   $('yearlyTable').innerHTML = `
@@ -327,21 +366,41 @@ function render(id) {
 }
 
 // seriesList: [{data:[{date,y}], color, label, fillDown}]，可以疊多條線(策略淨值 vs buy-and-hold)。
-function drawChart(svgId, tooltipId, seriesList, { zeroLine, legendId } = {}) {
+// 各圖表目前被使用者點掉(隱藏)的曲線，key 是曲線的 `key` 欄位，依圖表(svgId)分開記。放在模組層級，
+// 切換回測/口數重畫時維持使用者的選擇，不會每次都全部跳回顯示。
+const hiddenSeries = {};
+
+// 畫折線圖。`allSeries` 每條曲線要有穩定的 `key`(不能用會隨口數變的 label 當識別)。圖例每一項是按鈕，
+// 點一下切換顯示/隱藏；隱藏的曲線不畫、不參與 Y 軸縮放和游標提示，圖例上變淡加刪除線。
+// `legendNote` 是圖例後面附帶的一行說明文字(例如舊存檔缺資料的提示)，重畫時要跟著重建，所以放在這裡。
+function drawChart(svgId, tooltipId, allSeries, { zeroLine, legendId, legendNote } = {}) {
   const svg = $(svgId);
   const tooltip = $(tooltipId);
   svg.innerHTML = '';
-  seriesList = seriesList.filter(s => s.data && s.data.length);
+  tooltip.style.display = 'none';
+  allSeries = allSeries.filter(s => s.data && s.data.length);
+  const hidden = (hiddenSeries[svgId] ??= new Set());
   if (legendId) {
     const legendEl = $(legendId);
     if (legendEl) {
-      legendEl.innerHTML = seriesList.map(s =>
-        `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:14px;font-size:12px;color:var(--muted)">
+      legendEl.innerHTML = allSeries.map(s => {
+        const off = hidden.has(s.key);
+        return `<button type="button" class="legend-toggle" data-key="${s.key}" aria-pressed="${!off}"
+          title="${off ? '點一下顯示' : '點一下隱藏'}"
+          style="display:inline-flex;align-items:center;gap:4px;margin-right:14px;font-size:12px;color:var(--muted);
+                 background:none;border:0;padding:2px 0;cursor:pointer;font-family:inherit;
+                 opacity:${off ? 0.4 : 1};text-decoration:${off ? 'line-through' : 'none'}">
           <span style="width:10px;height:10px;border-radius:50%;background:${s.color};display:inline-block"></span>${s.label}
-        </span>`
-      ).join('');
+        </button>`;
+      }).join('') + (legendNote ? `<span style="font-size:12px;color:var(--muted)">${legendNote}</span>` : '');
+      legendEl.querySelectorAll('.legend-toggle').forEach(btn => btn.addEventListener('click', () => {
+        const key = btn.dataset.key;
+        if (hidden.has(key)) hidden.delete(key); else hidden.add(key);
+        drawChart(svgId, tooltipId, allSeries, { zeroLine, legendId, legendNote });
+      }));
     }
   }
+  const seriesList = allSeries.filter(s => !hidden.has(s.key));
   if (!seriesList.length) return;
 
   const W = 800, H = 260, padL = 56, padR = 12, padT = 14, padB = 24;

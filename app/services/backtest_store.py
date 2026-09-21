@@ -8,8 +8,11 @@
 
 每一次回測(run)兩個檔案，列清單時只讀小的 meta，不用把每次幾百筆的逐筆交易都讀進來：
     <id>.json         meta：id、名稱、策略參數、回測設定、摘要、建立/更新時間
-    <id>.trades.json  {"trades": [...逐筆交易...], "benchmark": [[日期, 收盤價], ...]}
-                      benchmark 是標的每日收盤價，報表畫 buy-and-hold 對照線用
+    <id>.trades.json  {"trades": [...逐筆交易...], "benchmark": [[日期, 收盤價], ...],
+                       "equity": [[日期, 每股毛損益], ...]}
+                      benchmark 是標的每日收盤價，報表畫 buy-and-hold 對照線用；equity 是逐日「已平倉 +
+                      未平倉浮動損益」(每股、不含手續費，見 engine.run_backtest_with_equity)，報表畫含
+                      浮動損益的權益曲線用。舊存檔沒有 equity 欄位，讀出來是空清單(重跑一次才會有)。
 寫入一律先寫暫存檔再 os.replace，避免寫到一半當機留下壞檔。
 """
 import json
@@ -47,7 +50,7 @@ def new_run_id() -> str:
 
 
 def save_run(run_id: str, name: str, strategy: dict, config: dict, summary: dict,
-             trades: List[dict], benchmark: List[list]) -> dict:
+             trades: List[dict], benchmark: List[list], equity: List[list]) -> dict:
     """新增或覆蓋(重跑)一次回測，回傳存下去的 meta。覆蓋時保留原本的建立時間。"""
     existing = get_meta(run_id)
     meta = {
@@ -60,7 +63,7 @@ def save_run(run_id: str, name: str, strategy: dict, config: dict, summary: dict
         "updated_at": _now(),
     }
     # 先寫逐筆再寫 meta：中途失敗的話清單裡不會出現一筆點開沒資料的回測。
-    _write_json_atomic(_trades_path(run_id), {"trades": trades, "benchmark": benchmark})
+    _write_json_atomic(_trades_path(run_id), {"trades": trades, "benchmark": benchmark, "equity": equity})
     _write_json_atomic(_meta_path(run_id), meta)
     return meta
 
@@ -88,10 +91,10 @@ def list_runs() -> List[dict]:
     return metas
 
 
-def load_trades(run_id: str) -> Tuple[List[dict], List[list]]:
-    """回傳 (逐筆交易, 標的每日收盤價)。檔案不存在/壞掉會丟例外，由呼叫端決定怎麼提示。"""
+def load_trades(run_id: str) -> Tuple[List[dict], List[list], List[list]]:
+    """回傳 (逐筆交易, 標的每日收盤價, 逐日權益)。檔案不存在/壞掉會丟例外，由呼叫端決定怎麼提示。"""
     data = json.loads(_trades_path(run_id).read_text(encoding="utf-8"))
-    return data["trades"], data.get("benchmark", [])
+    return data["trades"], data.get("benchmark", []), data.get("equity", [])
 
 
 def rename_run(run_id: str, name: str) -> None:

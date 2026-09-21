@@ -83,32 +83,32 @@ def build() -> Callable:
 
 
 # ------------------------------------------------------------------------------ 背景執行緒
-def _execute(strategy: S.StrategySpec, config: S.RunConfig) -> Tuple[List[dict], List[list], dict]:
+def _execute(strategy: S.StrategySpec, config: S.RunConfig) -> Tuple[List[dict], List[list], List[list], dict]:
     """在背景執行緒跑：抓資料 → 回測 → 摘要。*** pandas/polars/yfinance/引擎在這裡才第一次 import ***
-    (見模組開頭)。回傳 (逐筆交易 dict 清單, 標的每日收盤價 [[日期, 收盤]], 摘要)。"""
+    (見模組開頭)。回傳 (逐筆交易 dict 清單, 標的每日收盤價 [[日期, 收盤]], 逐日權益 [[日期, 每股毛損益]], 摘要)。"""
     from app.models.backtest import engine, market_data, option_chain, stats
 
     df = market_data.load_market_data(config.ticker, config.start, config.end)
     chain = option_chain.OptionChain(config.ticker, date.fromisoformat(config.start), date.fromisoformat(config.end))
-    trades = engine.run_backtest(df, chain, strategy, config)
+    trades, equity = engine.run_backtest_with_equity(df, chain, strategy, config)
     if not trades:
         raise ValueError("這組參數在回測期間沒有產生任何交易(例如短腳條件太嚴格、找不到履約價)，請調整條件")
     benchmark = [[d.strftime("%Y-%m-%d"), round(float(c), 4)] for d, c in df["close"].items()]
-    return [t.to_dict() for t in trades], benchmark, stats.summarize(trades)
+    return [t.to_dict() for t in trades], benchmark, [list(p) for p in equity], stats.summarize(trades)
 
 
 # ------------------------------------------------------------------------------ 送資料進報表
 def _run_payload(meta: dict) -> Optional[dict]:
     """把一次回測整理成報表 JS 吃的格式；逐筆檔案不存在/壞掉回傳 None。"""
     try:
-        trades, benchmark = backtest_store.load_trades(meta["id"])
+        trades, benchmark, equity = backtest_store.load_trades(meta["id"])
         cfg = meta["config"]
         return {
             "id": meta["id"], "name": meta["name"], "ticker": cfg["ticker"], "start": cfg["start"],
             "end": cfg["end"], "updated_at": meta.get("updated_at", ""),
             "description": S.describe_strategy(S.strategy_from_dict(meta["strategy"]))
             + S.describe_config(S.config_from_dict(cfg)),
-            "trades": trades, "benchmark": benchmark,
+            "trades": trades, "benchmark": benchmark, "equity": equity,
         }
     except (OSError, ValueError, KeyError):
         return None
@@ -174,10 +174,10 @@ def _build_dialog() -> Callable:
         state["busy"] = True
         busy_row.set_visibility(True)
         try:
-            trades, benchmark, summary = await run_blocking(_execute, strat, cfg)
+            trades, benchmark, equity, summary = await run_blocking(_execute, strat, cfg)
             meta = backtest_store.save_run(
                 run_id or backtest_store.new_run_id(), name, S.strategy_to_dict(strat), S.config_to_dict(cfg),
-                summary, trades, benchmark,
+                summary, trades, benchmark, equity,
             )
         except Exception as e:  # noqa: BLE001 — 任何失敗(網路/參數/存檔)都要明確告知使用者，不能吞掉
             ui.notify(f"回測失敗：{e}", type="negative", multi_line=True, close_button=True, timeout=0)

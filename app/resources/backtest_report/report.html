@@ -41,13 +41,14 @@
         </div>
         <div>
           <h2>回撤曲線(Drawdown) <span class="badge" id="ddBadge"></span></h2>
+          <div id="ddLegend" style="margin-bottom:6px"></div>
           <div class="chart-wrap">
             <svg id="ddChart" viewBox="0 0 800 260" preserveAspectRatio="none"></svg>
             <div class="tooltip" id="ddTooltip"></div>
           </div>
         </div>
       </div>
-      <p class="footnote">單位是美元(已扣手續費)；X 軸是交易的出場日期。回撤曲線只用逐筆交易的已實現損益疊加，不是逐日 mark-to-market。</p>
+      <p class="footnote">單位是美元(已扣手續費)。藍線只在每筆交易出場那天更新(已實現損益)；橘線是逐日收盤的 mark-to-market，多算了未平倉部位的浮動損益(用收盤買賣中價，fill_price 設極端價時用極端價，是「現在平倉能拿多少」)，兩條線在出場日會重合，中間的落差就是過程中承受的浮動損益。「最大浮虧」是未平倉部位單看它自己的最大虧損(不含已實現)。</p>
     </div>
 
     <div class="panel">

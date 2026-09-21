@@ -315,10 +315,21 @@ def _evaluate(spreads: List[_Spread], rule: ExitRule, d: date, worst: bool = Fal
 
 # ---------------------------------------------------------------------------- 主迴圈
 def run_backtest(df: pd.DataFrame, chain: OptionChain, strategy: StrategySpec, config: RunConfig) -> List[Trade]:
+    """只要逐筆交易的版本，見 `run_backtest_with_equity`。"""
+    return run_backtest_with_equity(df, chain, strategy, config)[0]
+
+
+def run_backtest_with_equity(
+    df: pd.DataFrame, chain: OptionChain, strategy: StrategySpec, config: RunConfig,
+) -> Tuple[List[Trade], List[Tuple[str, float]]]:
     """`df` 需要有 open/high/low/close 欄(標的每日開高低收)，index 是遞增排序的交易日期。`chain` 是
     同一段期間的真實選擇權鏈(`option_chain.OptionChain`)。只會走訪標的資料跟選擇權鏈資料都有的交易
-    日(兩邊資料來源不同，日期可能有小出入)。回傳逐筆交易(依出場順序)。策略要先通過
-    `spec.validate_strategy()`。"""
+    日(兩邊資料來源不同，日期可能有小出入)。策略要先通過 `spec.validate_strategy()`。
+
+    回傳 (逐筆交易依出場順序, 逐日權益 [(日期, 每股毛損益)])。逐日權益 = 到當天收盤為止「已平倉損益 +
+    未平倉部位的浮動損益」，每股單位、不含手續費(報表依口數/手續費即時換算，見 report.js)。未平倉部位用
+    當天收盤報價按平倉價值計(跟出場用同一套 `_values_at`，`fill_price` 是 worst 就用極端價，所以是「現在
+    平倉能拿到多少」的保守值)；回測結束時還沒平倉的部位不會出現在逐筆交易裡，但會反映在逐日權益上。"""
     entry = strategy.entry
     rules = {(rule.scope, rule.kind): rule for rule in strategy.exit_rules}
     r = config.risk_free_rate
@@ -329,10 +340,15 @@ def run_backtest(df: pd.DataFrame, chain: OptionChain, strategy: StrategySpec, c
         return 2 * (1 if sp.naked else 2) * per_leg_charge  # 價差 2 腳(短+長)、裸賣 1 腳，開倉+平倉各一次
 
     trades: List[Trade] = []
+    equity: List[Tuple[str, float]] = []
+    realized = 0.0        # 已平倉的每股毛損益累計
+    unrealized = 0.0      # 目前持倉的浮動損益；某天缺報價就沿用前一天的值
     spreads: Dict[str, Optional[_Spread]] = {"put": None, "call": None}
 
     def log_close(sp: _Spread, d: date, exit_value: float, reason: str, fill_mode: str) -> None:
+        nonlocal realized
         pnl = sp.entry_credit - exit_value
+        realized += pnl
         pnl_usd = pnl * CONTRACT_MULTIPLIER * config.contracts
         commission = row_commission(sp)
         trades.append(Trade(
@@ -403,4 +419,13 @@ def run_backtest(df: pd.DataFrame, chain: OptionChain, strategy: StrategySpec, c
                 if sp.margin is None:
                     sp.margin = group_margin
 
-    return trades
+        # 5. 逐日權益：已平倉 + 未平倉浮動損益(全部平倉後浮動就是 0)
+        if held_now:
+            marks = _values_at(held_now, d, "close", worst)
+            if marks is not None:
+                unrealized = _total_pnl(held_now, marks)
+        else:
+            unrealized = 0.0
+        equity.append((d.strftime("%Y-%m-%d"), round(realized + unrealized, 6)))
+
+    return trades, equity
