@@ -69,7 +69,7 @@ Qt 跟 asyncio 共用同一個事件迴圈)，後來發現這套組合踩過好�
   吞掉)；UI `app/views/web_backtest_dialog.py`；報表的 HTML/CSS/JS 在
   `app/resources/backtest_report/`(從舊 `scripts/options_backtest/backtest_dashboard.html` 複製並
   隔離樣式，不是 iframe)。`scripts/options_backtest/` 是舊的命令列版，保留但 app 不 import、不呼叫它。
-- **lazy import 是硬規定**：`pandas`/`yfinance`/`engine`/`market_data` 只能在使用者按下「執行回測」之後
+- **lazy import 是硬規定**：`pandas`/`polars`/`yfinance`/`engine`/`market_data`/`option_chain` 只能在使用者按下「執行回測」之後
   才 import(見 `web_backtest_dialog._execute()`)；`spec.py`/`stats.py`/`trade.py`/`backtest_store.py`
   必須維持純標準庫，不要在 `main.py` 或任何 view 模組頂層 import 它們，不然首頁又會撞
   `response_timeout`(見 `app/services/lazy_ui.py`)。
@@ -88,21 +88,36 @@ Qt 跟 asyncio 共用同一個事件迴圈)，後來發現這套組合踩過好�
 - **保證金是整組同時持有的部位算的**(`engine.position_margin`，簡化 Reg-T)，每一列存開倉當下的整組
   數字 `Trade.margin`(每股)；報表的「初始保證金建議」就是它的平均。舊存檔不相容 `max_loss`/沒有
   `entry.kind`：`strategy_from_dict` 刻意不給預設值(缺欄位會直接丟 KeyError)，舊存檔已經一次性遷移過。
-- **定價的偏斜參數(`RunConfig.skew`/`atm_ratio`)會大幅左右結果**：引擎預設所有履約價用同一個 sigma
-  (= VIX)，等於假設沒有波動率偏斜，這會讓 Twisted Sister(裸賣 call)看起來遠勝 Jade Lizard(裸賣
-  put)，跟真實市場相反(價外 put 比 call 貴)。`skew` 0 = 無偏斜、越大 put 越貴 call 越便宜，
-  `atm_ratio` = ATM 隱含波動率 ÷ VIX(VIX 通常高於平價 IV)。預設值(skew 4.0、atm_ratio 0.96)是拿 2026-09-18
-  收盤的 SPY 真實選擇權鏈(35~42 天)在 16 delta 附近擬合的，校準方法與限制寫在 `spec.py` 的
-  `DEFAULT_SKEW` 註解：**只是低波動(VIX 14.8)當天的單一快照，不是歷史平均**，適合掃不同數值(例如偏斜 3/4/5)
-  看策略排名穩不穩，不要當成精確定價。跟 `kind` 一樣，`config_from_dict` 刻意不給預設值，
-  舊存檔已遷移成明確的 skew=0/atm_ratio=1(= 加參數前的行為)；報表/策略清單 tooltip 會顯示定價設定。
-- **真實選擇權資料回補(`scripts/backfill_thetadata.py --symbol SPY [QQQ ...]`，商品必填)**：從 ThetaData
-  抓每日收盤的整條選擇權鏈(OHLC/成交量/收盤 bid/ask)，存 `pref/backtest/thetadata/<商品>/YYYY-MM.parquet`
-  (用 polars 讀寫，專案沒有 pyarrow)，可中斷重跑、已抓齊的月份自動跳過。API key 在 `.env` 的
-  `THETADATA_API_KEY`。**免費帳號只到 2023-06-01 之後、只有 EOD、沒有現成的 IV/Delta**(`greeks_eod` 要
-  Standard)，IV 要自己反推。目前回測引擎還沒接這份資料(仍是合成價格)。
+- **價格是真實的 ThetaData 報價，不是 Black-Scholes 合成價**：`app/models/backtest/option_chain.py::OptionChain`
+  讀 `scripts/backfill_thetadata.py` 回補到 `pref/backtest/thetadata/<商品>/YYYY-MM.parquet` 的 EOD 買賣報
+  價(用 polars 讀寫，專案沒有 pyarrow)，進場信用、收盤出場的成交價由 `RunConfig.fill_price` 決定：`mid` 買賣中價，或 `worst` 極端成交價(賣出的腳收
+  bid、買進的腳付 ask；進場賣短腳收 bid/買長腳付 ask，平倉買回短腳付 ask/賣出長腳收 bid)。挑履約價的權利金/
+  Delta 條件仍看中價，盤中觸價用當天實際成交價，都不受 `fill_price` 影響。舊的 `skew`/
+  `atm_ratio`/VIX 合成定價整套已經刪除，不要加回來。到期日/履約價只能挑當天真的有掛牌的：`entry.dte` 是目標，
+  實際到期日是當天掛牌到期日裡剩餘天數最接近的(`nearest_expiration`)，長腳寬度也是目標，實際長腳是離
+  「短腳 ± 目標寬度」最接近的真實履約價(`engine.open_spread`)。
+- **只有本機已回補過的標的能回測**：`spec.available_tickers()` 掃 `pref/backtest/thetadata/` 底下有 parquet
+  的資料夾，UI 標的下拉選單(每次開對話框才重新掃)和 `validate_config` 都靠它，沒資料的標的直接擋掉，
+  **不要做「沒真實資料就退回合成價」的 fallback**(同一份報表會混雜真資料/合成價)。要支援新標的先跑回補腳本。
+  `market_data.py` 只剩抓標的每日開高低收(yfinance)，選距現價 % 條件和保證金估算要用到現價。
+- **`close` 不是報價，只有 `bid`/`ask` 才是**(「收盤」出場永遠讀報價，不能讀 `close` 欄)：ThetaData 的 `close` 是當天最後一筆成交價，流動性差的合約
+  可能是很早以前的成交(`backfill_thetadata.py` 開頭就警告過)；`volume == 0` 時 open/high/low/close 全是 0。
+  所以公平價值一律用 `mid`；開高低收(成交價)只給「盤中觸價」判斷有沒有觸價用，`Quote.traded` 是 False(當天
+  沒成交)時四個取樣點全退回 `mid`。**免費帳號只到 2023-06-01 之後、只有 EOD、沒有現成的 IV/Delta**
+  (`greeks_eod` 要 Standard)：|Delta| 條件用中價經 `black_scholes.implied_vol` 反推 IV 再算，是估算值。
+- **停利/停損看的是「整張組合單的淨價」，不是各腳自己**(`engine._evaluate`)：整組就是所有持倉價差價值加總，
+  收 1 掛 0.5 停利、掛 2 停損，碰到掛價就成交(使用者定案的邏輯)。盤中觸價：開盤淨價已越過門檻(跳空)用開盤價
+  成交，否則收盤淨價越過門檻(價格連續 → 當天必然走過掛價)以掛價成交，整組損益剛好等於門檻，再線性內插拆回各邊
+  (`_values_at_level`)。**不要用各腳自己當天的最高/最低成交價去湊「最有利/最不利」的組合價**：不同合約的高低點
+  不是同一時刻，湊出來的價格不存在——實測讓整組停利天天觸發(420 筆全勝)、買回價差還倒賺 $0.91(平倉價值為負)。
+  EOD 資料沒有同一時刻的盤中組合報價，所以只能用開盤/收盤兩個時間點判斷(盤中碰到又拉回的日子會漏掉：停利保
+  守、停損樂觀)。價差價值夾在 [0, 寬度]，各腳成交時間對不上時可能湊出範圍外的值。
+- **真實選擇權資料回補(`scripts/backfill_thetadata.py --symbol SPY [QQQ ...]`，商品必填)**：從 ThetaData 抓
+  每日收盤的整條選擇權鏈(OHLC/成交量/收盤 bid/ask)，一個月一檔，可中斷重跑、已抓齊的月份自動跳過。API key 在
+  `.env` 的 `THETADATA_API_KEY`。目前只回補了 SPY。`polars` 是 `thetadata` 的相依套件，沒有單獨列在
+  pyproject。
 - 已知取捨：整組平倉後當天收盤價立刻重新進場(舊 v1 是隔天，同一組規則兩邊淨利會差很多)；盤中觸價
-  用開高低收四個取樣點近似；同一天先判斷停利再判斷停損，對策略偏樂觀。
+  只用開盤/收盤兩個時間點的整組淨價判斷(見下一條)；同一天先判斷停利再判斷停損，對策略偏樂觀。
 
 ## Agent skills
 

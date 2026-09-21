@@ -16,7 +16,7 @@ iframe)。*** 報表 JS 必須用 `ui.run_javascript()` 注入，不能用 `ui.a
 一次送進瀏覽器記憶體(`window.BtReport`)，在報表分頁切換回測完全在前端完成、不回伺服器。
 """
 import json
-from datetime import datetime
+from datetime import date, datetime
 from typing import Callable, Dict, List, Optional, Tuple
 
 from nicegui import ui
@@ -38,10 +38,10 @@ _ACTION_OPTIONS = dict(S.ACTION_LABELS)
 _FILL_OPTIONS = dict(S.FILL_LABELS)
 _WIDTH_UNIT_OPTIONS = dict(S.WIDTH_UNIT_LABELS)
 _STRATEGY_OPTIONS = dict(S.STRATEGY_LABELS)
-_TICKER_OPTIONS = {t: f"{t}（{idx}）" for t, idx in S.SUPPORTED_TICKERS.items()}
+_FILL_PRICE_OPTIONS = dict(S.FILL_PRICE_LABELS)
 
 _SEMANTICS_HINT = (
-    "短腳條件：在 OTM 履約價（間距 1 美元）上逐一檢查，and = 全部條件都滿足、or = 任一條件滿足，取通過者中離"
+    "短腳條件：在當天實際掛牌的 OTM 履約價上逐一檢查，and = 全部條件都滿足、or = 任一條件滿足，取通過者中離"
     "現價最近的一個；沒有履約價通過就當天不進場、隔天再試。沒有任何持倉時當天收盤價立刻重新進場。"
 )
 _STRATEGY_HINT = (
@@ -50,28 +50,30 @@ _STRATEGY_HINT = (
     "裸賣沒有虧損上限，保證金用簡化的 Reg-T 估算（見報表說明），停損規則請務必設定。"
 )
 _PRICING_HINT = (
-    "標的限有對應波動率指數的 ETF。價格是 Black-Scholes + 歷史波動率指數合成的，不是真實選擇權報價。"
-    "偏斜強度：0 = 所有履約價用同一個波動率（沒有偏斜）；越大價外 put 越貴、價外 call 越便宜"
-    "（sigma = ATM × (1 − 強度 × ln(履約價/現價))）。這會大幅影響 put 邊和 call 邊誰比較賺，"
-    "Jade Lizard 和 Twisted Sister 的排名尤其敏感。ATM 相對 VIX 比例：VIX 是一整排價外選擇權算出來的，"
-    "通常高於平價選擇權的隱含波動率，1 = 直接把 VIX 當 ATM。預設值（偏斜 4、比例 0.96）是拿 2026-09-18 "
-    "SPY 真實選擇權鏈在 16 delta 附近擬合的：只是低波動（VIX 14.8）當天的單一快照，不是歷史平均，"
-    "真實偏斜會隨行情變（崩盤時 put 更貴）。建議在預設值附近掃幾組（例如偏斜 3、4、5）看策略排名穩不穩，"
-    "不要當成精確定價。"
+    "價格全部來自 ThetaData 真實選擇權買賣報價（EOD，每日收盤後的 NBBO），不是理論算出來的。"
+    "標的僅限本機已用 scripts/backfill_thetadata.py 回補過真實資料的（目前只有 SPY，"
+    "要新增其他標的先跑那支腳本回補）。到期日：每天在實際掛牌的到期日裡，找剩餘天數最接近「進場天期」設定"
+    "的一個，不是任意數字；長腳履約價同理，找離「短腳 ± 寬度」最接近的真實掛牌履約價。|Delta| 條件用買賣"
+    "中價反推的隱含波動率計算（免費方案沒有現成 Greeks），是估算值，不是真正的官方 Delta。"
+    "成交價假設：「買賣中價」不計買賣價差，偏樂觀；「極端」是賣出的腳用買價(bid)、買進的腳用賣價(ask)成交，"
+    "進場賣短腳收 bid、買長腳付 ask，收盤平倉買回短腳付 ask、賣出長腳收 bid，每次都付滿整個買賣價差，是悲觀"
+    "下界。只影響進場信用和收盤價出場；挑履約價的權利金/Delta 條件仍看中價；盤中觸價掛單以掛價成交，不受這個參數影響。"
 )
 _NO_SINGLE_SIDE_RISK_HINT = (
     "總權利金 ≥ 保護價差的寬度才進場（Jade Lizard 的 call 價差、Twisted Sister 的 put 價差被總權利金完全蓋過，"
     "那一側就沒有虧損風險）；不滿足就當天不進場、隔天再試。寬度設太大會讓這個條件幾乎永遠不成立。"
 )
 _WIDTH_HINT = (
-    f"ETF 選擇權履約價最小跳動 {S.STRIKE_STEP:g} 美元：單位選「美元」時寬度必須是 {S.STRIKE_STEP:g} 的整數倍"
-    f"（例如 1、2、5）；選「現價 %」時，換算出來的寬度會四捨五入到 {S.STRIKE_STEP:g} 美元格點（最少 {S.STRIKE_STEP:g} 美元）。"
+    "這個寬度只是目標值：引擎會在當天實際掛牌的履約價裡，找離「短腳履約價 ± 寬度」最接近的一個當長腳，"
+    f"不保證剛好等於設定的寬度（真實掛牌間距越遠離現價通常越寬，常見 $5/$10，不是處處 {S.STRIKE_STEP:g} 美元）。"
 )
 _RULES_HINT = (
     "每天判斷順序固定：整組規則先於單邊規則；同一範圍內 到期天數 → 停利 → 停損（不依填寫順序）。每個「範圍＋類型」"
     "最多一條，且至少要有一條到期天數規則。單邊「只平倉」＝該邊留空、另一邊照常，兩邊都空手才整組重新進場；"
-    "整組平倉後一定會立刻重新進場，所以整組的動作固定為平倉。盤中觸價：開盤已越過門檻用開盤價成交，"
-    "否則以門檻價成交（整組用開高低收四個取樣點近似）；同一天先判斷停利再判斷停損，對策略偏樂觀。"
+    "整組平倉後一定會立刻重新進場，所以整組的動作固定為平倉。停利/停損看的是整張組合單的淨價（持有的所有價差"
+    "加總），例如收 1 掛 0.5 停利、掛 2 停損。盤中觸價：開盤淨價已越過門檻（跳空）用開盤價成交；否則收盤淨價"
+    "越過門檻，代表當天價格一定走過掛價，以掛價成交。只有 EOD 資料、沒有同一時刻的盤中組合報價，所以只用開盤跟"
+    "收盤判斷：盤中碰到掛價、收盤又拉回來的日子會漏掉（停利保守、停損樂觀）。同一天先判斷停利再判斷停損，對策略偏樂觀。"
 )
 
 
@@ -82,12 +84,13 @@ def build() -> Callable:
 
 # ------------------------------------------------------------------------------ 背景執行緒
 def _execute(strategy: S.StrategySpec, config: S.RunConfig) -> Tuple[List[dict], List[list], dict]:
-    """在背景執行緒跑：抓資料 → 回測 → 摘要。*** pandas/yfinance/引擎在這裡才第一次 import ***
+    """在背景執行緒跑：抓資料 → 回測 → 摘要。*** pandas/polars/yfinance/引擎在這裡才第一次 import ***
     (見模組開頭)。回傳 (逐筆交易 dict 清單, 標的每日收盤價 [[日期, 收盤]], 摘要)。"""
-    from app.models.backtest import engine, market_data, stats
+    from app.models.backtest import engine, market_data, option_chain, stats
 
     df = market_data.load_market_data(config.ticker, config.start, config.end)
-    trades = engine.run_backtest(df, strategy, config)
+    chain = option_chain.OptionChain(config.ticker, date.fromisoformat(config.start), date.fromisoformat(config.end))
+    trades = engine.run_backtest(df, chain, strategy, config)
     if not trades:
         raise ValueError("這組參數在回測期間沒有產生任何交易(例如短腳條件太嚴格、找不到履約價)，請調整條件")
     benchmark = [[d.strftime("%Y-%m-%d"), round(float(c), 4)] for d, c in df["close"].items()]
@@ -146,6 +149,10 @@ def _build_dialog() -> Callable:
     strategy = S.default_strategy()   # 表單目前的策略狀態(進場/出場規則的可變 dataclass)
     sent_ids: set = set()             # 已經送進瀏覽器記憶體的回測 id
     state = {"busy": False}
+    # 每次開對話框才重新掃一次(不是 import 時算一次)：使用者可能在 app 開著的期間另外跑
+    # backfill_thetadata.py 回補新標的，掃資料夾很便宜，不用留著舊清單。
+    _TICKER_OPTIONS = {t: t for t in S.available_tickers()}
+    _default_ticker = "SPY" if "SPY" in _TICKER_OPTIONS else next(iter(_TICKER_OPTIONS), "")
 
     def push_runs(metas: List[dict]) -> None:
         payload = [p for p in (_run_payload(m) for m in metas) if p is not None]
@@ -196,8 +203,7 @@ def _build_dialog() -> Callable:
             rule.threshold = _int_if_whole(rule.threshold) if rule.kind == S.KIND_DTE else rule.threshold
         cfg = S.RunConfig(
             ticker=ticker_select.value, start=(start_input.value or "").strip(), end=(end_input.value or "").strip(),
-            contracts=_int_if_whole(contracts_input.value),
-            skew=skew_input.value, atm_ratio=atm_ratio_input.value,
+            contracts=_int_if_whole(contracts_input.value), fill_price=fill_price_select.value,
         )
         return strategy, cfg
 
@@ -223,9 +229,10 @@ def _build_dialog() -> Callable:
         strategy.entry = loaded.entry
         strategy.exit_rules = loaded.exit_rules
         name_input.value = f"{meta['name']} 複製"
-        ticker_select.value = cfg.ticker
+        if cfg.ticker in _TICKER_OPTIONS:
+            ticker_select.value = cfg.ticker
         start_input.value, end_input.value, contracts_input.value = cfg.start, cfg.end, cfg.contracts
-        skew_input.value, atm_ratio_input.value = cfg.skew, cfg.atm_ratio
+        fill_price_select.value = cfg.fill_price
         kind_select.value = loaded.entry.kind
         no_single_side_risk_check.value = loaded.entry.conditions.no_single_side_risk
         dte_input.value = loaded.entry.dte
@@ -450,16 +457,14 @@ def _build_dialog() -> Callable:
                     ui.label("基本設定").classes("text-subtitle1 font-semibold")
                     with ui.row().classes("items-center gap-3"):
                         name_input = ui.input("策略名稱", value=f"策略 {datetime.now():%m-%d %H:%M}").classes("w-64")
-                        ticker_select = ui.select(_TICKER_OPTIONS, value="SPY", label="標的").classes("w-40")
-                        start_input = ui.input("起始日期", value="2015-01-01").props('mask="####-##-##"').classes("w-36")
+                        ticker_select = ui.select(_TICKER_OPTIONS, value=_default_ticker, label="標的").classes("w-40")
+                        start_input = ui.input("起始日期", value=S.RunConfig().start).props('mask="####-##-##"').classes("w-36")
                         end_input = ui.input("結束日期", value="2025-01-01").props('mask="####-##-##"').classes("w-36")
                         contracts_input = ui.number("口數", value=1, format="%d", min=1, step=1).classes("w-24")
-                    with ui.row().classes("items-center gap-3"):
-                        skew_input = ui.number("偏斜強度", value=S.RunConfig().skew, format="%g", min=0, max=S.SKEW_MAX, step=0.5).classes("w-32")
-                        atm_ratio_input = ui.number(
-                            "ATM 相對 VIX 比例", value=S.RunConfig().atm_ratio, format="%g",
-                            min=S.ATM_RATIO_RANGE[0], max=S.ATM_RATIO_RANGE[1], step=0.01,
-                        ).classes("w-44")
+                        fill_price_select = ui.select(
+                            _FILL_PRICE_OPTIONS, value=S.RunConfig().fill_price, label="成交價假設").classes("w-72")
+                    if not _TICKER_OPTIONS:
+                        ui.label("本機還沒有任何真實選擇權資料，先跑 `uv run python scripts/backfill_thetadata.py --symbol SPY` 回補").classes("text-negative text-caption")
                     ui.label(_PRICING_HINT).classes("text-caption text-grey")
 
                 with ui.card().props("flat bordered").classes("w-full gap-2"):

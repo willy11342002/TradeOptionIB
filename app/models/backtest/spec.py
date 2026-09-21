@@ -1,11 +1,12 @@
 """
 回測策略的純資料定義：進場規則、出場規則清單、回測設定，以及參數驗證。
 
-*** 這支檔案只用標準庫，不 import pandas/yfinance ***：UI(`app/views/web_backtest_dialog.py`)
+*** 這支檔案只用標準庫，不 import pandas/yfinance/polars ***：UI(`app/views/web_backtest_dialog.py`)
 和策略清單存檔(`app/services/backtest_store.py`)都要用它，但這兩個都不該為了「只是看一下
 參數/列出清單」就把 pandas 這種重量級套件載進來(首頁 timeout 的前車之鑑見
-`app/services/lazy_ui.py` 開頭)。真正跑回測的 `engine.py`/`market_data.py` 才會 import pandas，
-而且只在使用者按下「執行回測」之後才會被 import。
+`app/services/lazy_ui.py` 開頭)。真正跑回測的 `engine.py`/`market_data.py`/`option_chain.py` 才會
+import pandas/polars，而且只在使用者按下「執行回測」之後才會被 import。`available_tickers()`
+只是掃資料夾名稱，不解析 parquet 內容，所以可以留在這支輕量檔案裡，表單驗證/UI 建構時直接呼叫。
 
 策略 = 進場規則(`EntrySpec`) + 出場規則清單(`ExitRule` list)。整套語意(履約價怎麼選、規則
 怎麼排序、動作代表什麼)是使用者在對話中逐項拍板的，細節註解寫在各 dataclass 上，實際執行
@@ -14,21 +15,41 @@
 支援四種策略(`EntrySpec.kind`)，差別只在「哪一邊有買保護腳」，其餘(短腳條件、出場規則)完全共用：
 Iron Condor 兩邊都有、裸雙賣兩邊都沒有、Jade Lizard 只有 call 邊有、Twisted Sister 只有 put 邊有
 (見 `PROTECTED_SIDES`)。
+
+*** 價格資料 ***：回測用 `scripts/backfill_thetadata.py` 回補的真實 ThetaData 選擇權買賣報價
+(EOD)，不是理論合成價，到期日/履約價也只能選當天真的有掛牌的(見 `option_chain.py`)。只有本機
+已經回補過真實資料的標的能回測——`available_tickers()` 就是這個限制的來源，不像舊版
+Black-Scholes+VIX 合成定價那樣可以套用在任何標的上。
 """
 import math
 from dataclasses import asdict, dataclass, field
 from datetime import date
 from typing import List, Optional
 
-# 履約價最小跳動(美元)。目前只支援 ETF，ETF 選擇權的履約價最小跳動是 1 美元，所以引擎的履約價格點、
-# 長腳寬度都以 1 美元為單位(見 `snap_width`)；日後支援個股要改成依標的/到期日查真實的掛牌履約價。
+from app.paths import PREF_DIR
+
+# 履約價最小跳動的目標粒度(美元)：只用來把使用者填的「長腳寬度」四捨五入成一個目標值，實際長腳履約價
+# 是從當天真實掛牌的履約價裡，找離「短腳履約價 ± 這個目標寬度」最接近的一個(見 `engine.open_spread`)，
+# 不保證剛好等於這個數字——真實掛牌越遠離現價間距越寬(常見 $5/$10)，不是處處 1 美元。
 STRIKE_STEP = 1.0
+
+# 本機回補真實資料的存放位置，跟 `scripts/backfill_thetadata.py::THETADATA_DIR` 是同一個路徑。
+THETADATA_DIR = PREF_DIR / "backtest" / "thetadata"
 
 
 def snap_width(raw_width: float) -> float:
-    """把長腳寬度換算到履約價格點：四捨五入(.5 一律進位，不用 Python 內建 `round()` 的偶數捨入，不然
-    0.5→0、2.5→2、3.5→4 會讓相鄰的兩個設定悄悄變成同一個寬度)，最小 1 格。"""
+    """把長腳目標寬度換算到 `STRIKE_STEP` 格點：四捨五入(.5 一律進位，不用 Python 內建 `round()` 的偶數
+    捨入，不然 0.5→0、2.5→2、3.5→4 會讓相鄰的兩個設定悄悄變成同一個寬度)，最小 1 格。"""
     return max(STRIKE_STEP, math.floor(raw_width / STRIKE_STEP + 0.5) * STRIKE_STEP)
+
+
+def available_tickers() -> List[str]:
+    """本機已經用 `scripts/backfill_thetadata.py` 回補過真實資料的標的：掃 `THETADATA_DIR` 底下有
+    哪些資料夾裡真的有 .parquet 檔，不解析內容，輕量到可以在表單驗證/UI 建構時直接呼叫，不用等使用者
+    按下「執行回測」。沒有回補過的標的一律不能選——見模組開頭「價格資料」說明。"""
+    if not THETADATA_DIR.exists():
+        return []
+    return sorted(p.name for p in THETADATA_DIR.iterdir() if p.is_dir() and any(p.glob("*.parquet")))
 
 
 # --- 策略類型 ---------------------------------------------------------------------------------
@@ -101,36 +122,16 @@ FILL_INTRADAY = "intraday"
 FILLS = (FILL_CLOSE, FILL_INTRADAY)
 FILL_LABELS = {FILL_CLOSE: "收盤價", FILL_INTRADAY: "盤中觸價"}
 
-# 有對應隱含波動率指數的標的 -> 指數代號。不能整個回測都套 VIX：QQQ(那斯達克 100)歷史上波動率通常
-# 比 SPX 高，用 VIX 幫 QQQ 定價會讓履約價/權利金都偏離真實水位。SPX/NDX/RUT 這些指數在 yfinance
-# 需要 ^ 前綴，先不放，只放 ETF。
-SUPPORTED_TICKERS = {
-    "SPY": "^VIX",
-    "IVV": "^VIX",
-    "VOO": "^VIX",
-    "QQQ": "^VXN",
-    "IWM": "^RVX",
-}
-
-# --- 定價模型：波動率偏斜 ------------------------------------------------------------------------
-# 引擎用 Black-Scholes + 波動率指數當 sigma。單一 sigma 等於假設所有履約價的隱含波動率一樣(沒有偏斜)，
-# 真實市場價外 put 比價外 call 貴，這會直接影響 put 邊/call 邊誰比較賺(見 `engine._Vol`)。兩個參數：
-#   skew(偏斜強度)：sigma_K = ATM × (1 − skew × ln(K/S))。0 = 沒有偏斜；越大 put 越貴、call 越便宜。
-#   atm_ratio：ATM 隱含波動率 ÷ 波動率指數。VIX 是一整排價外 put/call 算出來的，通常高於平價選擇權的
-#              IV，1.0 = 直接把 VIX 當 ATM。
-# 預設值(4.0 和 0.96)是拿 2026-09-18 收盤的 SPY 真實選擇權鏈(到期日 2026-10-23/10-30，35~42 天)校準的：
-# 用 bid/ask 中間價、以引擎同一套定價慣例(r=4%、不含股息)反推隱含波動率，再對 VIX(14.81)做線性擬合
-# ratio*(1 − skew*ln(K/S))，範圍取 16 delta 附近(現價 ±3%~9%)，殘差 RMS 約 0.9 個波動率點；那天 16 delta
-# put 約 16~17%、16 delta call 約 10.5~11%，兩邊差約 6 個波動率點。
-# *** 限制：(1) 只是低波動(VIX 14.8)當天的單一快照，不是 2015~2026 的歷史；真實偏斜會隨行情狀態變(崩
-# 盤時 put 更貴)。(2) 真實曲線是彎的(價外 put 側更陡)，針對價外區擬合出來的 ratio 會比真正 ATM 比例
-# (當天約 0.90)高一點，所以它是「擬合截距」，不是嚴格的 ATM。(3) 舊版回測(沒有這兩個參數的時候)等於
-# skew=0/ratio=1.0，已明確寫進舊存檔，跟新預設值跑出來的結果不能直接比。適合用來掃不同數值看策略排名穩
-# 不穩，不要當成精確的定價 ***
-DEFAULT_SKEW = 4.0
-DEFAULT_ATM_RATIO = 0.96
-SKEW_MAX = 10.0
-ATM_RATIO_RANGE = (0.5, 1.5)
+# --- 成交價假設 ---------------------------------------------------------------------------------
+# 進場/收盤出場的成交價：mid = 買賣中價(理想化，沒有付買賣價差)；worst = 極端假設，賣出的腳用買價(bid)成交、
+# 買進的腳用賣價(ask)成交——進場時賣短腳收 bid、買長腳付 ask，平倉時買回短腳付 ask、賣出長腳收 bid，每一次
+# 成交都付滿整個買賣價差。這是悲觀的下界(真實下單掛在中間價附近常常能成交得比這個好)，用來看策略吃不吃得下
+# 最差的成交成本。只影響「進場信用」和「收盤價出場」；挑履約價用的權利金/Delta 條件仍然看中價，盤中觸價用的
+# 是當天實際成交價，不受這個參數影響。
+FILL_PRICE_MID = "mid"
+FILL_PRICE_WORST = "worst"
+FILL_PRICES = (FILL_PRICE_MID, FILL_PRICE_WORST)
+FILL_PRICE_LABELS = {FILL_PRICE_MID: "買賣中價", FILL_PRICE_WORST: "極端（賣用買價、買用賣價）"}
 
 IBKR_RATE_PER_CONTRACT = 0.65   # IBKR Pro Fixed 美股選擇權，每口每腳(月量 <=10,000 口那一階)
 IBKR_MIN_PER_LEG = 1.00         # combo 單每一腳的最低收費
@@ -145,9 +146,9 @@ class StrikeCondition:
 
 @dataclass
 class ShortLegSelector:
-    """短腳履約價選擇。在 OTM 履約價格點(間距 1 美元)上逐一檢查條件，combine="and" 要全部條件滿
-    足、"or" 任一條件滿足就算通過，取「通過者中離現價最近」的一個(權利金最高)；沒有任何履約價通
-    過就當天不進場、隔天再試。"""
+    """短腳履約價選擇。在當天實際掛牌的 OTM 履約價上逐一檢查條件(間距隨標的/到期日而定，越遠離現價
+    通常越寬)，combine="and" 要全部條件滿足、"or" 任一條件滿足就算通過，取「通過者中離現價最近」的
+    一個(權利金最高)；沒有任何履約價通過就當天不進場、隔天再試。"""
     conditions: List[StrikeCondition] = field(default_factory=list)
     combine: str = COMBINE_AND
 
@@ -210,14 +211,15 @@ class StrategySpec:
 @dataclass
 class RunConfig:
     ticker: str = "SPY"
-    start: str = "2015-01-01"
+    # 免費 ThetaData 帳號的 EOD 資料最早只到 2023-06-01(見 scripts/backfill_thetadata.py 的
+    # FREE_TIER_FIRST_DATE)，預設值對齊這個日期，不然新使用者一開始就會撞到「沒有資料」的驗證錯誤。
+    start: str = "2023-06-01"
     end: str = "2025-01-01"
     contracts: int = 1
     risk_free_rate: float = 0.04
     commission_rate: float = IBKR_RATE_PER_CONTRACT
     commission_min_per_leg: float = IBKR_MIN_PER_LEG
-    skew: float = DEFAULT_SKEW
-    atm_ratio: float = DEFAULT_ATM_RATIO
+    fill_price: str = FILL_PRICE_MID
 
 
 def default_strategy() -> StrategySpec:
@@ -270,13 +272,13 @@ def config_to_dict(config: RunConfig) -> dict:
 
 
 def config_from_dict(d: dict) -> RunConfig:
+    # 舊存檔(合成定價時代)可能還留著 skew/atm_ratio 欄位，d.get 以外的欄位直接忽略即可，不用特別遷移。
     return RunConfig(
         ticker=d["ticker"], start=d["start"], end=d["end"], contracts=int(d.get("contracts", 1)),
         risk_free_rate=float(d.get("risk_free_rate", 0.04)),
         commission_rate=float(d.get("commission_rate", IBKR_RATE_PER_CONTRACT)),
         commission_min_per_leg=float(d.get("commission_min_per_leg", IBKR_MIN_PER_LEG)),
-        # 定價模型的設定會影響結果，不給預設值：缺欄位就丟 KeyError，逼舊存檔明確遷移成 skew=0/atm_ratio=1
-        skew=float(d["skew"]), atm_ratio=float(d["atm_ratio"]),
+        fill_price=d.get("fill_price", FILL_PRICE_MID),   # 舊存檔沒有這欄位，當時的行為就是中價
     )
 
 
@@ -369,8 +371,15 @@ def validate_strategy(strategy: StrategySpec) -> List[str]:
 
 def validate_config(config: RunConfig) -> List[str]:
     errors: List[str] = []
-    if config.ticker not in SUPPORTED_TICKERS:
-        errors.append(f"標的 {config.ticker} 沒有對應的波動率指數，目前只支援：{'、'.join(SUPPORTED_TICKERS)}")
+    tickers = available_tickers()
+    if config.ticker not in tickers:
+        if tickers:
+            errors.append(
+                f"{config.ticker} 本機還沒有真實選擇權資料，目前可用：{'、'.join(tickers)}"
+                f"（先跑 `uv run python scripts/backfill_thetadata.py --symbol {config.ticker}` 回補）"
+            )
+        else:
+            errors.append("本機還沒有任何真實選擇權資料，先跑 `uv run python scripts/backfill_thetadata.py --symbol SPY` 回補")
     start = end = None
     try:
         start = date.fromisoformat(config.start)
@@ -384,11 +393,8 @@ def validate_config(config: RunConfig) -> List[str]:
         errors.append("起始日期必須早於結束日期")
     if not isinstance(config.contracts, int) or config.contracts < 1:
         errors.append("口數必須是 1 以上的整數")
-    if not _is_finite_number(config.skew) or not 0 <= config.skew <= SKEW_MAX:
-        errors.append(f"偏斜強度必須介於 0 和 {SKEW_MAX:g} 之間")
-    lo, hi = ATM_RATIO_RANGE
-    if not _is_finite_number(config.atm_ratio) or not lo <= config.atm_ratio <= hi:
-        errors.append(f"ATM 相對 VIX 比例必須介於 {lo:g} 和 {hi:g} 之間")
+    if config.fill_price not in FILL_PRICES:
+        errors.append("成交價假設只能是買賣中價或極端（賣用買價、買用賣價）")
     return errors
 
 
@@ -421,13 +427,12 @@ def describe_strategy(strategy: StrategySpec) -> List[str]:
 
 
 def describe_config(config: RunConfig) -> List[str]:
-    """把定價設定轉成中文，給報表/策略清單明確記錄「這份結果是用什麼定價假設跑的」。"""
-    if config.skew == 0:
-        skew_text = "無偏斜（所有履約價用同一個波動率）"
-    else:
-        skew_text = f"偏斜強度 {config.skew:g}（價外 put 波動率較高、價外 call 較低）"
-    vol_index = SUPPORTED_TICKERS.get(config.ticker, "波動率指數")
+    """把定價設定轉成中文，給報表/策略清單明確記錄「這份結果是用什麼資料跑的」。"""
+    fill_text = (
+        "進場與收盤出場成交價：極端（賣出的腳用買價、買進的腳用賣價，每次成交都付滿買賣價差）"
+        if config.fill_price == FILL_PRICE_WORST else "進場與收盤出場成交價：買賣中價（不計買賣價差）"
+    )
     return [
-        f"定價：Black-Scholes，ATM 波動率 = {vol_index} × {config.atm_ratio:g}，{skew_text}，"
-        f"無風險利率 {config.risk_free_rate * 100:g}%，不含股息",
+        f"定價：ThetaData 真實選擇權買賣報價（EOD），{fill_text}；|Delta| 用中價反推的隱含"
+        f"波動率計算（免費方案沒有現成 Greeks，僅估算值），無風險利率 {config.risk_free_rate * 100:g}%",
     ]

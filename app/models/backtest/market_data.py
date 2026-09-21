@@ -1,11 +1,9 @@
 """
-回測需要的兩條歷史序列，用 yfinance 抓，快取在 `pref/backtest/cache/`(整個 `pref/` 已 gitignore)：
-  - 標的每日開高低收(如 SPY)
-  - 對應標的的隱含波動率指數每日收盤(VIX/VXN/RVX)，當作市場實際隱含波動率的代理
+回測需要的標的每日開高低收，用 yfinance 抓，快取在 `pref/backtest/cache/`(整個 `pref/` 已 gitignore)。
 
-不用歷史已實現波動率反推，是因為那樣會把賣方長期的風險溢酬(VRP)直接定義成零；用真實隱含波動率
-才能讓合成價格反映真實存在的溢酬。波動率指數一定要對應到標的本身(見 spec.SUPPORTED_TICKERS)，不
-能整個回測都套 VIX。
+選擇權本身的價格改用真實 ThetaData 報價(`option_chain.py`)，這支檔案只負責「現價 S」這一件事——
+`engine.py` 選履約價的距現價百分比條件、保證金估算都需要它，ThetaData 的 EOD 選擇權快照本身不含
+正股/ETF 的價格。
 
 *** 這支檔案 import 了 pandas/yfinance，只能在使用者按下「執行回測」之後才 import(見 spec.py 開頭) ***
 """
@@ -14,7 +12,6 @@ from datetime import date
 
 import pandas as pd
 
-from app.models.backtest.spec import SUPPORTED_TICKERS
 from app.paths import PREF_DIR
 
 CACHE_DIR = PREF_DIR / "backtest" / "cache"
@@ -41,31 +38,17 @@ def _column(df: pd.DataFrame, name: str) -> pd.Series:
     return col
 
 
-def _cached_ohlc(ticker: str, start: str, end: str) -> pd.DataFrame:
+def load_market_data(ticker: str, start: str, end: str) -> pd.DataFrame:
+    """回傳以日期為 index 的 DataFrame，欄位 open/high/low/close(標的當天開高低收)。快取用檔案，
+    結束日期是今天或未來的話不沿用(可能還沒收盤/還沒更新)。"""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    cache_path = CACHE_DIR / f"{ticker.replace('^', '_')}_{start}_{end}.csv"
-    # 結束日期是今天或未來的話，快取的資料可能不完整(還沒收盤/還沒更新)，不能沿用。
+    cache_path = CACHE_DIR / f"{ticker}_{start}_{end}.csv"
     if cache_path.exists() and date.fromisoformat(end) < date.today():
-        return pd.read_csv(cache_path, index_col=0, parse_dates=True)
+        return pd.read_csv(cache_path, index_col=0, parse_dates=True).dropna().sort_index()
 
     df = _download_with_retry(ticker, start, end)
     out = pd.DataFrame(index=df.index)
     for src, dst in (("Open", "open"), ("High", "high"), ("Low", "low"), ("Close", "close")):
         out[dst] = _column(df, src)
     out.to_csv(cache_path)
-    return out
-
-
-def load_market_data(ticker: str, start: str, end: str) -> pd.DataFrame:
-    """回傳以日期為 index 的 DataFrame，欄位 open/high/low/close(標的當天開高低收)、vix(當天隱含
-    波動率指數收盤，20.0 代表 20%)。沒有盤中波動率資料，當天波動率視為常數(已知簡化)。"""
-    vol_index = SUPPORTED_TICKERS.get(ticker)
-    if vol_index is None:
-        raise ValueError(f"{ticker} 沒有對應的波動率指數，目前只支援：{'、'.join(SUPPORTED_TICKERS)}")
-
-    underlying = _cached_ohlc(ticker, start, end)
-    vol = _cached_ohlc(vol_index, start, end)["close"]
-
-    out = underlying.copy()
-    out["vix"] = vol
     return out.dropna().sort_index()
