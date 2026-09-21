@@ -17,8 +17,8 @@
 
 流程(每個交易日，`df` 需要有 open/high/low/close 欄、DatetimeIndex 遞增；只會走訪跟選擇權鏈資料
 有交集的日期，見 `run_backtest`)：
-1. 整組規則先判斷(整組 = 目前持有的所有單邊價差合計)，同一範圍內固定順序：到期天數 -> 停利 ->
-   停損(不依使用者填寫順序)。觸發就把目前所有持倉平倉。
+1. 整組規則先判斷(整組 = 目前持有的所有單邊價差合計)，同一範圍內固定順序：到期天數 -> 停損 ->
+   停利(不依使用者填寫順序；盤中觸價同一天兩者都碰到時停損優先)。觸發就把目前所有持倉平倉。
 2. 再逐一判斷 put 邊、call 邊的單邊規則。觸發就平倉那一邊；動作是「平倉後重開」的話，當天收盤價
    用進場規則立刻重開該邊(找不到符合條件的履約價就留空)，動作是「只平倉」的話該邊留空，另一邊照
    常，兩邊都空手才整組重新進場。
@@ -31,11 +31,21 @@
 
 成交模式(每條停利/停損規則各自決定)，停利/停損都是看「整張組合單的淨價」(持有的所有價差價值加總)：
 - 收盤價：只看收盤報價(依 `fill_price` 是中價或 bid/ask)，越過門檻就用收盤淨價成交。
-- 盤中觸價：模擬掛單。開盤淨價(各腳開盤成交價加總)已經越過門檻(跳空)用開盤淨價成交；否則收盤淨價越過
-  門檻，代表當天價格一定走過掛價，以掛價(門檻)成交。只有 EOD 資料，沒有同一時刻的盤中組合報價，所以
-  只用開盤跟收盤兩個時間點判斷：盤中碰到掛價、收盤又拉回來的日子會漏掉——對停利是保守(少賺)，對停損
-  是樂觀(少賠)。價差價值夾在 0 到寬度之間(各腳成交時間對不上時湊出的值可能超出範圍)。同一天先判斷
-  停利再判斷停損，對策略偏樂觀。
+- 盤中觸價：模擬掛單，用當天各合約的開/高/低成交價判斷整組淨價有沒有「走過」門檻。整組淨價對現價是
+  U 型(put 邊價值隨現價跌而升、call 邊隨現價漲而升)，日內的極端值一定出現在「現價到當天最低點」或
+  「現價到當天最高點」這兩個時間點之一，所以只需要算兩個情境的整組淨價：
+    · 現價在日內低點：put 邊的腳都取當天最高價、call 邊的腳都取當天最低價；
+    · 現價在日內高點：put 邊的腳都取當天最低價、call 邊的腳都取當天最高價。
+  同一邊價差的兩腳(短腳/長腳)是同方向移動的，所以取「同一種」極端價(都取高或都取低)相減，不是短腳
+  取高、長腳取低——那樣湊出的價差會偏大，是不存在的價格。兩個情境跟收盤淨價一起比：停損看最不利的、
+  停利看最有利的，越過門檻就以門檻價成交；開盤淨價已經越過門檻(跳空)則用開盤淨價成交。停損的最大值
+  在兩個端點上，判斷是精確的；停利的最小值可能落在兩個端點之間(U 型的底)，所以停利會漏掉一部分，
+  是保守的。
+  *** 成交價過濾 ***：開/高/低是單一合約的逐筆成交價，會有異常單(實測 2026-04-08 一個履約價 655 的 put
+  開盤價 0.10、收盤中價 5.76；同一天相鄰履約價都在 $1~3)。每個成交價都先用「標的當天高低點 + 收盤中價反推的
+  隱含波動率 x0.5~x2」算出這支合約當天合理的價格範圍(`_PrintFilter`)，超出就當作壞價、改用收盤中價；
+  深價內反推不出波動率時，改要求跟收盤中價的差距不超過標的當天的全幅。沒有成交(volume=0)一樣用收盤中價。
+  價差價值夾在 0 到寬度之間。同一天停損跟停利都被碰到時，順序不明，一律停損優先(保守)。
 """
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -227,40 +237,113 @@ def _open_position(
 Values = Dict[str, float]   # side -> 平倉時的價差價值
 
 
-def _leg_price(q: Quote, point: str, is_short: bool, worst: bool) -> float:
-    """平倉時這一腳的價格。"close" 是當天收盤的報價(不是最後一筆成交價——那可能是很早以前的成交)：
-    `worst` 為 False 是買賣中價；True 是極端成交價，短腳要買回付賣價(ask)、長腳要賣出收買價(bid)。
-    "open" 是當天開盤的實際成交價；這支選擇權當天沒有真的成交過(traded=False，遠價外常見)就沒有開盤
-    價可用，退回收盤報價。"""
-    if point == "close" or not q.traded:
-        return (q.ask if is_short else q.bid) if worst else q.mid
-    return q.open
+# 成交價過濾的容許範圍(見模組開頭「成交價過濾」)：隱含波動率日內可能大幅變動(暴跌日 +50% 以上很常見)，
+# 這個過濾只要擋掉明顯不可能的價格，所以刻意放很寬。
+PRINT_IV_LOW, PRINT_IV_HIGH = 0.5, 2.0
+PRINT_MIN_IV = 0.10        # 深價內時反推出的隱含波動率會小得不合理，設下限避免範圍縮到把真價擋掉
+PRINT_REL_SLACK = 0.20     # 範圍上下界再各放寬 20% + 0.02 美元
+PRINT_ABS_SLACK = 0.02
 
 
-def _spread_exit_value(sp: _Spread, d: date, point: str, worst: bool) -> Optional[float]:
-    """一邊價差在 `point`("open"/"close")的平倉價值 = 短腳價 − 長腳價(裸賣就只有短腳價)。價差不可能低於 0、
-    也不可能高於寬度(否則有無風險套利)，兩腳的價格是各自成交的、時間點不一定對得上，湊出範圍外的值時夾回
-    範圍內。"""
+class _PrintFilter:
+    """單一合約當天成交價(開/高/低)的合理性檢查。範圍靠標的當天的高低點算出來：這支合約在「現價在日內最
+    高/最低點」時的理論價，當波動率落在收盤隱含波動率的 x0.5~x2 之間時能到的最小/最大值。"""
+
+    def __init__(self, day_ranges: Dict[date, Tuple[float, float, float, float]], r: float):
+        self._days = day_ranges   # 日期 -> (開, 高, 低, 收)
+        self._r = r
+        self._bounds: Dict[tuple, Optional[Tuple[float, float]]] = {}   # 每個 (部位,腳,日期) 算一次
+
+    def _range(self, sp: "_Spread", leg: str, d: date, q: Quote) -> Optional[Tuple[float, float]]:
+        """(價格下界, 上界)；None 代表反推不出隱含波動率(深價內)，改用全幅檢查。"""
+        _, hi_s, lo_s, close_s = self._days[d]
+        K = sp.K_short if leg == "short" else sp.K_long
+        is_call = sp.side == "call"
+        T = (sp.expiration - d).days / 365
+        intrinsic = max(close_s - K, 0.0) if is_call else max(K - close_s, 0.0)
+        # 收盤中價偶爾略低於內含價值(四捨五入、報價時間跟標的收盤有落差)，反推前墊到內含價值之上。
+        iv = bs.implied_vol(is_call, close_s, K, self._r, T, max(q.mid, intrinsic + 0.02))
+        if iv is None:
+            return None
+        iv = max(iv, PRINT_MIN_IV)
+        T_open = T + 1 / 365
+        if is_call:
+            lo = bs.price(True, lo_s, K, self._r, T, iv * PRINT_IV_LOW)
+            hi = bs.price(True, hi_s, K, self._r, T_open, iv * PRINT_IV_HIGH)
+        else:
+            lo = bs.price(False, hi_s, K, self._r, T, iv * PRINT_IV_LOW)
+            hi = bs.price(False, lo_s, K, self._r, T_open, iv * PRINT_IV_HIGH)
+        return lo * (1 - PRINT_REL_SLACK) - PRINT_ABS_SLACK, hi * (1 + PRINT_REL_SLACK) + PRINT_ABS_SLACK
+
+    def price(self, sp: "_Spread", leg: str, d: date, field: str) -> float:
+        """`leg` 是 "short"/"long"，`field` 是 "open"/"high"/"low"。回傳可信的當天成交價；沒成交、缺標的資料、
+        到期日當天、或成交價超出合理範圍(壞價)一律退回收盤中價。"""
+        q = (sp.short_quotes if leg == "short" else sp.long_quotes)[d]
+        if not q.traded:
+            return q.mid
+        p = getattr(q, field)
+        if d not in self._days or (sp.expiration - d).days <= 0:
+            return p if d in self._days else q.mid
+        key = (sp.side, sp.entry_date, leg, d)
+        if key not in self._bounds:
+            self._bounds[key] = self._range(sp, leg, d, q)
+        bounds = self._bounds[key]
+        if bounds is None:
+            _, hi_s, lo_s, _ = self._days[d]
+            return p if abs(p - q.mid) <= (hi_s - lo_s) + PRINT_ABS_SLACK else q.mid
+        return p if bounds[0] <= p <= bounds[1] else q.mid
+
+
+def _leg_close_price(q: Quote, is_short: bool, worst: bool) -> float:
+    """平倉時這一腳的收盤價。是當天收盤的報價(不是最後一筆成交價——那可能是很早以前的成交)：`worst`
+    為 False 是買賣中價；True 是極端成交價，短腳要買回付賣價(ask)、長腳要賣出收買價(bid)。"""
+    return (q.ask if is_short else q.bid) if worst else q.mid
+
+
+def _spread_value(sp: _Spread, d: date, leg_price) -> Optional[float]:
+    """一邊價差的平倉價值 = 短腳價 − 長腳價(裸賣就只有短腳價)。`leg_price(leg, quote)` 決定每一腳用什麼價。
+    價差不可能低於 0、也不可能高於寬度(否則有無風險套利)，兩腳的價格是各自成交的、時間點不一定對得上，
+    湊出範圍外的值時夾回範圍內。"""
     sq = sp.short_quotes.get(d)
     if sq is None:
         return None
-    v = _leg_price(sq, point, True, worst)
+    v = leg_price("short", sq)
     if sp.K_long is None:
         return v
     lq = sp.long_quotes.get(d)
     if lq is None:
         return None
-    return min(max(v - _leg_price(lq, point, False, worst), 0.0), sp.width)
+    return min(max(v - leg_price("long", lq), 0.0), sp.width)
 
 
-def _values_at(spreads: List[_Spread], d: date, point: str, worst: bool) -> Optional[Values]:
+def _values(spreads: List[_Spread], value_of) -> Optional[Values]:
     out: Values = {}
     for sp in spreads:
-        v = _spread_exit_value(sp, d, point, worst)
+        v = value_of(sp)
         if v is None:
             return None
         out[sp.side] = v
     return out
+
+
+def _values_at(
+    spreads: List[_Spread], d: date, point: str, worst: bool, filt: Optional[_PrintFilter] = None,
+) -> Optional[Values]:
+    """各邊在 `point` 的平倉價值。"close" 是收盤報價；"open" 是開盤成交價(經 `filt` 過濾，見 `_PrintFilter`)。"""
+    if point == "close":
+        return _values(spreads, lambda sp: _spread_value(
+            sp, d, lambda leg, q: _leg_close_price(q, leg == "short", worst)))
+    return _values(spreads, lambda sp: _spread_value(sp, d, lambda leg, q: filt.price(sp, leg, d, "open")))
+
+
+def _values_extreme(spreads: List[_Spread], d: date, spot_low: bool, filt: _PrintFilter) -> Optional[Values]:
+    """現價在日內低點(spot_low=True)或高點時的各邊價值：put 邊取(低點=最高價/高點=最低價)、call 邊取
+    (低點=最低價/高點=最高價)，同一邊的兩腳取同一種極端價。見模組開頭「盤中觸價」。"""
+    def value_of(sp: _Spread) -> Optional[float]:
+        rises_when_spot_falls = sp.side == "put"
+        field = "high" if rises_when_spot_falls == spot_low else "low"
+        return _spread_value(sp, d, lambda leg, q: filt.price(sp, leg, d, field))
+    return _values(spreads, value_of)
 
 
 def _total_pnl(spreads: List[_Spread], values: Values) -> float:
@@ -279,7 +362,9 @@ def _remaining_days(sp: _Spread, d: date) -> int:
     return (sp.expiration - d).days
 
 
-def _evaluate(spreads: List[_Spread], rule: ExitRule, d: date, worst: bool = False) -> Optional[Values]:
+def _evaluate(
+    spreads: List[_Spread], rule: ExitRule, d: date, filt: _PrintFilter, worst: bool = False,
+) -> Optional[Values]:
     """這條規則今天有沒有觸發。觸發回傳各邊的平倉價值，沒觸發回傳 None。缺報價(理論上不該發生，
     `contract_series` 已經補過值)一律當作沒觸發，不讓回測因為一天的資料洞而崩潰。
 
@@ -304,13 +389,19 @@ def _evaluate(spreads: List[_Spread], rule: ExitRule, d: date, worst: bool = Fal
     if rule.fill == FILL_CLOSE:
         return values_close if breached(_total_pnl(spreads, values_close)) else None
 
-    # 盤中觸價：開盤淨價已經越過門檻(跳空)，掛單在開盤成交；否則收盤淨價越過門檻，代表當天價格一定
-    # 走過掛價(價格是連續的)，以掛價成交。
-    values_open = _values_at(spreads, d, "open", worst)
+    # 盤中觸價(細節見模組開頭)：開盤淨價已經越過門檻(跳空)，掛單在開盤成交；否則看「現價在日內低點/高點」
+    # 兩個情境跟收盤淨價，取對這條規則最不利(停損)/最有利(停利)的那個，越過門檻就以掛價成交。
+    values_open = _values_at(spreads, d, "open", worst, filt)
     if values_open is not None and breached(_total_pnl(spreads, values_open)):
         return values_open
-    if breached(_total_pnl(spreads, values_close)):
-        return _values_at_level(spreads, values_close, level)
+    candidates = [values_close]
+    for spot_low in (True, False):
+        extreme = _values_extreme(spreads, d, spot_low, filt)
+        if extreme is not None:
+            candidates.append(extreme)
+    pick = (max if is_take_profit else min)(candidates, key=lambda v: _total_pnl(spreads, v))
+    if breached(_total_pnl(spreads, pick)):
+        return _values_at_level(spreads, pick, level)
     return None
 
 
@@ -364,6 +455,9 @@ def run_backtest_with_equity(
 
     closes = df["close"].to_numpy(dtype=float).tolist()
     underlying_by_date = {ts.date(): c for ts, c in zip(df.index, closes)}
+    filt = _PrintFilter(
+        {ts.date(): (float(o), float(h), float(l), float(c))
+         for ts, o, h, l, c in zip(df.index, df["open"], df["high"], df["low"], df["close"])}, r)
     dates = sorted(set(underlying_by_date) & set(chain.trading_dates))
 
     for d in dates:
@@ -378,7 +472,7 @@ def run_backtest_with_equity(
                 rule = rules.get((SCOPE_GROUP, kind))
                 if rule is None:
                     continue
-                values = _evaluate(held, rule, d, worst)
+                values = _evaluate(held, rule, d, filt, worst)
                 if values is not None:
                     fill_mode = FILL_CLOSE if kind == KIND_DTE else rule.fill
                     for sp in held:
@@ -397,7 +491,7 @@ def run_backtest_with_equity(
                 rule = rules.get((SCOPE_LEG, kind))
                 if rule is None:
                     continue
-                values = _evaluate([sp], rule, d, worst)
+                values = _evaluate([sp], rule, d, filt, worst)
                 if values is not None:
                     fill_mode = FILL_CLOSE if kind == KIND_DTE else rule.fill
                     log_close(sp, d, values[side], f"{SCOPE_LEG}_{kind}", fill_mode)

@@ -103,9 +103,9 @@ KIND_STOP_LOSS = "stop_loss"
 KIND_DTE = "dte"
 KINDS = (KIND_TAKE_PROFIT, KIND_STOP_LOSS, KIND_DTE)
 KIND_LABELS = {KIND_TAKE_PROFIT: "停利", KIND_STOP_LOSS: "停損", KIND_DTE: "到期天數"}
-# 同一個範圍內每天的判斷順序(不依使用者填寫順序)：到期天數 -> 停利 -> 停損。沿用舊回測引擎的
-# 順序，方便對帳；盤中觸價時同一天先判斷停利再判斷停損，對策略偏樂觀，UI 上有標註。
-KIND_EVAL_ORDER = (KIND_DTE, KIND_TAKE_PROFIT, KIND_STOP_LOSS)
+# 同一個範圍內每天的判斷順序(不依使用者填寫順序)：到期天數 -> 停損 -> 停利。盤中觸價時同一天停損跟停利
+# 可能都被碰到、先後不明，一律停損優先(保守)；收盤價成交時兩者不可能同時成立，順序沒有影響。
+KIND_EVAL_ORDER = (KIND_DTE, KIND_STOP_LOSS, KIND_TAKE_PROFIT)
 
 UNIT_CREDIT_PCT = "credit_pct"   # 進場信用的百分比(停損 100% = 一倍)
 UNIT_POINTS = "points"           # 每股價格點數，跟即時自動平倉規則的 threshold_points 同一種單位
