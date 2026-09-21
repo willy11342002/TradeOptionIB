@@ -28,8 +28,9 @@ import calendar
 import os
 import sys
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # 讓 `python scripts/xxx.py` 找得到 app 套件
 
@@ -45,6 +46,14 @@ COMPLETE_MARGIN_DAYS = 5      # 判斷「這個月抓齊了」時容許的頭尾
 
 class PermissionDenied(Exception):
     """帳號方案不含這段日期的資料，或認證失敗。不是暫時性錯誤，重試沒有用。"""
+
+
+def theta_today() -> date:
+    """ThetaData 判斷「今天」用的是美股交易日(美東時區)，不能用系統本地時區的
+    date.today()：跑這支腳本的機器如果是 UTC(比美東快 4~5 小時)，在美東還沒
+    跨到隔天前，date.today() 就已經超前算出隔天的日期，當成 --end 預設值送出
+    去會變成 ThetaData 眼中的未來日期，直接被 INVALID_ARGUMENT 拒絕、重試也沒用。"""
+    return datetime.now(ZoneInfo("America/New_York")).date()
 
 
 def month_ranges(start: date, end: date):
@@ -142,7 +151,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--symbol", nargs="+", required=True, metavar="SYMBOL", help="要回補的商品代號，可以一次給多個，例如 --symbol SPY QQQ")
     parser.add_argument("--start", type=date.fromisoformat, default=FREE_TIER_FIRST_DATE,
                         help=f"起始日期 YYYY-MM-DD，預設 {FREE_TIER_FIRST_DATE}(免費帳號最早可查的日期)；有付費方案可以往前調")
-    parser.add_argument("--end", type=date.fromisoformat, default=date.today(), help="結束日期 YYYY-MM-DD，預設今天")
+    parser.add_argument("--end", type=date.fromisoformat, default=theta_today(), help="結束日期 YYYY-MM-DD，預設今天(美東時區)")
     parser.add_argument("--refetch", action="store_true", help="已經抓齊的月份也重抓")
     parser.add_argument("--dry-run", action="store_true", help="只列出會抓/會跳過哪些月份，不呼叫 API")
     args = parser.parse_args()
