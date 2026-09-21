@@ -7,6 +7,7 @@
     uv run python scripts/backfill_thetadata.py --symbol SPY --start 2026-08-01 --end 2026-09-18
     uv run python scripts/backfill_thetadata.py --symbol SPY --dry-run     # 只列出會抓哪些月份，不打 API
     uv run python scripts/backfill_thetadata.py --symbol SPY --refetch     # 已經抓過的月份也重抓
+    uv run python scripts/backfill_thetadata.py --symbol SPY --upload-only # 只把本機既有檔案上傳到 R2，不需要 THETADATA_API_KEY
 
 API key 讀專案根目錄 .env 的 THETADATA_API_KEY。存到 pref/backtest/thetadata/<商品>/YYYY-MM.parquet
 (整個 pref/ 已 gitignore)，一個月一檔，*** 可以隨時中斷、重跑：已經抓齊的月份會自動跳過 ***；
@@ -178,12 +179,17 @@ def parse_args() -> argparse.Namespace:
                         help="結束日期 YYYY-MM-DD，預設美東昨天(當天資料不能用萬用到期日抓，超過的日期會自動截到昨天)")
     parser.add_argument("--refetch", action="store_true", help="已經抓齊的月份也重抓")
     parser.add_argument("--dry-run", action="store_true", help="只列出會抓/會跳過哪些月份，不呼叫 API")
+    parser.add_argument("--upload-only", action="store_true",
+                        help="只把本機已經有的檔案上傳到 R2，完全不呼叫 ThetaData API(不需要 THETADATA_API_KEY)，"
+                             "適合在沒裝 ThetaData token 的機器上把既有回補資料同步上去")
     args = parser.parse_args()
     if args.end > last_available_date():
         print(f"提醒：--end {args.end} 是美東今天或未來，當天資料抓不到，改成 {last_available_date()}")
         args.end = last_available_date()
     if args.start > args.end:
         parser.error("--start 必須早於或等於 --end")
+    if args.upload_only and not cloud_store.enabled():
+        parser.error("--upload-only 需要先在 .env 設定 R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_ENDPOINT_URL/R2_BUCKET_NAME")
     args.symbol = list(dict.fromkeys(s.strip().upper() for s in args.symbol if s.strip()))
     return args
 
@@ -199,6 +205,15 @@ def main() -> int:
         last_request = 0.0
         for month, m_start, m_end in month_ranges(args.start, args.end):
             path = parquet_path(symbol, month)
+            if args.upload_only:
+                if path.exists():
+                    cloud_store.upload(path, r2_key(symbol, month))
+                    print(f"  {month}  上傳到 R2")
+                    fetched += 1
+                else:
+                    print(f"  {month}  本機沒有，略過")
+                    empty += 1
+                continue
             if not args.refetch and not path.exists() and not args.dry_run and cloud_store.enabled():
                 if cloud_store.download(r2_key(symbol, month), path):
                     print(f"  {month}  從 R2 下載(換機器/雲端 session 免重打 ThetaData API)")
@@ -241,7 +256,9 @@ def main() -> int:
             fetched += 1
             print(f"  {month}  {m_start} ~ {m_end}  {days} 個交易日  {df.height:,} 筆  {os.path.getsize(path) / 1e6:.1f} MB  {time.time() - t0:.0f} 秒")
 
-        if not args.dry_run:
+        if args.upload_only:
+            print(f"  --- {symbol}：上傳 {fetched} 個月、本機沒有 {empty} 個月")
+        elif not args.dry_run:
             print(f"  --- {symbol}：抓了 {fetched} 個月({rows_total:,} 筆)、跳過 {skipped} 個月、沒有資料 {empty} 個月")
             if fetched + skipped == 0:
                 print(f"  !! {symbol} 完全沒有資料，檢查商品代號是否正確(例如是否真的有選擇權)")
