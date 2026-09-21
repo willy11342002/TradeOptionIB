@@ -16,6 +16,12 @@ import pandas/polars，而且只在使用者按下「執行回測」之後才會
 Iron Condor 兩邊都有、裸雙賣兩邊都沒有、Jade Lizard 只有 call 邊有、Twisted Sister 只有 put 邊有
 (見 `PROTECTED_SIDES`)。
 
+另外兩種「以中心履約價為核心」的策略(`STRATEGIES_CENTERED`)：鐵蝶式(賣出 ATM 跨式 + 買進兩側保護翼，收權利金，
+現價停在中心附近獲利，報酬形狀等同買進蝶式)、反向鐵蝶式(買進 ATM 跨式 + 賣出兩側翼，付權利金，現價離開中心獲利，報酬
+形狀等同賣出蝶式)。兩者都是 put 邊價差 + call 邊價差共用同一個中心履約價(最接近現價的履約價)，所以用既有的「兩邊
+各一個價差」結構就能表示，不需要 3 腳結構；短腳履約價條件不適用，翼寬用 `EntrySpec.long`。反向鐵蝶式是「淨付出權利金」
+的買方部位(`STRATEGIES_DEBIT`)，`_Spread.entry_credit` 是負的。
+
 *** 價格資料 ***：回測用 `scripts/backfill_thetadata.py` 回補的真實 ThetaData 選擇權買賣報價
 (EOD)，不是理論合成價，到期日/履約價也只能選當天真的有掛牌的(見 `option_chain.py`)。只有本機
 已經回補過真實資料的標的能回測——`available_tickers()` 就是這個限制的來源，不像舊版
@@ -57,12 +63,19 @@ STRATEGY_IRON_CONDOR = "iron_condor"
 STRATEGY_STRANGLE = "strangle"
 STRATEGY_JADE_LIZARD = "jade_lizard"
 STRATEGY_TWISTED_SISTER = "twisted_sister"
-STRATEGIES = (STRATEGY_IRON_CONDOR, STRATEGY_STRANGLE, STRATEGY_JADE_LIZARD, STRATEGY_TWISTED_SISTER)
+STRATEGY_IRON_BUTTERFLY = "iron_butterfly"
+STRATEGY_REVERSE_IRON_BUTTERFLY = "reverse_iron_butterfly"
+STRATEGIES = (
+    STRATEGY_IRON_CONDOR, STRATEGY_STRANGLE, STRATEGY_JADE_LIZARD, STRATEGY_TWISTED_SISTER,
+    STRATEGY_IRON_BUTTERFLY, STRATEGY_REVERSE_IRON_BUTTERFLY,
+)
 STRATEGY_LABELS = {
     STRATEGY_IRON_CONDOR: "Iron Condor（鐵禿鷹）",
     STRATEGY_STRANGLE: "Short Strangle（裸雙賣）",
     STRATEGY_JADE_LIZARD: "Jade Lizard（玉蜥蜴）",
     STRATEGY_TWISTED_SISTER: "Twisted Sister（扭曲姊妹）",
+    STRATEGY_IRON_BUTTERFLY: "Iron Butterfly（鐵蝶式：賣跨式+翼，收權利金，中間獲利）",
+    STRATEGY_REVERSE_IRON_BUTTERFLY: "Reverse Iron Butterfly（反向鐵蝶式：買跨式+賣翼，付權利金，兩端獲利）",
 }
 # 每種策略哪一邊有買保護腳(長腳)。Jade Lizard = 裸賣 put + call 價差；Twisted Sister = 裸賣 call + put 價差。
 PROTECTED_SIDES = {
@@ -70,7 +83,13 @@ PROTECTED_SIDES = {
     STRATEGY_STRANGLE: (),
     STRATEGY_JADE_LIZARD: ("call",),
     STRATEGY_TWISTED_SISTER: ("put",),
+    STRATEGY_IRON_BUTTERFLY: ("put", "call"),
+    STRATEGY_REVERSE_IRON_BUTTERFLY: ("put", "call"),
 }
+# 以「最接近現價的履約價」當中心的策略：不用短腳履約價條件(挑履約價的規則固定是 ATM)，翼寬用 `EntrySpec.long`。
+STRATEGIES_CENTERED = (STRATEGY_IRON_BUTTERFLY, STRATEGY_REVERSE_IRON_BUTTERFLY)
+# 淨付出權利金的買方策略：進場時是支出(entry_credit 為負)，最大虧損 = 付出的權利金，停利/停損百分比以付出的權利金為基準。
+STRATEGIES_DEBIT = (STRATEGY_REVERSE_IRON_BUTTERFLY,)
 # 「無單邊風險」進場條件只對「一邊裸賣、另一邊價差」的策略有意義。
 STRATEGIES_WITH_SINGLE_SIDE_RISK_CHECK = (STRATEGY_JADE_LIZARD, STRATEGY_TWISTED_SISTER)
 
@@ -303,11 +322,12 @@ def validate_strategy(strategy: StrategySpec) -> List[str]:
     if not isinstance(entry.dte, int) or entry.dte < 2:
         errors.append("進場天期必須是 2 以上的整數")
 
-    if not entry.short.conditions:
+    centered = entry.kind in STRATEGIES_CENTERED
+    if not centered and not entry.short.conditions:
         errors.append("短腳履約價至少要有 1 個條件")
     if entry.short.combine not in COMBINES:
         errors.append("短腳條件的合併方式只能是 and 或 or")
-    for i, c in enumerate(entry.short.conditions, 1):
+    for i, c in enumerate([] if centered else entry.short.conditions, 1):   # 蝶式不用短腳條件，不驗證
         label = f"短腳條件 {i}"
         if c.metric not in METRICS:
             errors.append(f"{label}：不支援的指標 {c.metric}")
@@ -353,6 +373,8 @@ def validate_strategy(strategy: StrategySpec) -> List[str]:
             errors.append(f"出場規則 {label}：成交模式不合法")
         if r.action not in ACTIONS:
             errors.append(f"出場規則 {label}：動作不合法")
+        if r.scope == SCOPE_LEG and entry.kind in STRATEGIES_CENTERED:
+            errors.append(f"出場規則 {label}：蝶式的 put 邊和 call 邊共用同一個中心履約價，只能用「整組」範圍的規則")
         if r.scope == SCOPE_GROUP and r.action != ACTION_CLOSE:
             errors.append(f"出場規則 {label}：整組範圍的動作固定為平倉(平倉後會立刻依進場規則重新進場)")
         if not isinstance(r.cooldown_days, int) or isinstance(r.cooldown_days, bool) or r.cooldown_days < 0:
@@ -372,7 +394,9 @@ def validate_strategy(strategy: StrategySpec) -> List[str]:
         else:
             if r.unit not in (UNIT_CREDIT_PCT, UNIT_POINTS):
                 errors.append(f"出場規則 {label}：單位必須是權利金 % 或點數")
-            elif r.kind == KIND_TAKE_PROFIT and r.unit == UNIT_CREDIT_PCT and r.threshold > 100:
+            elif (r.kind == KIND_TAKE_PROFIT and r.unit == UNIT_CREDIT_PCT and r.threshold > 100
+                  and entry.kind not in STRATEGIES_DEBIT):
+                # 買方策略是付出權利金，獲利可以是付出金額的好幾倍，不受這個限制。
                 errors.append(f"出場規則 {label}：停利超過收到權利金的 100% 不可能觸發")
     if not has_dte:
         errors.append("至少要有一條到期天數規則(否則持倉會活過到期日)")
@@ -415,9 +439,13 @@ def describe_strategy(strategy: StrategySpec) -> List[str]:
     joiner = " 且 " if entry.short.combine == COMBINE_AND else " 或 "
     cond_text = joiner.join(f"{METRIC_LABELS[c.metric]} {c.op} {c.value:g}" for c in entry.short.conditions)
     width_text = f"{entry.long.width:g} 美元" if entry.long.width_unit == WIDTH_USD else f"現價 {entry.long.width:g}%"
-    entry_line = f"進場：{STRATEGY_LABELS.get(entry.kind, entry.kind)}，{entry.dte} DTE，短腳 {cond_text}"
-    if PROTECTED_SIDES.get(entry.kind):
-        entry_line += f"，長腳距短腳 {width_text}"
+    if entry.kind in STRATEGIES_CENTERED:
+        entry_line = (f"進場：{STRATEGY_LABELS.get(entry.kind, entry.kind)}，{entry.dte} DTE，"
+                      f"中心履約價 = 最接近現價，翼距中心 {width_text}")
+    else:
+        entry_line = f"進場：{STRATEGY_LABELS.get(entry.kind, entry.kind)}，{entry.dte} DTE，短腳 {cond_text}"
+        if PROTECTED_SIDES.get(entry.kind):
+            entry_line += f"，長腳距短腳 {width_text}"
     lines = [entry_line]
     if entry.kind in STRATEGIES_WITH_SINGLE_SIDE_RISK_CHECK and entry.conditions.no_single_side_risk:
         lines.append("進場條件：無單邊風險（總權利金 ≥ 保護價差寬度）")

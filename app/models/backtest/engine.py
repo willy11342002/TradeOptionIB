@@ -1,5 +1,5 @@
 """
-選擇權賣方策略參數化回測引擎(Iron Condor/裸雙賣/Jade Lizard/Twisted Sister)：進場規則
+選擇權賣方策略參數化回測引擎(Iron Condor/裸雙賣/Jade Lizard/Twisted Sister，另有鐵蝶式/反向鐵蝶式，見 `_open_butterfly`)：進場規則
 (`EntrySpec`) + 出場規則清單(`ExitRule`)，輸出「一列 = 一邊(價差或單腳裸賣)」的逐筆交易(`Trade`)。
 四種策略只差在哪一邊有買保護腳(`spec.PROTECTED_SIDES`)，裸賣的那一邊沒有長腳，價值就是短腳自己的
 價格。
@@ -57,7 +57,7 @@ from app.models.backtest.option_chain import OptionChain, Quote
 from app.models.backtest.spec import (
     ACTION_CLOSE_REOPEN, COMBINE_AND, COMBINE_OR, FILL_CLOSE, KIND_DTE, KIND_EVAL_ORDER,
     KIND_STOP_LOSS, KIND_TAKE_PROFIT, METRIC_DELTA, METRIC_DISTANCE_PCT, METRIC_PREMIUM, PROTECTED_SIDES, SCOPE_GROUP,
-    SCOPE_LEG, STRATEGIES_WITH_SINGLE_SIDE_RISK_CHECK, UNIT_CREDIT_PCT, WIDTH_USD, FILL_PRICE_WORST,
+    SCOPE_LEG, STRATEGIES_CENTERED, STRATEGIES_DEBIT, STRATEGIES_WITH_SINGLE_SIDE_RISK_CHECK, UNIT_CREDIT_PCT, WIDTH_USD, FILL_PRICE_WORST,
     EntrySpec, ExitRule, RunConfig, StrategySpec, snap_width,
 )
 from app.models.backtest.trade import Trade
@@ -86,6 +86,9 @@ class _Spread:
     short_quotes: Dict[date, Quote]
     long_quotes: Optional[Dict[date, Quote]]
     margin: Optional[float] = None   # 開倉當天收盤時，整組同時持有的部位的保證金(每股)；當天收盤前是 None
+    # 買方價差(反向鐵蝶式)：賣出的是外側翼(K_short)、買進的是中心(K_long)，價值 = 賣出腳價 − 買進腳價 是負的
+    # (平倉能收回的錢)，entry_credit 是負的(付出的權利金)，價值範圍是 [−寬度, 0] 而不是 [0, 寬度]。
+    debit: bool = False
 
     @property
     def naked(self) -> bool:
@@ -114,9 +117,12 @@ def position_margin(spreads: List[_Spread]) -> float:
     - 裸賣邊的需求 = `_naked_requirement` + 該邊權利金
     - 需求最大的一邊之外，如果另一邊是裸賣，要再加上那一邊的權利金(Reg-T 的裸雙賣算法)
     - 最後扣掉整組收到的全部權利金；不會小於 0。
-    Iron Condor 化簡後 = 較寬的寬度 − 兩邊權利金合計；裸雙賣 = 兩邊裸賣需求較大的那一個。"""
+    Iron Condor 化簡後 = 較寬的寬度 − 兩邊權利金合計；裸雙賣 = 兩邊裸賣需求較大的那一個；鐵蝶式同 Iron Condor
+    (寬度 − 權利金合計)。買方的反向鐵蝶式沒有保證金，資金占用 = 付出的權利金(最大虧損)。"""
     if not spreads:
         return 0.0
+    if all(sp.debit for sp in spreads):
+        return -sum(sp.entry_credit for sp in spreads)   # 買方部位：最大虧損 = 付出的權利金，不需要額外保證金
     gross = {sp.side: (_naked_requirement(sp) + sp.entry_credit) if sp.naked else sp.width for sp in spreads}
     top = max(spreads, key=lambda sp: gross[sp.side])
     total = gross[top.side] + sum(sp.entry_credit for sp in spreads if sp is not top and sp.naked)
@@ -222,10 +228,66 @@ def _entry_conditions_pass(entry: EntrySpec, put: Optional[_Spread], call: Optio
     return put.entry_credit + call.entry_credit >= protected.width - 1e-9
 
 
+def _open_butterfly(
+    S: float, chain: OptionChain, entry: EntrySpec, d: date, dates: List[date], worst: bool = False,
+) -> Optional[Dict[str, _Spread]]:
+    """開鐵蝶式/反向鐵蝶式整組：put 邊價差 + call 邊價差共用同一個中心履約價，找不到就回傳 None。
+
+    到期日：跟其他策略一樣，當天掛牌到期日裡剩餘天數最接近 `entry.dte` 的一個。
+    中心：該到期日 put、call 都有報價的履約價裡，離現價最近的一個(距離相同取較低的)。不用短腳條件。
+    翼：離「中心 ± 目標寬度」最接近的真實掛牌履約價，put 翼在中心下方、call 翼在中心上方。
+    - 鐵蝶式(收權利金)：賣出中心的 put 和 call、買進兩側的翼；信用 = 賣出價 − 買進價。
+    - 反向鐵蝶式(付權利金)：買進中心的 put 和 call、賣出兩側的翼；`entry_credit` 是負的(付出的權利金)，
+      `_Spread.K_short` 是賣出的翼、`K_long` 是買進的中心。
+    `worst` 為 True 時，賣出的腳收 bid、買進的腳付 ask。信用不是正的(鐵蝶式)、或不是介於 −寬度 和 0 之間
+    (反向鐵蝶式，否則有無風險套利/報價異常)就整組不進場。"""
+    expiration = chain.nearest_expiration(d, entry.dte)
+    if expiration is None or (expiration - d).days <= 0:
+        return None
+    by_side = {side: dict(chain.strikes_on(d, expiration, side)) for side in SIDES}
+    common = sorted(set(by_side["put"]) & set(by_side["call"]))
+    if not common:
+        return None
+    center = min(common, key=lambda k: (abs(k - S), k))
+    debit = entry.kind in STRATEGIES_DEBIT
+    raw_width = entry.long.width if entry.long.width_unit == WIDTH_USD else S * entry.long.width / 100.0
+    target_width = snap_width(raw_width)
+
+    out: Dict[str, _Spread] = {}
+    for side in SIDES:
+        quotes = by_side[side]
+        wings = [k for k in quotes if (k < center if side == "put" else k > center)]
+        if not wings:
+            return None
+        target = center - target_width if side == "put" else center + target_width
+        wing = min(wings, key=lambda k: abs(k - target))
+        width = abs(wing - center)
+        center_q, wing_q = quotes[center], quotes[wing]
+        if debit:
+            credit = (wing_q.bid - center_q.ask) if worst else (wing_q.mid - center_q.mid)
+            k_short, k_long, short_q, long_q = wing, center, wing, center
+            if not -width < credit < 0:
+                return None
+        else:
+            credit = (center_q.bid - wing_q.ask) if worst else (center_q.mid - wing_q.mid)
+            k_short, k_long = center, wing
+            if not 0 < credit < width:
+                return None
+        out[side] = _Spread(
+            side=side, K_short=k_short, K_long=k_long, expiration=expiration, entry_date=d, entry_S=S,
+            entry_credit=credit, width=width,
+            short_quotes=chain.contract_series(expiration, k_short, side, d, dates),
+            long_quotes=chain.contract_series(expiration, k_long, side, d, dates), debit=debit,
+        )
+    return out
+
+
 def _open_position(
     S: float, chain: OptionChain, entry: EntrySpec, r: float, d: date, dates: List[date], worst: bool = False,
 ) -> Optional[Dict[str, _Spread]]:
     """開整組(put 邊+call 邊)。任何一邊選不到、或不滿足進場條件就回傳 None(整個不進場)。"""
+    if entry.kind in STRATEGIES_CENTERED:
+        return _open_butterfly(S, chain, entry, d, dates, worst)
     put = open_spread(chain, S, "put", entry, r, d, dates, worst)
     call = open_spread(chain, S, "call", entry, r, d, dates, worst) if put is not None else None
     if put is None or call is None or not _entry_conditions_pass(entry, put, call):
@@ -313,7 +375,8 @@ def _spread_value(sp: _Spread, d: date, leg_price) -> Optional[float]:
     lq = sp.long_quotes.get(d)
     if lq is None:
         return None
-    return min(max(v - leg_price("long", lq), 0.0), sp.width)
+    v -= leg_price("long", lq)
+    return min(max(v, -sp.width), 0.0) if sp.debit else min(max(v, 0.0), sp.width)
 
 
 def _values(spreads: List[_Spread], value_of) -> Optional[Values]:
@@ -375,7 +438,7 @@ def _evaluate(
             return _values_at(spreads, d, "close", worst)
         return None
 
-    credit_total = sum(sp.entry_credit for sp in spreads)
+    credit_total = abs(sum(sp.entry_credit for sp in spreads))   # 買方策略是付出的權利金(負數)，取絕對值當基準
     threshold = rule.threshold / 100.0 * credit_total if rule.unit == UNIT_CREDIT_PCT else rule.threshold
     is_take_profit = rule.kind == KIND_TAKE_PROFIT
     level = threshold if is_take_profit else -threshold

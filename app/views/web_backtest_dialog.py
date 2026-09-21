@@ -45,10 +45,15 @@ _SEMANTICS_HINT = (
     "現價最近的一個；沒有履約價通過就當天不進場、隔天再試。沒有任何持倉時當天收盤價立刻重新進場。"
 )
 _STRATEGY_HINT = (
-    "四種策略只差在哪一邊有買保護腳：Iron Condor 兩邊都有、裸雙賣兩邊都沒有、Jade Lizard 只有 call 邊有"
+    "前四種策略只差在哪一邊有買保護腳：Iron Condor 兩邊都有、裸雙賣兩邊都沒有、Jade Lizard 只有 call 邊有"
     "（put 邊裸賣）、Twisted Sister 只有 put 邊有（call 邊裸賣）。短腳條件和出場規則四種策略共用。"
     "裸賣沒有虧損上限，保證金用簡化的 Reg-T 估算（見報表說明），停損規則請務必設定。"
+    "蝶式兩種：Iron Butterfly 賣出最接近現價的跨式、買進兩側翼，收權利金，現價停在中心附近獲利（報酬形狀等同「買進蝶式」）；"
+    "Reverse Iron Butterfly 買進跨式、賣出兩側翼，付權利金，最大虧損 = 付出的權利金，現價離開中心獲利（報酬形狀等同「賣出蝶式」）。"
+    "蝶式不用短腳條件，中心固定是最接近現價的履約價，只能用整組範圍的出場規則；反向版的停利/停損百分比以「付出的權利金」為基準。"
 )
+_LONG_LEG_LABEL = "長腳（距離短腳固定寬度，往價外再買一腳保護；裸賣的那一邊沒有長腳）"
+_WING_LABEL = "翼（put 翼在中心下方、call 翼在中心上方，距離中心的目標寬度）"
 _PRICING_HINT = (
     "價格全部來自 ThetaData 真實選擇權買賣報價（EOD，每日收盤後的 NBBO），不是理論算出來的。"
     "標的僅限本機已用 scripts/backfill_thetadata.py 回補過真實資料的（目前只有 SPY，"
@@ -127,10 +132,11 @@ def _int_if_whole(v):
     return v
 
 
-def _new_rule_defaults(existing: List[S.ExitRule]) -> Optional[S.ExitRule]:
-    """新增規則：挑第一個還沒用過的 (範圍, 類型) 組合，並帶入該類型合理的預設值。"""
+def _new_rule_defaults(existing: List[S.ExitRule], group_only: bool = False) -> Optional[S.ExitRule]:
+    """新增規則：挑第一個還沒用過的 (範圍, 類型) 組合，並帶入該類型合理的預設值。`group_only` 是蝶式
+    (兩邊共用中心履約價，不能單邊出場)。"""
     used = {(r.scope, r.kind) for r in existing}
-    for scope in (S.SCOPE_LEG, S.SCOPE_GROUP):
+    for scope in ((S.SCOPE_GROUP,) if group_only else (S.SCOPE_LEG, S.SCOPE_GROUP)):
         for kind in (S.KIND_TAKE_PROFIT, S.KIND_STOP_LOSS, S.KIND_DTE):
             if (scope, kind) in used:
                 continue
@@ -345,9 +351,9 @@ def _build_dialog() -> Callable:
         sync_constraints()
 
     def add_rule() -> None:
-        rule = _new_rule_defaults(strategy.exit_rules)
+        rule = _new_rule_defaults(strategy.exit_rules, group_only=kind_select.value in S.STRATEGIES_CENTERED)
         if rule is None:
-            ui.notify("六種「範圍＋類型」組合都已經有規則了", type="warning")
+            ui.notify("「範圍＋類型」組合都已經有規則了", type="warning")
             return
         strategy.exit_rules.append(rule)
         render_rules.refresh()
@@ -482,17 +488,18 @@ def _build_dialog() -> Callable:
                     with ui.row().classes("items-center gap-3"):
                         kind_select = ui.select(_STRATEGY_OPTIONS, value=strategy.entry.kind, label="策略").classes("w-64")
                         dte_input = ui.number("進場天期 (DTE)", value=strategy.entry.dte, format="%d", min=2, step=1).classes("w-36")
-                    ui.label("短腳履約價條件").classes("text-body2")
-                    with ui.row().classes("items-center gap-3"):
-                        ui.label("合併方式")
-                        combine_toggle = ui.toggle(
-                            {S.COMBINE_AND: "全部滿足 (and)", S.COMBINE_OR: "任一滿足 (or)"},
-                            value=strategy.entry.short.combine,
-                        )
-                    render_conditions()
-                    ui.button("新增條件", icon="add", on_click=add_condition).props("flat dense")
+                    with ui.column().classes("gap-2") as short_leg_box:
+                        ui.label("短腳履約價條件").classes("text-body2")
+                        with ui.row().classes("items-center gap-3"):
+                            ui.label("合併方式")
+                            combine_toggle = ui.toggle(
+                                {S.COMBINE_AND: "全部滿足 (and)", S.COMBINE_OR: "任一滿足 (or)"},
+                                value=strategy.entry.short.combine,
+                            )
+                        render_conditions()
+                        ui.button("新增條件", icon="add", on_click=add_condition).props("flat dense")
                     with ui.column().classes("gap-2") as long_leg_box:
-                        ui.label("長腳（距離短腳固定寬度，往價外再買一腳保護；裸賣的那一邊沒有長腳）").classes("text-body2")
+                        long_leg_label = ui.label(_LONG_LEG_LABEL).classes("text-body2")
                         with ui.row().classes("items-center gap-3"):
                             width_input = ui.number("寬度", value=strategy.entry.long.width, format="%g").classes("w-28")
                             width_unit_select = ui.select(_WIDTH_UNIT_OPTIONS, value=strategy.entry.long.width_unit, label="單位").classes("w-32")
@@ -516,6 +523,10 @@ def _build_dialog() -> Callable:
                     def sync_kind_widgets() -> None:
                         # 裸雙賣沒有長腳，寬度整區隱藏；「無單邊風險」只對一邊裸賣、一邊價差的策略有意義。
                         long_leg_box.set_visibility(bool(S.PROTECTED_SIDES.get(kind_select.value)))
+                        # 蝶式的中心履約價固定是最接近現價的履約價，不用短腳條件；寬度是「翼」距離中心的寬度。
+                        centered = kind_select.value in S.STRATEGIES_CENTERED
+                        short_leg_box.set_visibility(not centered)
+                        long_leg_label.set_text(_WING_LABEL if centered else _LONG_LEG_LABEL)
                         entry_conditions_box.set_visibility(kind_select.value in S.STRATEGIES_WITH_SINGLE_SIDE_RISK_CHECK)
 
                     kind_select.on_value_change(lambda _: sync_kind_widgets())
