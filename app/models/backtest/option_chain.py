@@ -25,18 +25,22 @@ from typing import Dict, List, Optional, Tuple
 
 import polars as pl
 
+from app.models.backtest import cloud_store
 from app.models.backtest.spec import THETADATA_DIR
 
 RIGHT_OF_SIDE = {"put": "PUT", "call": "CALL"}
 
 
 def _month_files(ticker: str, start: date, end: date) -> List[str]:
-    """涵蓋 [start, end] 的月檔案路徑，只列出實際存在的檔案——缺月份直接跳過、不當錯誤(可能還沒
-    回補到那個月，或免費帳號抓不到更早的資料，見 backfill_thetadata.py 的 FREE_TIER_FIRST_DATE)。"""
+    """涵蓋 [start, end] 的月檔案路徑，只列出實際存在的檔案——本機沒有先試著從 R2 補(見
+    `cloud_store.py`，沒設定雲端鏡像就整段跳過)，還是沒有就直接跳過、不當錯誤(可能還沒回補到那個
+    月，或免費帳號抓不到更早的資料，見 backfill_thetadata.py 的 FREE_TIER_FIRST_DATE)。"""
     files = []
     year, month = start.year, start.month
     while (year, month) <= (end.year, end.month):
         p = THETADATA_DIR / ticker / f"{year:04d}-{month:02d}.parquet"
+        if not p.exists() and cloud_store.enabled():
+            cloud_store.download(f"{ticker}/{year:04d}-{month:02d}.parquet", p)
         if p.exists():
             files.append(str(p))
         year, month = (year + 1, 1) if month == 12 else (year, month + 1)

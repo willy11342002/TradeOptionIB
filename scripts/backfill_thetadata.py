@@ -22,6 +22,11 @@ IV 之後要自己用 Black-Scholes 從買賣價反推。
     date, expiration, strike, right(CALL/PUT), open, high, low, close, volume, bid, ask, bid_size, ask_size
 其中 bid/ask 是收盤後的買賣價(NBBO)，close 是當天最後一筆成交價(可能是很早以前的成交，流動性差的
 合約 close 不能拿來當報價，用 bid/ask)。
+
+*** 選填的雲端鏡像(Cloudflare R2，見 `app/models/backtest/cloud_store.py`) ***：`.env` 有設定
+R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_ENDPOINT_URL/R2_BUCKET_NAME 四個變數時，抓到新月份存檔
+後會順便上傳；本機缺的月份會先試著從 R2 下載，下載成功就不用再打一次 ThetaData API(換機器/雲端
+session 也不會受 30 次/分鐘限制拖慢)。四個變數沒設定就完全不會有網路動作，行為跟原本一樣只用本機。
 """
 import argparse
 import calendar
@@ -34,7 +39,12 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # 讓 `python scripts/xxx.py` 找得到 app 套件
 
+from dotenv import load_dotenv  # noqa: E402
+
+from app.models.backtest import cloud_store  # noqa: E402
 from app.paths import PREF_DIR, PROJECT_ROOT  # noqa: E402
+
+load_dotenv(PROJECT_ROOT / ".env")  # R2_* 這幾個變數要進 os.environ，cloud_store.enabled() 才讀得到
 
 THETADATA_DIR = PREF_DIR / "backtest" / "thetadata"
 FREE_TIER_FIRST_DATE = date(2023, 6, 1)   # 免費帳號 EOD 最早可查的日期
@@ -76,6 +86,10 @@ def month_ranges(start: date, end: date):
 
 def parquet_path(symbol: str, month: str) -> Path:
     return THETADATA_DIR / symbol / f"{month}.parquet"
+
+
+def r2_key(symbol: str, month: str) -> str:
+    return f"{symbol}/{month}.parquet"
 
 
 def already_complete(path: Path, want_start: date, want_end: date) -> bool:
@@ -185,6 +199,9 @@ def main() -> int:
         last_request = 0.0
         for month, m_start, m_end in month_ranges(args.start, args.end):
             path = parquet_path(symbol, month)
+            if not args.refetch and not path.exists() and not args.dry_run and cloud_store.enabled():
+                if cloud_store.download(r2_key(symbol, month), path):
+                    print(f"  {month}  從 R2 下載(換機器/雲端 session 免重打 ThetaData API)")
             if not args.refetch and already_complete(path, m_start, m_end):
                 print(f"  {month}  跳過(已抓齊)")
                 skipped += 1
@@ -217,6 +234,8 @@ def main() -> int:
                 continue
             check_month(df, symbol, month)
             save_parquet(df, path)
+            if cloud_store.enabled():
+                cloud_store.upload(path, r2_key(symbol, month))
             days = df["date"].n_unique()
             rows_total += df.height
             fetched += 1

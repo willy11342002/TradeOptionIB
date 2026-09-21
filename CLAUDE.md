@@ -123,7 +123,10 @@ Qt 跟 asyncio 共用同一個事件迴圈)，後來發現這套組合踩過好�
 - **真實選擇權資料回補(`scripts/backfill_thetadata.py --symbol SPY [QQQ ...]`，商品必填)**：從 ThetaData 抓
   每日收盤的整條選擇權鏈(OHLC/成交量/收盤 bid/ask)，一個月一檔，可中斷重跑、已抓齊的月份自動跳過。API key 在
   `.env` 的 `THETADATA_API_KEY`。目前只回補了 SPY。`polars` 是 `thetadata` 的相依套件，沒有單獨列在
-  pyproject。
+  pyproject。**`pref/backtest/thetadata/` 有選填的 Cloudflare R2 雲端鏡像**(`app/models/backtest/cloud_store.py`，
+  `.env` 四個 `R2_*` 變數都設定才啟用)：抓到新月份存檔後順便上傳，本機(含換電腦、雲端 session 重新 clone)缺的
+  月份會先試著從 R2 下載，下載成功就不用重打一次 ThetaData API；`option_chain.py` 讀取時也走同一套補齊邏輯。
+  沒設定 `R2_*` 就完全退回原本純本機行為，不影響現有流程。
 - **蝶式(`STRATEGIES_CENTERED`：`iron_butterfly`、`reverse_iron_butterfly`)**：中心 = 該到期日 put/call 都有報價的
   履約價裡離「現價 + `EntrySpec.center_offset`」最近的一個(偏移單位美元或現價 %，0 = ATM，正 = 中心在現價上方；舊存檔沒
   有這欄位讀成 0)，不用短腳條件。**偏向跟策略有關**：鐵蝶式中心在上方偏多，反向鐵蝶式中心在上方偏空(相反)；兩翼 = 離「中心 ± 目標寬度」最接近的真實履約價。**用「鐵」的版本，

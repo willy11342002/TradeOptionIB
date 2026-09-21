@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.13"
 dependencies = [
+    "boto3>=1.43.98",
     "ib-async>=2.1.0",
     "ipykernel>=7.3.0",
     "nicegui>=2.0.0",
