@@ -24,7 +24,8 @@
    常，兩邊都空手才整組重新進場。
 3. 沒有任何持倉時，當天收盤價用進場規則開整組(put 邊+call 邊)。任何一邊找不到符合條件的履約
    價，或算出的信用不是正的，或不滿足進場條件(`EntryConditions`)，就整個不進場、隔天再試。
-   「立刻重新進場」是使用者定案的做法。
+   「立刻重新進場」是使用者定案的做法。停損規則可以設 `cooldown_days`：停損觸發後 N 個日曆天內，整組重新
+   進場和單邊「平倉後重開」都暫停(第 N 天起恢復)，預設 0 = 不冷卻。
    進場條件「無單邊風險」(Jade Lizard/Twisted Sister)：總權利金 >= 保護價差寬度。只在兩邊都湊齊時
    檢查；單邊「平倉後重開」時另一邊如果是空的(湊不成完整部位)就不檢查，直接重開。
 
@@ -37,7 +38,7 @@
   停利再判斷停損，對策略偏樂觀。
 """
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -45,7 +46,7 @@ import pandas as pd
 from app.models.backtest.option_chain import OptionChain, Quote
 from app.models.backtest.spec import (
     ACTION_CLOSE_REOPEN, COMBINE_AND, COMBINE_OR, FILL_CLOSE, KIND_DTE, KIND_EVAL_ORDER,
-    KIND_TAKE_PROFIT, METRIC_DELTA, METRIC_DISTANCE_PCT, METRIC_PREMIUM, PROTECTED_SIDES, SCOPE_GROUP,
+    KIND_STOP_LOSS, KIND_TAKE_PROFIT, METRIC_DELTA, METRIC_DISTANCE_PCT, METRIC_PREMIUM, PROTECTED_SIDES, SCOPE_GROUP,
     SCOPE_LEG, STRATEGIES_WITH_SINGLE_SIDE_RISK_CHECK, UNIT_CREDIT_PCT, WIDTH_USD, FILL_PRICE_WORST,
     EntrySpec, ExitRule, RunConfig, StrategySpec, snap_width,
 )
@@ -344,6 +345,7 @@ def run_backtest_with_equity(
     realized = 0.0        # 已平倉的每股毛損益累計
     unrealized = 0.0      # 目前持倉的浮動損益；某天缺報價就沿用前一天的值
     spreads: Dict[str, Optional[_Spread]] = {"put": None, "call": None}
+    blocked_until: Optional[date] = None   # 停損冷卻：日期早於這一天不開任何新部位(這天起恢復)，見 ExitRule.cooldown_days
 
     def log_close(sp: _Spread, d: date, exit_value: float, reason: str, fill_mode: str) -> None:
         nonlocal realized
@@ -382,6 +384,8 @@ def run_backtest_with_equity(
                     for sp in held:
                         log_close(sp, d, values[sp.side], f"{SCOPE_GROUP}_{kind}", fill_mode)
                         spreads[sp.side] = None
+                    if kind == KIND_STOP_LOSS and rule.cooldown_days > 0:
+                        blocked_until = d + timedelta(days=rule.cooldown_days)
                     break
 
         # 2. 單邊規則
@@ -398,7 +402,9 @@ def run_backtest_with_equity(
                     fill_mode = FILL_CLOSE if kind == KIND_DTE else rule.fill
                     log_close(sp, d, values[side], f"{SCOPE_LEG}_{kind}", fill_mode)
                     spreads[side] = None
-                    if rule.action == ACTION_CLOSE_REOPEN:
+                    if kind == KIND_STOP_LOSS and rule.cooldown_days > 0:
+                        blocked_until = d + timedelta(days=rule.cooldown_days)
+                    if rule.action == ACTION_CLOSE_REOPEN and (blocked_until is None or d >= blocked_until):
                         new = open_spread(chain, S, side, entry, r, d, dates, worst)
                         pair = {**spreads, side: new}
                         if new is not None and _entry_conditions_pass(entry, pair["put"], pair["call"]):
@@ -406,7 +412,7 @@ def run_backtest_with_equity(
                     break
 
         # 3. 完全空手 -> 立刻重新進場(整組，兩邊都選得到、且滿足進場條件才進)
-        if spreads["put"] is None and spreads["call"] is None:
+        if spreads["put"] is None and spreads["call"] is None and (blocked_until is None or d >= blocked_until):
             opened = _open_position(S, chain, entry, r, d, dates, worst)
             if opened is not None:
                 spreads.update(opened)

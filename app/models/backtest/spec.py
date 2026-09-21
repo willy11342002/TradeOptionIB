@@ -193,6 +193,10 @@ class ExitRule:
     - 類型 dte：threshold 是天數，unit 固定 days，成交固定收盤價(到期日是行事曆決定的)。
     - 類型 take_profit/stop_loss：threshold + unit(credit_pct/points)；fill 決定用收盤價還是
       盤中高低價模擬掛單成交。
+    - cooldown_days(只有停損規則可以設)：這條停損觸發那天起算，接下來 N 個日曆天內不開任何新部位
+      (整組重新進場、單邊「平倉後重開」都算)，第 N 天起才恢復進場。0 = 不冷卻，維持原本「平倉後當天
+      收盤立刻重新進場」。用意：停損後立刻用同樣的 Δ 重賣一個一樣的 put，曝險完全沒有減少，只是把
+      虧損兌現，連續下跌段會一路被停損；冷卻就是讓策略在下跌段先空手。
     """
     scope: str
     kind: str
@@ -200,6 +204,7 @@ class ExitRule:
     unit: str
     action: str = ACTION_CLOSE
     fill: str = FILL_CLOSE
+    cooldown_days: int = 0
 
 
 @dataclass
@@ -261,6 +266,7 @@ def strategy_from_dict(d: dict) -> StrategySpec:
             ExitRule(
                 scope=r["scope"], kind=r["kind"], threshold=float(r["threshold"]), unit=r["unit"],
                 action=r.get("action", ACTION_CLOSE), fill=r.get("fill", FILL_CLOSE),
+                cooldown_days=int(r.get("cooldown_days", 0)),   # 舊存檔沒有這欄位，當時的行為就是不冷卻
             )
             for r in d.get("exit_rules", [])
         ],
@@ -349,6 +355,10 @@ def validate_strategy(strategy: StrategySpec) -> List[str]:
             errors.append(f"出場規則 {label}：動作不合法")
         if r.scope == SCOPE_GROUP and r.action != ACTION_CLOSE:
             errors.append(f"出場規則 {label}：整組範圍的動作固定為平倉(平倉後會立刻依進場規則重新進場)")
+        if not isinstance(r.cooldown_days, int) or isinstance(r.cooldown_days, bool) or r.cooldown_days < 0:
+            errors.append(f"出場規則 {label}：冷卻天數必須是 0 以上的整數")
+        elif r.cooldown_days > 0 and r.kind != KIND_STOP_LOSS:
+            errors.append(f"出場規則 {label}：只有停損規則可以設定停損後不進場的天數")
         if r.kind == KIND_DTE:
             has_dte = True
             if r.unit != UNIT_DAYS:
@@ -422,6 +432,8 @@ def describe_strategy(strategy: StrategySpec) -> List[str]:
             parts.append(FILL_LABELS.get(r.fill, r.fill))
         if r.scope == SCOPE_LEG:
             parts.append(ACTION_LABELS.get(r.action, r.action))
+        if r.cooldown_days > 0:
+            parts.append(f"停損後 {r.cooldown_days} 天內不進場")
         lines.append("出場：" + "，".join(parts))
     return lines
 

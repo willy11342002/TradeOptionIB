@@ -201,6 +201,7 @@ def _build_dialog() -> Callable:
         strategy.entry.long.width_unit = width_unit_select.value
         for rule in strategy.exit_rules:
             rule.threshold = _int_if_whole(rule.threshold) if rule.kind == S.KIND_DTE else rule.threshold
+            rule.cooldown_days = _int_if_whole(rule.cooldown_days or 0)   # 清空欄位是 None，當 0
         cfg = S.RunConfig(
             ticker=ticker_select.value, start=(start_input.value or "").strip(), end=(end_input.value or "").strip(),
             contracts=_int_if_whole(contracts_input.value), fill_price=fill_price_select.value,
@@ -301,6 +302,8 @@ def _build_dialog() -> Callable:
             unit_sel = ui.select(unit_options(rule.kind), value=rule.unit, label="單位").classes("w-32")
             action_sel = ui.select(_ACTION_OPTIONS, value=rule.action, label="動作").classes("w-36")
             fill_sel = ui.select(_FILL_OPTIONS, value=rule.fill, label="成交").classes("w-28")
+            cooldown = ui.number("停損後不進場(天)", value=rule.cooldown_days, format="%d", step=1, min=0).classes("w-36")
+            cooldown.tooltip("停損觸發後，這麼多個日曆天內不開任何新部位(0 = 當天收盤立刻重新進場)。只有停損規則能設。")
             ui.button(icon="delete", on_click=lambda _e, r=rule: remove_rule(r)).props("flat round dense color=negative")
 
         def sync_constraints() -> None:
@@ -317,6 +320,10 @@ def _build_dialog() -> Callable:
             action_sel.value = rule.action
             fill_sel.set_enabled(not is_dte)
             action_sel.set_enabled(rule.scope == S.SCOPE_LEG)
+            if rule.kind != S.KIND_STOP_LOSS:
+                rule.cooldown_days = 0
+                cooldown.value = 0
+            cooldown.set_enabled(rule.kind == S.KIND_STOP_LOSS)
 
         def on_scope(e) -> None:
             rule.scope = e.value
@@ -332,6 +339,7 @@ def _build_dialog() -> Callable:
         unit_sel.on_value_change(lambda e: setattr(rule, "unit", e.value))
         action_sel.on_value_change(lambda e: setattr(rule, "action", e.value))
         fill_sel.on_value_change(lambda e: setattr(rule, "fill", e.value))
+        cooldown.on_value_change(lambda e: setattr(rule, "cooldown_days", e.value))
         sync_constraints()
 
     def add_rule() -> None:
