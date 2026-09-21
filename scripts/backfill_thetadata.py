@@ -56,6 +56,15 @@ def theta_today() -> date:
     return datetime.now(ZoneInfo("America/New_York")).date()
 
 
+def last_available_date() -> date:
+    """EOD 整條鏈(expiration='*')能請求的最後一天：美東「昨天」。
+
+    當天(含盤中與剛收盤)的資料 ThetaData 不允許用萬用到期日抓，會回
+    INVALID_ARGUMENT「Cannot fetch current-day data without specifying an
+    expiration」，重試沒有用；當天 EOD 也還沒定稿，所以一律截到昨天。"""
+    return theta_today() - timedelta(days=1)
+
+
 def month_ranges(start: date, end: date):
     """依序列出涵蓋 [start, end] 的每個月：(該月檔名 YYYY-MM, 要請求的起日, 要請求的迄日)，頭尾裁到 start/end。"""
     year, month = start.year, start.month
@@ -151,10 +160,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--symbol", nargs="+", required=True, metavar="SYMBOL", help="要回補的商品代號，可以一次給多個，例如 --symbol SPY QQQ")
     parser.add_argument("--start", type=date.fromisoformat, default=FREE_TIER_FIRST_DATE,
                         help=f"起始日期 YYYY-MM-DD，預設 {FREE_TIER_FIRST_DATE}(免費帳號最早可查的日期)；有付費方案可以往前調")
-    parser.add_argument("--end", type=date.fromisoformat, default=theta_today(), help="結束日期 YYYY-MM-DD，預設今天(美東時區)")
+    parser.add_argument("--end", type=date.fromisoformat, default=last_available_date(),
+                        help="結束日期 YYYY-MM-DD，預設美東昨天(當天資料不能用萬用到期日抓，超過的日期會自動截到昨天)")
     parser.add_argument("--refetch", action="store_true", help="已經抓齊的月份也重抓")
     parser.add_argument("--dry-run", action="store_true", help="只列出會抓/會跳過哪些月份，不呼叫 API")
     args = parser.parse_args()
+    if args.end > last_available_date():
+        print(f"提醒：--end {args.end} 是美東今天或未來，當天資料抓不到，改成 {last_available_date()}")
+        args.end = last_available_date()
     if args.start > args.end:
         parser.error("--start 必須早於或等於 --end")
     args.symbol = list(dict.fromkeys(s.strip().upper() for s in args.symbol if s.strip()))
