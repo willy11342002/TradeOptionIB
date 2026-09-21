@@ -53,6 +53,8 @@ _STRATEGY_HINT = (
     "蝶式不用短腳條件，中心固定是最接近現價的履約價，只能用整組範圍的出場規則；反向版的停利/停損百分比以「付出的權利金」為基準。"
 )
 _CENTER_HINT = (
+    "建議起手值（切換到蝶式時自動帶入，可改）：天期 30、翼 2%、偏移 0。大概的合理範圍：天期 30～45、翼 1.5%～3%、"
+    "偏多/偏空偏移 ±1%～3%；偏移超過約 ±3% 會讓一邊變成深價內、另一邊深價外，部位退化成只剩手續費。"
     "中心履約價 = 「現價 + 偏移」附近最接近的真實履約價，0 = 最接近現價(ATM)。正值 = 中心在現價上方，負值 = 下方。"
     "Iron Butterfly：中心在上方偏多（現價漲到中心附近獲利）、下方偏空；Reverse Iron Butterfly 相反：中心在上方偏空"
     "（現價往下離開中心獲利）、下方偏多。"
@@ -539,6 +541,8 @@ def _build_dialog() -> Callable:
                     width_unit_select.on_value_change(lambda _: sync_width_input())
                     sync_width_input()
 
+                    was_centered = {"v": kind_select.value in S.STRATEGIES_CENTERED}
+
                     def sync_kind_widgets() -> None:
                         # 裸雙賣沒有長腳，寬度整區隱藏；「無單邊風險」只對一邊裸賣、一邊價差的策略有意義。
                         long_leg_box.set_visibility(bool(S.PROTECTED_SIDES.get(kind_select.value)))
@@ -546,6 +550,11 @@ def _build_dialog() -> Callable:
                         centered = kind_select.value in S.STRATEGIES_CENTERED
                         short_leg_box.set_visibility(not centered)
                         center_box.set_visibility(centered)
+                        if centered and not was_centered["v"]:   # 從其他策略切到蝶式：帶入建議的進場起手值
+                            d = S.CENTERED_ENTRY_DEFAULTS
+                            dte_input.value, width_input.value, width_unit_select.value = d["dte"], d["width"], d["width_unit"]
+                            center_offset_input.value, center_offset_unit_select.value = d["center_offset"], d["center_offset_unit"]
+                        was_centered["v"] = centered
                         long_leg_label.set_text(_WING_LABEL if centered else _LONG_LEG_LABEL)
                         entry_conditions_box.set_visibility(kind_select.value in S.STRATEGIES_WITH_SINGLE_SIDE_RISK_CHECK)
 

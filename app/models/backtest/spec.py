@@ -88,6 +88,12 @@ PROTECTED_SIDES = {
 }
 # 以「最接近現價的履約價」當中心的策略：不用短腳履約價條件(挑履約價的規則固定是 ATM)，翼寬用 `EntrySpec.long`。
 STRATEGIES_CENTERED = (STRATEGY_IRON_BUTTERFLY, STRATEGY_REVERSE_IRON_BUTTERFLY)
+# 蝶式進場的建議起手值(只是預設，使用者全部可改)：UI 從其他策略切換到蝶式時帶入。依據：SPY 上翼寬 2% 時，權利金
+# 約佔翼寬的 79%(1.5% → 84%、3% → 69%)，兩邊價差都還有實際的價值變動；中心偏移超過約 ±3%，其中一邊會變成深價內
+# (價值≈翼寬且幾乎不動)、另一邊深價外(≈0)，部位退化成只剩手續費。
+CENTERED_ENTRY_DEFAULTS = {
+    "dte": 30, "width_unit": "pct", "width": 2.0, "center_offset": 0.0, "center_offset_unit": "pct",
+}
 # 淨付出權利金的買方策略：進場時是支出(entry_credit 為負)，最大虧損 = 付出的權利金，停利/停損百分比以付出的權利金為基準。
 STRATEGIES_DEBIT = (STRATEGY_REVERSE_IRON_BUTTERFLY,)
 # 「無單邊風險」進場條件只對「一邊裸賣、另一邊價差」的策略有意義。
