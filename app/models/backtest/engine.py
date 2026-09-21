@@ -176,6 +176,9 @@ def open_spread(
     掛牌履約價，往價外方向；裸賣的那一邊沒有長腳。
     信用：`worst` 為 False 用兩腳買賣中價；True 用極端成交價——賣短腳收買價(bid)、買長腳付賣價(ask)。
     挑履約價的條件(權利金/Delta)不管哪種都看中價，只有最後算進場信用才換成 bid/ask。"""
+    if entry.kind in STRATEGIES_CENTERED:   # 蝶式：單邊重開，中心/翼的挑法見 `_open_butterfly`
+        opened = _open_butterfly(S, chain, entry, d, dates, worst, sides=(side,))
+        return opened[side] if opened else None
     expiration = chain.nearest_expiration(d, entry.dte)
     if expiration is None:
         return None
@@ -230,8 +233,11 @@ def _entry_conditions_pass(entry: EntrySpec, put: Optional[_Spread], call: Optio
 
 def _open_butterfly(
     S: float, chain: OptionChain, entry: EntrySpec, d: date, dates: List[date], worst: bool = False,
+    sides: Tuple[str, ...] = SIDES,
 ) -> Optional[Dict[str, _Spread]]:
     """開鐵蝶式/反向鐵蝶式整組：put 邊價差 + call 邊價差共用同一個中心履約價，找不到就回傳 None。
+    `sides` 只給一邊時只開那一邊(單邊規則「平倉後重開」用)：中心照進場規則重新算(現價 + 偏移)，不跟另一邊
+    目前還持有的部位的中心對齊，所以重開之後兩邊的中心可能不同。
 
     到期日：跟其他策略一樣，當天掛牌到期日裡剩餘天數最接近 `entry.dte` 的一個。
     中心：該到期日 put、call 都有報價的履約價裡，離「現價 + `entry.center_offset`」最近的一個(距離相同取較低
@@ -256,7 +262,7 @@ def _open_butterfly(
     target_width = snap_width(raw_width)
 
     out: Dict[str, _Spread] = {}
-    for side in SIDES:
+    for side in sides:
         quotes = by_side[side]
         wings = [k for k in quotes if (k < center if side == "put" else k > center)]
         if not wings:

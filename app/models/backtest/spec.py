@@ -394,8 +394,6 @@ def validate_strategy(strategy: StrategySpec) -> List[str]:
             errors.append(f"出場規則 {label}：成交模式不合法")
         if r.action not in ACTIONS:
             errors.append(f"出場規則 {label}：動作不合法")
-        if r.scope == SCOPE_LEG and entry.kind in STRATEGIES_CENTERED:
-            errors.append(f"出場規則 {label}：蝶式的 put 邊和 call 邊共用同一個中心履約價，只能用「整組」範圍的規則")
         if r.scope == SCOPE_GROUP and r.action != ACTION_CLOSE:
             errors.append(f"出場規則 {label}：整組範圍的動作固定為平倉(平倉後會立刻依進場規則重新進場)")
         if not isinstance(r.cooldown_days, int) or isinstance(r.cooldown_days, bool) or r.cooldown_days < 0:

@@ -50,7 +50,7 @@ _STRATEGY_HINT = (
     "裸賣沒有虧損上限，保證金用簡化的 Reg-T 估算（見報表說明），停損規則請務必設定。"
     "蝶式兩種：Iron Butterfly 賣出最接近現價的跨式、買進兩側翼，收權利金，現價停在中心附近獲利（報酬形狀等同「買進蝶式」）；"
     "Reverse Iron Butterfly 買進跨式、賣出兩側翼，付權利金，最大虧損 = 付出的權利金，現價離開中心獲利（報酬形狀等同「賣出蝶式」）。"
-    "蝶式不用短腳條件，中心固定是最接近現價的履約價，只能用整組範圍的出場規則；反向版的停利/停損百分比以「付出的權利金」為基準。"
+    "蝶式不用短腳條件，中心固定是最接近現價的履約價；單邊「平倉後重開」會照進場規則重算那一邊的中心（兩邊中心可能不同）；反向版的停利/停損百分比以「付出的權利金」為基準。"
 )
 _CENTER_HINT = (
     "建議起手值（切換到蝶式時自動帶入，可改）：天期 30、翼 2%、偏移 0。大概的合理範圍：天期 30～45、翼 1.5%～3%、"
@@ -139,11 +139,10 @@ def _int_if_whole(v):
     return v
 
 
-def _new_rule_defaults(existing: List[S.ExitRule], group_only: bool = False) -> Optional[S.ExitRule]:
-    """新增規則：挑第一個還沒用過的 (範圍, 類型) 組合，並帶入該類型合理的預設值。`group_only` 是蝶式
-    (兩邊共用中心履約價，不能單邊出場)。"""
+def _new_rule_defaults(existing: List[S.ExitRule]) -> Optional[S.ExitRule]:
+    """新增規則：挑第一個還沒用過的 (範圍, 類型) 組合，並帶入該類型合理的預設值。"""
     used = {(r.scope, r.kind) for r in existing}
-    for scope in ((S.SCOPE_GROUP,) if group_only else (S.SCOPE_LEG, S.SCOPE_GROUP)):
+    for scope in (S.SCOPE_LEG, S.SCOPE_GROUP):
         for kind in (S.KIND_TAKE_PROFIT, S.KIND_STOP_LOSS, S.KIND_DTE):
             if (scope, kind) in used:
                 continue
@@ -364,7 +363,7 @@ def _build_dialog() -> Callable:
         sync_constraints()
 
     def add_rule() -> None:
-        rule = _new_rule_defaults(strategy.exit_rules, group_only=kind_select.value in S.STRATEGIES_CENTERED)
+        rule = _new_rule_defaults(strategy.exit_rules)
         if rule is None:
             ui.notify("「範圍＋類型」組合都已經有規則了", type="warning")
             return
