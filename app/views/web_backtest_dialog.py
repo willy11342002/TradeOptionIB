@@ -52,6 +52,11 @@ _STRATEGY_HINT = (
     "Reverse Iron Butterfly 買進跨式、賣出兩側翼，付權利金，最大虧損 = 付出的權利金，現價離開中心獲利（報酬形狀等同「賣出蝶式」）。"
     "蝶式不用短腳條件，中心固定是最接近現價的履約價，只能用整組範圍的出場規則；反向版的停利/停損百分比以「付出的權利金」為基準。"
 )
+_CENTER_HINT = (
+    "中心履約價 = 「現價 + 偏移」附近最接近的真實履約價，0 = 最接近現價(ATM)。正值 = 中心在現價上方，負值 = 下方。"
+    "Iron Butterfly：中心在上方偏多（現價漲到中心附近獲利）、下方偏空；Reverse Iron Butterfly 相反：中心在上方偏空"
+    "（現價往下離開中心獲利）、下方偏多。"
+)
 _LONG_LEG_LABEL = "長腳（距離短腳固定寬度，往價外再買一腳保護；裸賣的那一邊沒有長腳）"
 _WING_LABEL = "翼（put 翼在中心下方、call 翼在中心上方，距離中心的目標寬度）"
 _PRICING_HINT = (
@@ -207,6 +212,8 @@ def _build_dialog() -> Callable:
         strategy.entry.short.combine = combine_toggle.value
         strategy.entry.long.width = width_input.value
         strategy.entry.long.width_unit = width_unit_select.value
+        strategy.entry.center_offset = center_offset_input.value if center_offset_input.value is not None else 0.0
+        strategy.entry.center_offset_unit = center_offset_unit_select.value
         for rule in strategy.exit_rules:
             rule.threshold = _int_if_whole(rule.threshold) if rule.kind == S.KIND_DTE else rule.threshold
             rule.cooldown_days = _int_if_whole(rule.cooldown_days or 0)   # 清空欄位是 None，當 0
@@ -248,6 +255,8 @@ def _build_dialog() -> Callable:
         combine_toggle.value = loaded.entry.short.combine
         width_input.value = loaded.entry.long.width
         width_unit_select.value = loaded.entry.long.width_unit
+        center_offset_input.value = loaded.entry.center_offset
+        center_offset_unit_select.value = loaded.entry.center_offset_unit
         render_conditions.refresh()
         render_rules.refresh()
         error_box.clear()
@@ -264,6 +273,8 @@ def _build_dialog() -> Callable:
         combine_toggle.value = fresh.entry.short.combine
         width_input.value = fresh.entry.long.width
         width_unit_select.value = fresh.entry.long.width_unit
+        center_offset_input.value = fresh.entry.center_offset
+        center_offset_unit_select.value = fresh.entry.center_offset_unit
         render_conditions.refresh()
         render_rules.refresh()
 
@@ -504,6 +515,14 @@ def _build_dialog() -> Callable:
                             width_input = ui.number("寬度", value=strategy.entry.long.width, format="%g").classes("w-28")
                             width_unit_select = ui.select(_WIDTH_UNIT_OPTIONS, value=strategy.entry.long.width_unit, label="單位").classes("w-32")
                         ui.label(_WIDTH_HINT).classes("text-caption text-grey")
+                    with ui.column().classes("gap-2") as center_box:
+                        ui.label("中心履約價偏移（蝶式）").classes("text-body2")
+                        with ui.row().classes("items-center gap-3"):
+                            center_offset_input = ui.number(
+                                "偏移", value=strategy.entry.center_offset, format="%g", step=1).classes("w-28")
+                            center_offset_unit_select = ui.select(
+                                _WIDTH_UNIT_OPTIONS, value=strategy.entry.center_offset_unit, label="單位").classes("w-32")
+                        ui.label(_CENTER_HINT).classes("text-caption text-grey")
                     with ui.column().classes("gap-1") as entry_conditions_box:
                         ui.label("進場條件").classes("text-body2")
                         no_single_side_risk_check = ui.checkbox(
@@ -526,6 +545,7 @@ def _build_dialog() -> Callable:
                         # 蝶式的中心履約價固定是最接近現價的履約價，不用短腳條件；寬度是「翼」距離中心的寬度。
                         centered = kind_select.value in S.STRATEGIES_CENTERED
                         short_leg_box.set_visibility(not centered)
+                        center_box.set_visibility(centered)
                         long_leg_label.set_text(_WING_LABEL if centered else _LONG_LEG_LABEL)
                         entry_conditions_box.set_visibility(kind_select.value in S.STRATEGIES_WITH_SINGLE_SIDE_RISK_CHECK)
 

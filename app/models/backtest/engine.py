@@ -234,7 +234,8 @@ def _open_butterfly(
     """開鐵蝶式/反向鐵蝶式整組：put 邊價差 + call 邊價差共用同一個中心履約價，找不到就回傳 None。
 
     到期日：跟其他策略一樣，當天掛牌到期日裡剩餘天數最接近 `entry.dte` 的一個。
-    中心：該到期日 put、call 都有報價的履約價裡，離現價最近的一個(距離相同取較低的)。不用短腳條件。
+    中心：該到期日 put、call 都有報價的履約價裡，離「現價 + `entry.center_offset`」最近的一個(距離相同取較低
+    的)；偏移 0 就是 ATM。偏移為正 = 中心在現價上方、負 = 下方(見 `EntrySpec.center_offset`)。不用短腳條件。
     翼：離「中心 ± 目標寬度」最接近的真實掛牌履約價，put 翼在中心下方、call 翼在中心上方。
     - 鐵蝶式(收權利金)：賣出中心的 put 和 call、買進兩側的翼；信用 = 賣出價 − 買進價。
     - 反向鐵蝶式(付權利金)：買進中心的 put 和 call、賣出兩側的翼；`entry_credit` 是負的(付出的權利金)，
@@ -248,7 +249,8 @@ def _open_butterfly(
     common = sorted(set(by_side["put"]) & set(by_side["call"]))
     if not common:
         return None
-    center = min(common, key=lambda k: (abs(k - S), k))
+    offset = entry.center_offset if entry.center_offset_unit == WIDTH_USD else S * entry.center_offset / 100.0
+    center = min(common, key=lambda k: (abs(k - (S + offset)), k))
     debit = entry.kind in STRATEGIES_DEBIT
     raw_width = entry.long.width if entry.long.width_unit == WIDTH_USD else S * entry.long.width / 100.0
     target_width = snap_width(raw_width)

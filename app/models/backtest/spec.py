@@ -198,6 +198,11 @@ class EntrySpec:
     short: ShortLegSelector = field(default_factory=ShortLegSelector)
     long: LongLegSelector = field(default_factory=LongLegSelector)
     conditions: EntryConditions = field(default_factory=EntryConditions)
+    # 只有蝶式(`STRATEGIES_CENTERED`)用：中心履約價 = 「現價 + 偏移」附近最接近的真實履約價，0 就是 ATM。正值 = 中心
+    # 在現價上方、負值 = 下方；單位跟翼寬一樣可選美元或現價 %。鐵蝶式中心在現價上方偏多(現價漲到中心附近獲利)、下方偏
+    # 空；反向鐵蝶式相反(中心在上方 = 偏空：現價往下離開中心獲利)。舊存檔沒有這欄位，讀進來是 0(ATM)。
+    center_offset: float = 0.0
+    center_offset_unit: str = WIDTH_USD
 
 
 @dataclass
@@ -280,6 +285,8 @@ def strategy_from_dict(d: dict) -> StrategySpec:
             ),
             long=LongLegSelector(width_unit=entry["long"]["width_unit"], width=float(entry["long"]["width"])),
             conditions=EntryConditions(no_single_side_risk=bool(entry["conditions"]["no_single_side_risk"])),
+            center_offset=float(entry.get("center_offset", 0.0)),
+            center_offset_unit=entry.get("center_offset_unit", WIDTH_USD),
         ),
         exit_rules=[
             ExitRule(
@@ -343,6 +350,14 @@ def validate_strategy(strategy: StrategySpec) -> List[str]:
             errors.append(f"{label}：距現價 % 必須介於 0 和 100 之間")
         if c.metric == METRIC_PREMIUM and c.value < 0:
             errors.append(f"{label}：權利金不可為負")
+
+    if centered:
+        if entry.center_offset_unit not in WIDTH_UNITS:
+            errors.append("中心偏移的單位只能是美元或現價 %")
+        elif not _is_finite_number(entry.center_offset):
+            errors.append("中心偏移必須是數字(正 = 中心在現價上方、負 = 下方、0 = 最接近現價)")
+        elif entry.center_offset_unit == WIDTH_PCT and abs(entry.center_offset) > 50:
+            errors.append("中心偏移(現價 %)不可超過 ±50")
 
     if PROTECTED_SIDES.get(entry.kind):   # 裸雙賣沒有長腳，寬度不必驗證
         if entry.long.width_unit not in WIDTH_UNITS:
@@ -433,6 +448,16 @@ def validate_config(config: RunConfig) -> List[str]:
 
 
 # ------------------------------------------------------------------------------ 中文描述
+def _center_text(entry: EntrySpec) -> str:
+    """蝶式中心履約價的中文描述，例如「現價」「現價 +5 美元（偏多）」「現價 -2%（偏空）」。"""
+    off = entry.center_offset
+    if not off:
+        return "現價"
+    amount = f"{off:+g} 美元" if entry.center_offset_unit == WIDTH_USD else f"{off:+g}%"
+    bullish = (off > 0) == (entry.kind == STRATEGY_IRON_BUTTERFLY)   # 反向鐵蝶式的偏向跟鐵蝶式相反
+    return f"現價 {amount}（{'偏多' if bullish else '偏空'}）"
+
+
 def describe_strategy(strategy: StrategySpec) -> List[str]:
     """把策略參數轉成幾行中文，給報表/策略清單顯示「這份結果是用什麼參數跑的」。"""
     entry = strategy.entry
@@ -441,7 +466,7 @@ def describe_strategy(strategy: StrategySpec) -> List[str]:
     width_text = f"{entry.long.width:g} 美元" if entry.long.width_unit == WIDTH_USD else f"現價 {entry.long.width:g}%"
     if entry.kind in STRATEGIES_CENTERED:
         entry_line = (f"進場：{STRATEGY_LABELS.get(entry.kind, entry.kind)}，{entry.dte} DTE，"
-                      f"中心履約價 = 最接近現價，翼距中心 {width_text}")
+                      f"中心履約價 = 最接近{_center_text(entry)}，翼距中心 {width_text}")
     else:
         entry_line = f"進場：{STRATEGY_LABELS.get(entry.kind, entry.kind)}，{entry.dte} DTE，短腳 {cond_text}"
         if PROTECTED_SIDES.get(entry.kind):

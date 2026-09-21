@@ -125,7 +125,8 @@ Qt 跟 asyncio 共用同一個事件迴圈)，後來發現這套組合踩過好�
   `.env` 的 `THETADATA_API_KEY`。目前只回補了 SPY。`polars` 是 `thetadata` 的相依套件，沒有單獨列在
   pyproject。
 - **蝶式(`STRATEGIES_CENTERED`：`iron_butterfly`、`reverse_iron_butterfly`)**：中心 = 該到期日 put/call 都有報價的
-  履約價裡離現價最近的一個，不用短腳條件；兩翼 = 離「中心 ± 目標寬度」最接近的真實履約價。**用「鐵」的版本，
+  履約價裡離「現價 + `EntrySpec.center_offset`」最近的一個(偏移單位美元或現價 %，0 = ATM，正 = 中心在現價上方；舊存檔沒
+  有這欄位讀成 0)，不用短腳條件。**偏向跟策略有關**：鐵蝶式中心在上方偏多，反向鐵蝶式中心在上方偏空(相反)；兩翼 = 離「中心 ± 目標寬度」最接近的真實履約價。**用「鐵」的版本，
   是因為它剛好是 put 價差 + call 價差共用中心，沿用既有「兩邊各一個 `_Spread`」的結構，不需要 3 腳/雙口結構**。
   Iron Butterfly = 賣出 ATM 跨式 + 買翼、收權利金(報酬形狀等同買進蝶式，中間獲利)；Reverse Iron Butterfly =
   買進 ATM 跨式 + 賣翼、付權利金(報酬形狀等同賣出蝶式，兩端獲利)。兩者在同一日程下損益**逐筆互為相反數**
