@@ -1,0 +1,7 @@
+.venv
+.git
+__pycache__
+logs
+pref
+ib_gateway_settings
+.env

@@ -16,6 +16,10 @@
 # 4003(live)/4004(paper)、用內建的 socat 轉出來——Gateway 的 API
 # socket 只綁 127.0.0.1，同一個 network namespace 裡不能自己再監聽一
 # 次同個 port，這跟 GCE 原生安裝要另外裝 socat 轉 port 是同一個原因。
+#
+# app 服務：NiceGUI 本體(main.py)，跟上面的 ib-gateway 一起 `docker
+# compose up` 起來。整個專案目錄 mount 進 /app，uvicorn 用 --reload 跑，
+# 改 .py 存檔就會自動重新載入。
 services:
   ib-gateway:
     container_name: ib-gateway
@@ -96,3 +100,32 @@ services:
       # 對應上面 TWS_SETTINGS_PATH——本機這個資料夾放帳密以外的 Gateway
       # 使用者設定(ibg.xml)，跟 .env 一樣不進 git(見 .gitignore)。
       - ./ib_gateway_settings:/home/ibgateway/tws_settings
+
+  app:
+    container_name: options-tboard
+    build: .
+    restart: unless-stopped
+    command: ["python", "main.py", "--reload", "--port", "8150"]
+    environment:
+      # 容器裡的 127.0.0.1 是容器自己，不是本機——main.py 的 IB 連線固定
+      # 連 4001/4002(ib_prefs.DEFAULT_PORT_LIVE/PAPER)，剛好就是上面
+      # ib-gateway 對本機發佈出來的 port，所以繞回本機去連，不用改
+      # main.py。覆蓋 .env 裡的 IB_HOST=127.0.0.1(load_dotenv 預設不會蓋
+      # 掉已存在的環境變數)。
+      IB_HOST: host.docker.internal
+      # *** reload 要正常運作的關鍵 ***：bind mount 在 macOS/Windows 的
+      # Docker(含 Rancher Desktop 的 VM)不保證把本機的檔案變動轉成容器裡
+      # 的 inotify 事件，只靠事件通知會出現「存檔了卻沒重新載入」。
+      # watchfiles(uvicorn --reload 底層)強制改成輪詢，不依賴事件。
+      WATCHFILES_FORCE_POLLING: "true"
+    extra_hosts:
+      # Docker Desktop/Rancher Desktop 內建這個名稱；Linux 需要這行才解
+      # 析得到(注意：Linux 上 ib-gateway 的 port 綁在 127.0.0.1，容器連
+      # 不到，要把上面的 ports 改成 0.0.0.0 綁定)。
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8150:8150"
+    volumes:
+      # pref/、logs/、.env 都在專案目錄裡，跟著一起 mount，容器裡讀寫的
+      # 就是本機同一份檔案，不用另外處理持久化。
+      - .:/app

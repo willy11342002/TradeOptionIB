@@ -4,14 +4,14 @@
         {
             "name": "nicegui-main",
             "runtimeExecutable": ".venv/Scripts/python.exe",
-            "runtimeArgs": ["main.py"],
-            "port": 8080
+            "runtimeArgs": ["main.py", "--port", "8150"],
+            "port": 8150
         },
         {
             "name": "nicegui-main-reload",
             "runtimeExecutable": ".venv/Scripts/python.exe",
-            "runtimeArgs": ["main.py", "--reload"],
-            "port": 8080
+            "runtimeArgs": ["main.py", "--reload", "--port", "8150"],
+            "port": 8150
         }
     ]
 }

@@ -342,6 +342,7 @@ if __name__ in {"__main__", "__mp_main__"}:
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--reload", action="store_true")
+    parser.add_argument("--port", type=int, default=8150)
     args = parser.parse_args()
 
-    ui.run(title="Options TBoard (Web)", reload=args.reload)
+    ui.run(title="Options TBoard (Web)", reload=args.reload, port=args.port)
