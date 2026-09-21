@@ -41,3 +41,6 @@ ib_gateway_settings/
 # scripts/options_backtest 從 yfinance 抓下來的歷史價格/VIX 快取，本機
 # 重跑省時間用，隨時可以重新下載，不需要進版控。
 scripts/options_backtest/.cache/
+
+# scripts/options_backtest/report.py 產出的 CSV 跟內嵌資料的 HTML 報表，隨時可重跑。
+scripts/options_backtest/output/

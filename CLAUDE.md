@@ -58,6 +58,52 @@ Qt 跟 asyncio 共用同一個事件迴圈)，後來發現這套組合踩過好�
   （見 `app/models/ib_client.py`）。IB 用 `NaN` 或 `-1` 代表「這個欄位
   沒有值」，兩種都要濾掉（`app/models/ib_quote_client.py::_clean()`）。
 
+## 回測模組（合成價格回測：Iron Condor/裸雙賣/Jade Lizard/Twisted Sister）
+
+標題列「回測」按鈕開一個大 dialog，三個分頁：新策略(參數設定)/策略清單/報表。純歷史資料合成回測，
+**不依賴 IB 連線**。
+
+- 位置：model 層 `app/models/backtest/`(`spec.py` 策略/規則的純資料定義+驗證+中文描述、`engine.py`
+  引擎、`market_data.py` yfinance 抓價+快取、`stats.py` 摘要、`trade.py` 逐筆交易)；存檔
+  `app/services/backtest_store.py`(`pref/backtest/runs/`，寫入失敗會丟例外，不像其他 store 靜默
+  吞掉)；UI `app/views/web_backtest_dialog.py`；報表的 HTML/CSS/JS 在
+  `app/resources/backtest_report/`(從舊 `scripts/options_backtest/backtest_dashboard.html` 複製並
+  隔離樣式，不是 iframe)。`scripts/options_backtest/` 是舊的命令列版，保留但 app 不 import、不呼叫它。
+- **lazy import 是硬規定**：`pandas`/`yfinance`/`engine`/`market_data` 只能在使用者按下「執行回測」之後
+  才 import(見 `web_backtest_dialog._execute()`)；`spec.py`/`stats.py`/`trade.py`/`backtest_store.py`
+  必須維持純標準庫，不要在 `main.py` 或任何 view 模組頂層 import 它們，不然首頁又會撞
+  `response_timeout`(見 `app/services/lazy_ui.py`)。
+- **報表 JS 必須用 `ui.run_javascript()` 注入，不能用 `ui.add_head_html("<script>…")`**：頁面載入後
+  NiceGUI 是用 `insertAdjacentHTML` 補插入 head，瀏覽器不會執行這種方式插進去的 `<script>`(只有
+  CSS 會生效)。所有回測的逐筆資料一次送進瀏覽器記憶體(`window.BtReport`)，切換回測完全在前端。
+- 策略 = 進場規則(策略類型 + 短腳用「條件清單 + and/or」找履約價、長腳=距離短腳固定寬度、進場條件) + 出場
+  規則清單(範圍整組/單邊 × 類型停利/停損/到期天數，每個組合最多一條，至少要有一條到期天數)。
+  完整語意見 `spec.py`/`engine.py` 開頭說明；**不要加使用者沒要求的自動行為**(例如安全腳順便滾動)。
+- **四種策略只差「哪一邊有買保護腳」**(`spec.PROTECTED_SIDES`)：Iron Condor 兩邊都有、裸雙賣都沒有、
+  Jade Lizard 只有 call 邊有(put 裸賣)、Twisted Sister 只有 put 邊有(call 裸賣)。UI 用策略名稱下拉切換，
+  不拆 put/call 兩邊的設定；短腳條件和出場規則四種共用。裸賣的那一邊 `Trade.K_long` 是 `None`，手續費依實
+  際腳數算(價差 2 腳、裸賣 1 腳)。
+- **進場條件(`spec.EntryConditions`)跟短腳履約價條件是兩回事**：前者是「部位湊齊後要不要進場」的門檻，
+  目前只有「無單邊風險」(總權利金 >= 保護價差寬度，Jade Lizard/Twisted Sister 預設開)。
+- **保證金是整組同時持有的部位算的**(`engine.position_margin`，簡化 Reg-T)，每一列存開倉當下的整組
+  數字 `Trade.margin`(每股)；報表的「初始保證金建議」就是它的平均。舊存檔不相容 `max_loss`/沒有
+  `entry.kind`：`strategy_from_dict` 刻意不給預設值(缺欄位會直接丟 KeyError)，舊存檔已經一次性遷移過。
+- **定價的偏斜參數(`RunConfig.skew`/`atm_ratio`)會大幅左右結果**：引擎預設所有履約價用同一個 sigma
+  (= VIX)，等於假設沒有波動率偏斜，這會讓 Twisted Sister(裸賣 call)看起來遠勝 Jade Lizard(裸賣
+  put)，跟真實市場相反(價外 put 比 call 貴)。`skew` 0 = 無偏斜、越大 put 越貴 call 越便宜，
+  `atm_ratio` = ATM 隱含波動率 ÷ VIX(VIX 通常高於平價 IV)。預設值(skew 4.0、atm_ratio 0.96)是拿 2026-09-18
+  收盤的 SPY 真實選擇權鏈(35~42 天)在 16 delta 附近擬合的，校準方法與限制寫在 `spec.py` 的
+  `DEFAULT_SKEW` 註解：**只是低波動(VIX 14.8)當天的單一快照，不是歷史平均**，適合掃不同數值(例如偏斜 3/4/5)
+  看策略排名穩不穩，不要當成精確定價。跟 `kind` 一樣，`config_from_dict` 刻意不給預設值，
+  舊存檔已遷移成明確的 skew=0/atm_ratio=1(= 加參數前的行為)；報表/策略清單 tooltip 會顯示定價設定。
+- **真實選擇權資料回補(`scripts/backfill_thetadata.py --symbol SPY [QQQ ...]`，商品必填)**：從 ThetaData
+  抓每日收盤的整條選擇權鏈(OHLC/成交量/收盤 bid/ask)，存 `pref/backtest/thetadata/<商品>/YYYY-MM.parquet`
+  (用 polars 讀寫，專案沒有 pyarrow)，可中斷重跑、已抓齊的月份自動跳過。API key 在 `.env` 的
+  `THETADATA_API_KEY`。**免費帳號只到 2023-06-01 之後、只有 EOD、沒有現成的 IV/Delta**(`greeks_eod` 要
+  Standard)，IV 要自己反推。目前回測引擎還沒接這份資料(仍是合成價格)。
+- 已知取捨：整組平倉後當天收盤價立刻重新進場(舊 v1 是隔天，同一組規則兩邊淨利會差很多)；盤中觸價
+  用開高低收四個取樣點近似；同一天先判斷停利再判斷停損，對策略偏樂觀。
+
 ## Agent skills
 
 ### Issue tracker

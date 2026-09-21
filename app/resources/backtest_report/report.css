@@ -1,0 +1,66 @@
+/* 回測報表樣式。從 scripts/options_backtest/backtest_dashboard.html 複製而來，改動只有兩件事：
+   (1) 每條規則都加 .bt-report 前綴——原檔用了全域的 select/table/svg/header/h1/body 選擇器，直接放進
+       app 會污染整個畫面；(2) 配色改成這個 app 固定的深色主題(見 app/services/web_theme.py)。 */
+.bt-report {
+  --bg: transparent;
+  --card: #1a1d23;
+  --border: #2b3040;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --accent: #3b82f6;
+  --green: #22c55e;
+  --red: #ef4444;
+  --amber: #f59e0b;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.bt-report *, .bt-report *::before, .bt-report *::after { box-sizing: border-box; }
+.bt-report header { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-bottom: 20px; }
+.bt-report h1 { font-size: 20px; margin: 0; white-space: nowrap; font-weight: 600; }
+.bt-report .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+.bt-report .btn {
+  display: inline-block; padding: 7px 12px; background: var(--accent); color: #fff;
+  border-radius: 6px; cursor: pointer; font-size: 14px; border: none;
+}
+.bt-report .btn:hover { filter: brightness(1.1); }
+.bt-report select {
+  padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border); font-size: 14px;
+  background: #111318; color: var(--text); min-width: 220px;
+}
+.bt-report .hint { color: var(--muted); font-size: 13px; }
+.bt-report #empty {
+  background: var(--card); border: 1px dashed var(--border); border-radius: 10px;
+  padding: 40px; text-align: center; color: var(--muted);
+}
+.bt-report #report { display: none; }
+.bt-report .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.bt-report .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.bt-report .card .label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.bt-report .card .value { font-size: 20px; font-weight: 600; }
+.bt-report .pos { color: var(--green); }
+.bt-report .neg { color: var(--red); }
+.bt-report .panel { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+.bt-report .panel h2 { font-size: 15px; margin: 0 0 12px 0; font-weight: 600; }
+.bt-report .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .bt-report .row2 { grid-template-columns: 1fr; } }
+.bt-report table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.bt-report th, .bt-report td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.bt-report th:first-child, .bt-report td:first-child { text-align: left; }
+.bt-report th { color: var(--muted); font-weight: 500; }
+.bt-report tbody tr:hover { background: #22262e; }
+.bt-report .scrollbox { max-height: 420px; overflow-y: auto; }
+.bt-report .tooltip {
+  position: absolute; background: #0b0d11; border: 1px solid var(--border); color: #fff; font-size: 12px;
+  padding: 6px 9px; border-radius: 6px; pointer-events: none; white-space: nowrap;
+  transform: translate(-50%, -110%); display: none;
+}
+.bt-report .chart-wrap { position: relative; }
+.bt-report svg { width: 100%; height: 260px; display: block; }
+.bt-report .footnote { color: var(--muted); font-size: 12px; margin-top: 8px; line-height: 1.6; }
+.bt-report .badge {
+  display: inline-block; padding: 2px 8px; border-radius: 100px; font-size: 12px;
+  background: rgba(59, 130, 246, 0.15); color: var(--accent); margin-left: 8px;
+}
+.bt-report .desc-line { font-size: 13px; line-height: 1.8; }
+.bt-report code { background: rgba(255, 255, 255, 0.08); padding: 1px 5px; border-radius: 4px; }

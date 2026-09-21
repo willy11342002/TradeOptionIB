@@ -209,6 +209,7 @@
 
 </div>
 
+<!--EMBEDDED_REPORT-->
 <script>
 const datasets = {}; // name -> { trades: [...] }，stats 依口數即時算，不快取
 
@@ -683,6 +684,23 @@ function drawChart(svgId, tooltipId, seriesList, { zeroLine, legendId } = {}) {
     tooltip.style.display = 'none';
   });
   svg.appendChild(overlay);
+}
+// report.py 產生的獨立HTML會在上面注入 window.EMBEDDED_REPORT，一開啟就自動載入，不用手動選檔。
+// 直接開這份範本檔(沒有注入)的話，這段整個略過，維持原本手動選CSV的用法。
+if (window.EMBEDDED_REPORT) {
+  const emb = window.EMBEDDED_REPORT;
+  for (const [name, text] of Object.entries(emb.datasets)) {
+    try { datasets[name] = { trades: parseCSV(text) }; }
+    catch (err) { alert(`${name} 解析失敗: ${err.message}`); }
+  }
+  if (emb.benchmark) {
+    benchmark = { name: emb.benchmark.name, series: parseBenchmarkCSV(emb.benchmark.text) };
+    document.getElementById('benchmarkHint').textContent =
+      `已載入標的價格: ${emb.benchmark.name}(${benchmark.series.length}筆，${fmtDate(benchmark.series[0].date)}~${fmtDate(benchmark.series[benchmark.series.length-1].date)})`;
+  }
+  rebuildSelect();
+  const first = emb.default && datasets[emb.default] ? emb.default : Object.keys(datasets)[0];
+  if (first) { datasetSelect.value = first; render(first); }
 }
 </script>
 </body>

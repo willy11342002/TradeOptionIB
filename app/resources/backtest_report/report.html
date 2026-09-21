@@ -1,0 +1,83 @@
+<div class="bt-report" id="bt-report-root">
+  <header>
+    <h1>選擇權回測報表</h1>
+    <div class="controls">
+      <button class="btn" id="prevRun" title="上一個回測">◀</button>
+      <select id="datasetSelect"></select>
+      <button class="btn" id="nextRun" title="下一個回測">▶</button>
+      <select id="contractsSelect">
+        <option value="1">1口</option>
+        <option value="5">5口</option>
+        <option value="10">10口</option>
+      </select>
+    </div>
+    <div class="hint" id="runInfo" style="width:100%; margin-top:-8px;"></div>
+  </header>
+
+  <div id="empty">
+    還沒有回測結果。<br>到「新策略」分頁設定參數並按「執行回測」。
+  </div>
+
+  <div id="report">
+
+    <div class="panel">
+      <h2>策略參數</h2>
+      <div id="strategyDesc"></div>
+    </div>
+
+    <div class="hint" id="fillModeHint" style="margin-bottom:10px"></div>
+    <div class="grid" id="statCards"></div>
+    <div class="footnote" id="marginNote" style="margin:-8px 0 20px 0"></div>
+
+    <div class="panel">
+      <div class="row2">
+        <div>
+          <h2>權益曲線 <span class="badge" id="eqBadge"></span></h2>
+          <div id="eqLegend" style="margin-bottom:6px"></div>
+          <div class="chart-wrap">
+            <svg id="equityChart" viewBox="0 0 800 260" preserveAspectRatio="none"></svg>
+            <div class="tooltip" id="eqTooltip"></div>
+          </div>
+        </div>
+        <div>
+          <h2>回撤曲線(Drawdown) <span class="badge" id="ddBadge"></span></h2>
+          <div class="chart-wrap">
+            <svg id="ddChart" viewBox="0 0 800 260" preserveAspectRatio="none"></svg>
+            <div class="tooltip" id="ddTooltip"></div>
+          </div>
+        </div>
+      </div>
+      <p class="footnote">單位是美元(已扣手續費)；X 軸是交易的出場日期。回撤曲線只用逐筆交易的已實現損益疊加，不是逐日 mark-to-market。</p>
+    </div>
+
+    <div class="panel">
+      <h2>風報比 / 期望值細節</h2>
+      <div class="grid" id="riskCards"></div>
+    </div>
+
+    <div class="row2">
+      <div class="panel">
+        <h2>逐年損益</h2>
+        <table id="yearlyTable"></table>
+      </div>
+      <div class="panel">
+        <h2>出場原因分布</h2>
+        <table id="reasonTable"></table>
+        <h2 style="margin-top:16px">連續勝負</h2>
+        <table id="streakTable"></table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>逐筆交易明細 <span class="hint">(一列 = 一個單邊價差)</span></h2>
+      <div class="scrollbox">
+        <table id="tradesTable"></table>
+      </div>
+    </div>
+
+    <div class="panel footnote">
+      <b>已知限制</b>：用歷史 VIX/VXN/RVX 這類隱含波動率指數反推 Black-Scholes 價格，不是真實選擇權報價；沒有模擬滑價/買賣價差；put/call 兩邊用同一個波動率數字定價，沒有偏斜(skew)；沒有模擬美式提前履約。盤中觸價成交用當天開高低收四個取樣點近似，沒有日內路徑；同一天先判斷停利再判斷停損，對策略偏樂觀。數字僅供驗證機制邏輯，不是真實報酬率預測。
+    </div>
+
+  </div>
+</div>
